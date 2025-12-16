@@ -1,0 +1,45 @@
+name: Backend CI (Policía de NestJS)
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'backend/**' # Solo se activa si tocáis la carpeta backend
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'backend/**'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    # IMPORTANTE: Esto le dice que entre en la carpeta 'backend' antes de hacer nada
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+    # 1. GitHub descarga vuestro código
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 2. Instala Node.js v20
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    # 3. Instala las librerías (npm install limpio)
+    - name: Install dependencies
+      run: npm ci
+
+    # 4. Intenta compilar la aplicación
+    - name: Build NestJS
+      run: npm run build
+
+    # 5. Ejecuta los tests (si fallan, avisa)
+    - name: Run Tests
+      run: npm run test
