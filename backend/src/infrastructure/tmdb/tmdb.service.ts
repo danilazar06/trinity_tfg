@@ -89,6 +89,38 @@ export class TMDBService {
   }
 
   /**
+   * Obtener detalles de una película específica
+   */
+  async getMovieDetails(movieId: string): Promise<TMDBMovie | null> {
+    try {
+      const response = await this.httpClient.get(`/movie/${movieId}`, {
+        params: {
+          api_key: this.apiKey,
+          language: 'es-ES',
+        },
+      });
+
+      const movie = response.data;
+      return {
+        id: movie.id,
+        title: movie.title,
+        overview: movie.overview,
+        poster_path: movie.poster_path,
+        release_date: movie.release_date,
+        genre_ids: movie.genres?.map((g: any) => g.id) || [],
+        popularity: movie.popularity,
+        vote_average: movie.vote_average,
+        vote_count: movie.vote_count,
+        adult: movie.adult,
+        original_language: movie.original_language,
+      };
+    } catch (error) {
+      this.logger.error(`Error getting movie details ${movieId}: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
    * Buscar películas populares
    */
   async getPopularMovies(page: number = 1): Promise<TMDBResponse<TMDBMovie>> {

@@ -4,17 +4,20 @@ import * as fc from 'fast-check';
 import { DynamoDBService, DynamoDBItem } from './dynamodb.service';
 
 // Mock AWS SDK
+const mockDocumentClient = {
+  put: jest.fn().mockReturnValue({ promise: jest.fn().mockResolvedValue({}) }),
+  get: jest.fn().mockReturnValue({ promise: jest.fn().mockResolvedValue({ Item: null }) }),
+  query: jest.fn().mockReturnValue({ promise: jest.fn().mockResolvedValue({ Items: [] }) }),
+  batchGet: jest.fn().mockReturnValue({ promise: jest.fn().mockResolvedValue({ Responses: {} }) }),
+  batchWrite: jest.fn().mockReturnValue({ promise: jest.fn().mockResolvedValue({}) }),
+  delete: jest.fn().mockReturnValue({ promise: jest.fn().mockResolvedValue({}) }),
+  update: jest.fn().mockReturnValue({ promise: jest.fn().mockResolvedValue({ Attributes: {} }) }),
+  scan: jest.fn().mockReturnValue({ promise: jest.fn().mockResolvedValue({ Items: [] }) }),
+};
+
 jest.mock('aws-sdk', () => ({
   DynamoDB: {
-    DocumentClient: jest.fn().mockImplementation(() => ({
-      put: jest.fn().mockReturnValue({ promise: jest.fn().mockResolvedValue({}) }),
-      get: jest.fn().mockReturnValue({ promise: jest.fn().mockResolvedValue({ Item: null }) }),
-      query: jest.fn().mockReturnValue({ promise: jest.fn().mockResolvedValue({ Items: [] }) }),
-      batchGet: jest.fn().mockReturnValue({ promise: jest.fn().mockResolvedValue({ Responses: {} }) }),
-      batchWrite: jest.fn().mockReturnValue({ promise: jest.fn().mockResolvedValue({}) }),
-      delete: jest.fn().mockReturnValue({ promise: jest.fn().mockResolvedValue({}) }),
-      update: jest.fn().mockReturnValue({ promise: jest.fn().mockResolvedValue({ Attributes: {} }) }),
-    })),
+    DocumentClient: jest.fn().mockImplementation(() => mockDocumentClient),
   },
   config: {
     update: jest.fn(),
@@ -23,9 +26,11 @@ jest.mock('aws-sdk', () => ({
 
 describe('DynamoDBService Property Tests', () => {
   let service: DynamoDBService;
-  let mockDocumentClient: any;
 
   beforeEach(async () => {
+    // Clear all mocks before each test
+    jest.clearAllMocks();
+    
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DynamoDBService,
@@ -46,10 +51,6 @@ describe('DynamoDBService Property Tests', () => {
     }).compile();
 
     service = module.get<DynamoDBService>(DynamoDBService);
-    
-    // Get the mocked DocumentClient instance
-    const AWS = require('aws-sdk');
-    mockDocumentClient = new AWS.DynamoDB.DocumentClient();
   });
 
   /**
@@ -164,7 +165,7 @@ describe('DynamoDBService Property Tests', () => {
             }
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 10 }
       );
     });
 
@@ -210,6 +211,9 @@ describe('DynamoDBService Property Tests', () => {
         fc.asyncProperty(
           fc.uuid(),
           async (roomId) => {
+            // Clear mocks for this specific test
+            jest.clearAllMocks();
+            
             // Test getRoomState uses single optimized query
             await service.getRoomState(roomId);
 

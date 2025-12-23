@@ -1,6 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
-import { DynamoDBKeys } from '../../infrastructure/database/dynamodb.constants';
+import { MultiTableService } from '../../infrastructure/database/multi-table.service';
 import { TMDBService } from '../../infrastructure/tmdb/tmdb.service';
 import { CircuitBreakerService } from '../../infrastructure/circuit-breaker/circuit-breaker.service';
 import {
@@ -8,6 +7,200 @@ import {
   TMDBSearchFilters,
 } from '../../domain/entities/media.entity';
 import { ContentFilters } from '../../domain/entities/room.entity';
+import { DynamoDBKeys } from 'src/infrastructure/database/dynamodb.constants';
+import { DynamoDBKeys } from 'src/infrastructure/database/dynamodb.constants';
+import { DynamoDBKeys } from 'src/infrastructure/database/dynamodb.constants';
+import { DynamoDBKeys } from 'src/infrastructure/database/dynamodb.constants';
+import { DynamoDBKeys } from 'src/infrastructure/database/dynamodb.constants';
+import { DynamoDBKeys } from 'src/infrastructure/database/dynamodb.constants';
+import { DynamoDBKeys } from 'src/infrastructure/database/dynamodb.constants';
+import { DynamoDBKeys } from 'src/infrastructure/database/dynamodb.constants';
+import { DynamoDBKeys } from 'src/infrastructure/database/dynamodb.constants';
+import { DynamoDBKeys } from 'src/infrastructure/database/dynamodb.constants';
+import { DynamoDBKeys } from 'src/infrastructure/database/dynamodb.constants';
+import { DynamoDBKeys } from 'src/infrastructure/database/dynamodb.constants';
+import { DynamoDBKeys } from 'src/infrastructure/database/dynamodb.constants';
+import { DynamoDBKeys } from 'src/infrastructure/database/dynamodb.constants';
+import { DynamoDBKeys } from 'src/infrastructure/database/dynamodb.constants';
+import { DynamoDBKeys } from 'src/infrastructure/database/dynamodb.constants';
+import { DynamoDBKeys } from 'src/infrastructure/database/dynamodb.constants';
+import { DynamoDBService } from 'src/infrastructure/database/dynamodb.service';
+
+@Injectable()
+export class MediaService implements OnModuleInit {
+  private readonly logger = new Logger(MediaService.name);
+  private readonly CIRCUIT_NAME = 'tmdb-api';
+
+  constructor(
+    private multiTableService: MultiTableService,
+    private tmdbService: TMDBService,
+    private circuitBreakerService: CircuitBreakerService,
+  ) {}
+
+  async onModuleInit() {
+    await this.initializeService();
+  }
+
+  /**
+   * Patrón Circuit Breaker - Obtener películas con fallback a caché
+   */
+  async fetchMovies(filters: ContentFilters): Promise<MediaItem[]> {
+    const tmdbFilters = this.convertToTMDBFilters(filters);
+
+    return this.circuitBreakerService.execute(
+      this.CIRCUIT_NAME,
+      // Operación principal: TMDB API
+      async () => {
+        const results = await this.tmdbService.discoverContent(tmdbFilters);
+        
+        // Cachear resultados exitosos de forma asíncrona
+        this.cacheMoviesAsync(results);
+        
+        this.logger.log(`Fetched ${results.length} movies from TMDB`);
+        return results;
+      },
+      // Fallback: Caché local (Trinity_MoviesCache)
+      async () => {
+        const cachedResults = await this.getCachedMovies(filters);
+        this.logger.warn(`Using cached content, returned ${cachedResults.length} items`);
+        return cachedResults;
+      }
+    );
+  }
+
+  /**
+   * Obtener detalles de una película específica
+   */
+  async getMovieDetails(tmdbId: string): Promise<MediaItem | null> {
+    return this.circuitBreakerService.execute(
+      `${this.CIRCUIT_NAME}-details`,
+      // Operación principal: TMDB API
+      async () => {
+        const tmdbMovie = await this.tmdbService.getMovieDetails(tmdbId);
+        if (tmdbMovie && tmdbMovie.id) {
+          const mediaItem = this.tmdbService.convertToMediaItem(tmdbMovie);
+          
+          // Cachear el resultado
+          await this.multiTableService.cacheMovie(mediaItem);
+          
+          return mediaItem;
+        }
+        return null;
+      },
+      // Fallback: Caché local
+      async () => {
+        return this.getCachedMovie(tmdbId);
+      }
+    );
+  }
+
+  /**
+   * Buscar películas por texto
+   */
+  async searchMovies(query: string, page: number = 1): Promise<MediaItem[]> {
+    if (!query.trim()) {
+      return [];
+    }
+
+    return this.circuitBreakerService.execute(
+      `${this.CIRCUIT_NAME}-search`,
+      // Operación principal: TMDB API
+      async () => {
+        const response = await this.tmdbService.searchMovies({ query, page });
+        const mediaItems = response.results.map(movie => 
+          this.tmdbService.convertToMediaItem(movie)
+        );
+        
+        // Cachear resultados de búsqueda
+        this.cacheMoviesAsync(mediaItems);
+        
+        return mediaItems;
+      },
+      // Fallback: Búsqueda en caché local
+      async () => {
+        return this.searchCachedMovies(query);
+      }
+    );
+  }
+
+  /**
+   * Métodos privados para manejo de caché
+   */
+  private async cacheMoviesAsync(movies: MediaItem[]): Promise<void> {
+    try {
+      // Cachear de forma asíncrona para no bloquear la respuesta
+      Promise.all(
+        movies.map(movie => this.multiTableService.cacheMovie(movie))
+      ).catch(error => {
+        this.logger.error(`Error caching movies: ${error.message}`);
+      });
+    } catch (error) {
+      this.logger.error(`Error in async caching: ${error.message}`);
+    }
+  }
+
+  private async getCachedMovies(filters: ContentFilters): Promise<MediaItem[]> {
+    try {
+      return await this.multiTableService.searchCachedMovies(filters);
+    } catch (error) {
+      this.logger.error(`Error getting cached movies: ${error.message}`);
+      return [];
+    }
+  }
+
+  private async getCachedMovie(tmdbId: string): Promise<MediaItem | null> {
+    try {
+      return await this.multiTableService.getCachedMovie(tmdbId);
+    } catch (error) {
+      this.logger.error(`Error getting cached movie: ${error.message}`);
+      return null;
+    }
+  }
+
+  private async searchCachedMovies(query: string): Promise<MediaItem[]> {
+    try {
+      // Búsqueda simple en caché por título
+      const allCached = await this.multiTableService.searchCachedMovies({});
+      return allCached.filter(movie => 
+        movie.title.toLowerCase().includes(query.toLowerCase())
+      );
+    } catch (error) {
+      this.logger.error(`Error searching cached movies: ${error.message}`);
+      return [];
+    }
+  }
+
+  private convertToTMDBFilters(filters: ContentFilters): TMDBSearchFilters {
+    return {
+      genres: filters.genres,
+      releaseYearFrom: filters.releaseYearFrom,
+      releaseYearTo: filters.releaseYearTo,
+      minRating: filters.minRating,
+      sortBy: 'popularity.desc',
+      page: 1,
+    };
+  }
+
+  private async initializeService(): Promise<void> {
+    try {
+      await this.tmdbService.initialize();
+      this.logger.log('MediaService initialized successfully');
+    } catch (error) {
+      this.logger.error(`Failed to initialize MediaService: ${error.message}`);
+    }
+  }
+
+  /**
+   * Obtener estadísticas del Circuit Breaker
+   */
+  getCircuitBreakerStats() {
+    return {
+      tmdb: this.circuitBreakerService.getCircuitStats(this.CIRCUIT_NAME),
+      details: this.circuitBreakerService.getCircuitStats(`${this.CIRCUIT_NAME}-details`),
+      search: this.circuitBreakerService.getCircuitStats(`${this.CIRCUIT_NAME}-search`),
+    };
+  }
+}
 
 @Injectable()
 export class MediaService implements OnModuleInit {
@@ -147,6 +340,11 @@ export class MediaService implements OnModuleInit {
    * Cachear un elemento multimedia
    */
   private async cacheMediaItem(mediaItem: MediaItem, isPopular: boolean = false): Promise<void> {
+    if (!mediaItem || !mediaItem.tmdbId) {
+      this.logger.warn('Cannot cache media item: invalid or missing data');
+      return;
+    }
+
     try {
       await this.dynamoDBService.putItem({
         PK: DynamoDBKeys.mediaPK(mediaItem.tmdbId),
@@ -159,13 +357,109 @@ export class MediaService implements OnModuleInit {
         expiresAt: new Date(Date.now() + this.CACHE_TTL_HOURS * 60 * 60 * 1000).toISOString(),
       });
     } catch (error) {
-      this.logger.error(`Error caching media item ${mediaItem.tmdbId}: ${error.message}`);
+      this.logger.error(`Error caching media item ${mediaItem?.tmdbId || 'unknown'}: ${error.message}`);
     }
   }
 
   /**
-   * Cachear múltiples elementos multimedia
+   * Obtener detalles de un elemento multimedia por ID
    */
+  async getMediaDetails(tmdbId: string): Promise<MediaItem | null> {
+    return this.circuitBreakerService.execute(
+      'tmdb-get-details',
+      async () => {
+        // Intentar obtener desde TMDB primero
+        const tmdbResult = await this.tmdbService.getMovieDetails(tmdbId);
+        if (tmdbResult && tmdbResult.id) {
+          // Convertir TMDBMovie a MediaItem
+          const mediaItem: MediaItem = {
+            tmdbId: tmdbResult.id.toString(),
+            title: tmdbResult.title,
+            overview: tmdbResult.overview,
+            posterPath: tmdbResult.poster_path,
+            releaseDate: tmdbResult.release_date,
+            genres: tmdbResult.genre_ids.map(id => this.getGenreName(id)),
+            popularity: tmdbResult.popularity,
+            voteAverage: tmdbResult.vote_average,
+            voteCount: tmdbResult.vote_count,
+            adult: tmdbResult.adult,
+            originalLanguage: tmdbResult.original_language,
+            mediaType: 'movie',
+          };
+          
+          // Cachear el resultado fresco
+          await this.cacheMediaItem(mediaItem, false);
+          return mediaItem;
+        }
+        return null;
+      },
+      async () => {
+        // Fallback: buscar en caché
+        return this.getCachedMediaById(tmdbId);
+      }
+    );
+  }
+
+  /**
+   * Convertir ID de género a nombre
+   */
+  private getGenreName(genreId: number): string {
+    const genreMap: { [key: number]: string } = {
+      28: 'Action',
+      12: 'Adventure',
+      16: 'Animation',
+      35: 'Comedy',
+      80: 'Crime',
+      99: 'Documentary',
+      18: 'Drama',
+      10751: 'Family',
+      14: 'Fantasy',
+      36: 'History',
+      27: 'Horror',
+      10402: 'Music',
+      9648: 'Mystery',
+      10749: 'Romance',
+      878: 'Science Fiction',
+      10770: 'TV Movie',
+      53: 'Thriller',
+      10752: 'War',
+      37: 'Western',
+    };
+    
+    return genreMap[genreId] || 'Unknown';
+  }
+
+  /**
+   * Obtener elemento multimedia desde caché
+   */
+  private async getCachedMediaById(tmdbId: string): Promise<MediaItem | null> {
+    try {
+      const item = await this.dynamoDBService.getItem(
+        DynamoDBKeys.mediaPK(tmdbId),
+        DynamoDBKeys.mediaSK()
+      );
+
+      if (!item) return null;
+
+      // Verificar si el caché ha expirado
+      const now = new Date();
+      const expiresAt = new Date(item.expiresAt);
+      
+      if (now > expiresAt) {
+        // Caché expirado, eliminar y retornar null
+        await this.dynamoDBService.deleteItem(
+          DynamoDBKeys.mediaPK(tmdbId),
+          DynamoDBKeys.mediaSK()
+        );
+        return null;
+      }
+
+      return item as MediaItem;
+    } catch (error) {
+      this.logger.error(`Error getting cached media ${tmdbId}: ${error.message}`);
+      return null;
+    }
+  }
   private async cacheMediaItems(mediaItems: MediaItem[], isPopular: boolean = false): Promise<void> {
     if (mediaItems.length === 0) return;
 

@@ -4,6 +4,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { RoomModule } from './modules/room/room.module';
 import { MediaModule } from './modules/media/media.module';
 import { InteractionModule } from './modules/interaction/interaction.module';
+import { MatchModule } from './modules/match/match.module';
 import { DatabaseModule } from './infrastructure/database/database.module';
 
 @Module({
@@ -17,6 +18,7 @@ import { DatabaseModule } from './infrastructure/database/database.module';
     RoomModule,
     MediaModule,
     InteractionModule,
+    MatchModule,
   ],
 })
 export class AppModule {}

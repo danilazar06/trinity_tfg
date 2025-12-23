@@ -387,6 +387,124 @@ describe('InteractionService', () => {
         { numRuns: 50 }
       );
     });
+
+    /**
+     * **Feature: trinity-mvp, Property 4: Integridad de votación asíncrona**
+     * **Valida: Requisitos 2.5**
+     * 
+     * Para cualquier sala con actividad asíncrona de miembros, la integridad de votos 
+     * debe mantenerse sin requerir presencia online simultánea
+     */
+    it('should maintain asynchronous voting integrity across multiple users', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.string({ minLength: 1, maxLength: 50 }), // roomId
+          fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 2, maxLength: 5 }), // userIds
+          fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 3, maxLength: 8 }), // mediaIds
+          fc.array(fc.constantFrom(VoteType.LIKE, VoteType.DISLIKE), { minLength: 3, maxLength: 8 }), // voteTypes
+          async (roomId, userIds, mediaIds, voteTypes) => {
+            // Reset mocks for this iteration
+            jest.clearAllMocks();
+
+            const numUsers = userIds.length;
+            const numMedia = Math.min(mediaIds.length, voteTypes.length);
+            const testMediaIds = mediaIds.slice(0, numMedia);
+            const testVoteTypes = voteTypes.slice(0, numMedia);
+
+            // Arrange: Create members for each user
+            const mockMembers: Member[] = userIds.map(userId => ({
+              userId,
+              roomId,
+              role: MemberRole.MEMBER,
+              status: MemberStatus.ACTIVE,
+              shuffledList: testMediaIds,
+              currentIndex: 0,
+              lastActivityAt: new Date(),
+              joinedAt: new Date(),
+            }));
+
+            // Mock services
+            dynamoDBService.getItem.mockResolvedValue(null); // No existing votes
+            dynamoDBService.putItem.mockResolvedValue();
+            memberService.updateMemberActivity.mockResolvedValue();
+
+            const allVotes: Vote[] = [];
+
+            // Act: Simulate asynchronous voting by multiple users
+            for (let userIndex = 0; userIndex < numUsers; userIndex++) {
+              const userId = userIds[userIndex];
+              const member = mockMembers[userIndex];
+
+              // Mock member lookup
+              memberService.getMember.mockResolvedValue(member);
+
+              // Each user votes on first media item asynchronously
+              const mediaId = testMediaIds[0];
+              const voteType = testVoteTypes[0];
+
+              // Mock current media and progress for this user
+              memberService.getNextMediaForMember.mockResolvedValueOnce(mediaId);
+              memberService.advanceMemberIndex.mockResolvedValueOnce(1);
+              memberService.getNextMediaForMember.mockResolvedValueOnce(
+                testMediaIds.length > 1 ? testMediaIds[1] : null
+              );
+              memberService.getMemberProgress.mockResolvedValueOnce({
+                currentIndex: 1,
+                totalItems: numMedia,
+                remainingItems: numMedia - 1,
+                progressPercentage: Math.round((1 / numMedia) * 100),
+              });
+
+              const createVoteDto: CreateVoteDto = {
+                mediaId,
+                voteType,
+                sessionId: `session-${userIndex}`,
+              };
+
+              const result = await service.registerVote(userId, roomId, createVoteDto);
+
+              // Assert: Each vote should be registered successfully
+              expect(result.voteRegistered).toBe(true);
+
+              // Track the vote
+              allVotes.push({
+                userId,
+                roomId,
+                mediaId,
+                voteType,
+                timestamp: new Date(),
+                sessionId: createVoteDto.sessionId,
+              });
+            }
+
+            // Assert: Verify asynchronous voting integrity
+            expect(allVotes).toHaveLength(numUsers);
+            
+            // Each user should have voted exactly once
+            const userVoteCounts = new Map<string, number>();
+            allVotes.forEach(vote => {
+              const count = userVoteCounts.get(vote.userId) || 0;
+              userVoteCounts.set(vote.userId, count + 1);
+            });
+
+            userIds.forEach(userId => {
+              expect(userVoteCounts.get(userId)).toBe(1);
+            });
+
+            // All votes should be for the same media item (first one)
+            const votedMediaIds = new Set(allVotes.map(vote => vote.mediaId));
+            expect(votedMediaIds.size).toBe(1);
+            expect(votedMediaIds.has(testMediaIds[0])).toBe(true);
+
+            // Verify that each user's vote was processed independently
+            expect(dynamoDBService.putItem).toHaveBeenCalledTimes(numUsers);
+            expect(memberService.advanceMemberIndex).toHaveBeenCalledTimes(numUsers);
+            expect(memberService.updateMemberActivity).toHaveBeenCalledTimes(numUsers);
+          }
+        ),
+        { numRuns: 25 }
+      );
+    });
   });
 
   describe('Unit Tests', () => {

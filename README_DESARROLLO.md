@@ -40,5 +40,5 @@ npm run build
 npm run start:dev
 ```
 
-## 📊 Progreso: ~40% completado
-**Funcionalidades core implementadas, listo para continuar desarrollo**
+## 📊 Progreso: ~65% completado
+**Funcionalidades core completadas, sistema de consenso funcional, listo para checkpoint y optimizaciones**

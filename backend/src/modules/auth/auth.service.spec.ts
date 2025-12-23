@@ -256,11 +256,11 @@ describe('AuthService Property Tests', () => {
           }),
           async (confirmData) => {
             mockCognitoService.confirmSignUp.mockResolvedValue(undefined);
-            mockDynamoDBService.getItem.mockResolvedValue({
+            mockDynamoDBService.query.mockResolvedValue([{
               id: 'test-user-id',
               email: confirmData.email,
               emailVerified: false,
-            });
+            }]);
             mockDynamoDBService.conditionalUpdate.mockResolvedValue({});
 
             // Test email confirmation
