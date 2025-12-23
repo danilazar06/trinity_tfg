@@ -2,13 +2,16 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import * as fc from 'fast-check';
 import { MediaService } from './media.service';
-import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
+import { MultiTableService } from '../../infrastructure/database/multi-table.service';
 import { TMDBService } from '../../infrastructure/tmdb/tmdb.service';
 import { CircuitBreakerService, CircuitState } from '../../infrastructure/circuit-breaker/circuit-breaker.service';
 import { MediaItem } from '../../domain/entities/media.entity';
 
 // Mock services
-const mockDynamoDBService = {
+const mockMultiTableService = {
+  cacheMovie: jest.fn(),
+  getCachedMovie: jest.fn(),
+  searchCachedMovies: jest.fn(),
   putItem: jest.fn(),
   getItem: jest.fn(),
   query: jest.fn(),
@@ -39,8 +42,8 @@ describe('MediaService Property Tests', () => {
       providers: [
         MediaService,
         {
-          provide: DynamoDBService,
-          useValue: mockDynamoDBService,
+          provide: MultiTableService,
+          useValue: mockMultiTableService,
         },
         {
           provide: TMDBService,
@@ -108,10 +111,10 @@ describe('MediaService Property Tests', () => {
             mockTMDBService.discoverContent.mockResolvedValue(testData.tmdbResults);
             
             // Mock caching
-            mockDynamoDBService.batchWrite.mockResolvedValue(undefined);
+            mockMultiTableService.cacheMovie.mockResolvedValue(undefined);
             
             // Mock fallback (cached content)
-            mockDynamoDBService.query.mockResolvedValue(
+            mockMultiTableService.searchCachedMovies.mockResolvedValue(
               testData.tmdbResults.slice(0, Math.min(5, testData.tmdbResults.length)) // Simulate cached subset
             );
 
@@ -131,12 +134,12 @@ describe('MediaService Property Tests', () => {
 
               // Verify caching was attempted if there were results
               if (testData.tmdbResults.length > 0) {
-                expect(mockDynamoDBService.batchWrite).toHaveBeenCalled();
+                expect(mockMultiTableService.cacheMovie).toHaveBeenCalled();
               }
             } else {
               // Verify fallback was used
               expect(mockCircuitBreakerService.execute).toHaveBeenCalled();
-              expect(mockDynamoDBService.query).toHaveBeenCalled();
+              expect(mockMultiTableService.searchCachedMovies).toHaveBeenCalled();
               
               // Result should be from cache (subset of original data)
               expect(result.length).toBeLessThanOrEqual(testData.tmdbResults.length);
@@ -204,8 +207,8 @@ describe('MediaService Property Tests', () => {
             });
 
             mockTMDBService.discoverContent.mockResolvedValue(mockResults);
-            mockDynamoDBService.query.mockResolvedValue(mockResults);
-            mockDynamoDBService.batchWrite.mockResolvedValue(undefined);
+            mockMultiTableService.searchCachedMovies.mockResolvedValue(mockResults);
+            mockMultiTableService.cacheMovie.mockResolvedValue(undefined);
 
             const result = await service.fetchMovies(testData.filters);
 
@@ -328,8 +331,8 @@ describe('MediaService Property Tests', () => {
             }
 
             // Mock cached content
-            mockDynamoDBService.query.mockResolvedValue(cachedItems);
-            mockDynamoDBService.batchWrite.mockResolvedValue(undefined);
+            mockMultiTableService.searchCachedMovies.mockResolvedValue(cachedItems);
+            mockMultiTableService.cacheMovie.mockResolvedValue(undefined);
 
             // Execute the operation
             const result = await service.fetchMovies({});
@@ -353,7 +356,7 @@ describe('MediaService Property Tests', () => {
               );
               
               if (result.length > 0) {
-                expect(mockDynamoDBService.batchWrite).toHaveBeenCalled();
+                expect(mockMultiTableService.cacheMovie).toHaveBeenCalled();
               }
             }
 
@@ -369,7 +372,7 @@ describe('MediaService Property Tests', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            tmdbId: fc.string({ minLength: 1, maxLength: 10 }),
+            tmdbId: fc.string({ minLength: 1, maxLength: 10 }).filter(s => s.trim().length > 0),
             cacheExpired: fc.boolean(),
             tmdbAvailable: fc.boolean(),
           }),
@@ -405,18 +408,32 @@ describe('MediaService Property Tests', () => {
             };
 
             // Mock cache lookup
-            mockDynamoDBService.getItem.mockResolvedValue(
+            mockMultiTableService.getCachedMovie.mockResolvedValue(
               testData.cacheExpired ? null : cachedItem
             );
 
             // Mock TMDB response
             if (testData.tmdbAvailable) {
-              mockTMDBService.getMovieDetails.mockResolvedValue(freshItem);
+              const tmdbMovieResponse = {
+                id: parseInt(testData.tmdbId) || 1,
+                title: 'Fresh TMDB Movie',
+                overview: 'Fresh from TMDB',
+                poster_path: '/cached.jpg',
+                release_date: '2023-01-01',
+                genre_ids: [28], // Action
+                popularity: 100,
+                vote_average: 7.5,
+                vote_count: 1000,
+                adult: false,
+                original_language: 'en',
+              };
+              mockTMDBService.getMovieDetails.mockResolvedValue(tmdbMovieResponse);
+              mockTMDBService.convertToMediaItem.mockReturnValue(freshItem);
             } else {
               mockTMDBService.getMovieDetails.mockRejectedValue(new Error('TMDB Error'));
             }
 
-            mockDynamoDBService.putItem.mockResolvedValue(undefined);
+            mockMultiTableService.cacheMovie.mockResolvedValue(undefined);
 
             // Mock circuit breaker
             mockCircuitBreakerService.execute.mockImplementation(async (name, operation, fallback) => {
@@ -428,7 +445,7 @@ describe('MediaService Property Tests', () => {
             });
 
             // Execute the operation
-            const result = await service.getMediaDetails(testData.tmdbId);
+            const result = await service.getMovieDetails(testData.tmdbId);
 
             // Verify circuit breaker was used
             expect(mockCircuitBreakerService.execute).toHaveBeenCalled();
@@ -436,7 +453,7 @@ describe('MediaService Property Tests', () => {
             if (testData.tmdbAvailable) {
               // Should get fresh data from TMDB
               expect(result).toEqual(freshItem);
-              expect(mockDynamoDBService.putItem).toHaveBeenCalled(); // Should cache fresh data
+              expect(mockMultiTableService.cacheMovie).toHaveBeenCalled(); // Should cache fresh data
             } else {
               // Should use cached data if not expired, null if expired
               if (testData.cacheExpired) {

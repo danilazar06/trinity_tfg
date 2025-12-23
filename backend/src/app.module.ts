@@ -5,6 +5,7 @@ import { RoomModule } from './modules/room/room.module';
 import { MediaModule } from './modules/media/media.module';
 import { InteractionModule } from './modules/interaction/interaction.module';
 import { MatchModule } from './modules/match/match.module';
+import { SemanticAnalysisModule } from './modules/semantic/semantic-analysis.module';
 import { DatabaseModule } from './infrastructure/database/database.module';
 
 @Module({
@@ -19,6 +20,7 @@ import { DatabaseModule } from './infrastructure/database/database.module';
     MediaModule,
     InteractionModule,
     MatchModule,
+    SemanticAnalysisModule, // Nuevo módulo para análisis semántico
   ],
 })
 export class AppModule {}

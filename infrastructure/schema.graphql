@@ -1,203 +1,36 @@
-# Trinity MVP - GraphQL Schema para AWS AppSync
-
-# Enums
-enum RoomStatus {
-  WAITING
-  ACTIVE
-  MATCHED
-}
-
-enum VoteType {
-  LIKE
-  DISLIKE
-}
-
-enum MemberRole {
-  HOST
-  MEMBER
-}
-
-# Input Types
-input RoomFiltersInput {
-  genres: [String!]
-  releaseYearFrom: Int
-  releaseYearTo: Int
-  minRating: Float
-  contentTypes: [String!]
-}
-
-input VoteInput {
-  roomId: ID!
-  movieId: ID!
-  voteType: VoteType!
-}
-
-# Core Types
-type User {
-  userId: ID!
-  email: String!
-  username: String!
-  createdAt: AWSDateTime!
-  profilePicture: String
-}
+# Trinity MVP - GraphQL Schema simplificado según mega prompt
 
 type Room {
-  roomId: ID!
-  hostId: ID!
-  status: RoomStatus!
+  id: ID!
+  status: String
   resultMovieId: String
-  filters: RoomFilters
-  createdAt: AWSDateTime!
-  updatedAt: AWSDateTime!
-  memberCount: Int!
-  # Datos calculados
-  members: [RoomMember!]!
-  currentMovie: Movie
-  matchedMovie: Movie
-}
-
-type RoomFilters {
-  genres: [String!]
-  releaseYearFrom: Int
-  releaseYearTo: Int
-  minRating: Float
-  contentTypes: [String!]
-}
-
-type RoomMember {
-  roomId: ID!
-  userId: ID!
-  role: MemberRole!
-  joinedAt: AWSDateTime!
-  isActive: Boolean!
-  # Datos del usuario
-  user: User!
+  hostId: String
 }
 
 type Movie {
-  tmdbId: ID!
-  title: String!
-  overview: String!
-  posterPath: String
-  releaseDate: String!
-  genres: [String!]!
-  popularity: Float!
-  voteAverage: Float!
-  voteCount: Int!
-  adult: Boolean!
-  originalLanguage: String!
-  mediaType: String!
-  # Datos de votación en sala específica
-  likesCount: Int
-  dislikesCount: Int
+  id: ID!
+  title: String
+  poster: String
+  overview: String
 }
 
-type Vote {
-  roomId: ID!
-  movieId: ID!
-  likesCount: Int!
-  dislikesCount: Int!
-  totalVotes: Int!
-  # Datos calculados
-  movie: Movie!
-}
-
-type AIRecommendation {
-  recommendations: [String!]!
-  reasoning: String!
-  contextAnalysis: String!
-  confidence: Float!
-  emotionalState: String!
-  approach: String!
-}
-
-type RoomHistory {
-  roomId: ID!
-  joinedAt: AWSDateTime!
-  leftAt: AWSDateTime
-  role: MemberRole!
-  matchedMovie: Movie
-  # Datos de la sala
-  room: Room!
-}
-
-# Mutation Responses
-type CreateRoomResponse {
-  room: Room!
-  joinCode: String!
-}
-
-type JoinRoomResponse {
-  room: Room!
-  member: RoomMember!
-}
-
-type VoteResponse {
-  vote: Vote!
-  roomUpdated: Boolean!
-  matchFound: Boolean!
-  matchedMovie: Movie
-}
-
-# Queries
 type Query {
-  # Obtener historial de salas del usuario autenticado
-  getMyHistory: [RoomHistory!]!
-  
-  # Obtener detalles de una sala específica
-  getRoom(roomId: ID!): Room
-  
-  # Obtener películas con filtros (Circuit Breaker + Cache)
-  getMovies(filters: RoomFiltersInput, page: Int): [Movie!]!
-  
-  # Obtener detalles de una película específica
-  getMovie(tmdbId: ID!): Movie
-  
-  # Obtener recomendaciones de IA Salamandra basadas en contexto emocional
-  getChatRecommendations(userText: String!): AIRecommendation!
-  
-  # Obtener votos de una sala
-  getRoomVotes(roomId: ID!): [Vote!]!
+  getMovies(genre: String): [Movie]           # DataSource: MovieHandler
+  getChatRecommendations(text: String!): [String] # DataSource: AIHandler
+  getMyHistory: [Room]                        # DataSource: RoomHandler
 }
 
-# Mutations
 type Mutation {
-  # Crear nueva sala con filtros
-  createRoom(filters: RoomFiltersInput!): CreateRoomResponse!
-  
-  # Unirse a una sala existente
-  joinRoom(roomId: ID!): JoinRoomResponse!
-  
-  # Abandonar una sala
-  leaveRoom(roomId: ID!): Boolean!
-  
-  # Votar por una película (Lógica Stop-on-Match)
-  vote(input: VoteInput!): VoteResponse!
-  
-  # Iniciar votación en una sala (cambiar status a ACTIVE)
-  startVoting(roomId: ID!): Room!
-  
-  # Reiniciar sala para nueva ronda
-  resetRoom(roomId: ID!): Room!
+  createRoom: Room                            # DataSource: RoomHandler
+  joinRoom(roomId: ID!): Room                 # DataSource: RoomHandler
+  vote(roomId: ID!, movieId: ID!): Room       # DataSource: VoteHandler
 }
 
-# Subscriptions para tiempo real
 type Subscription {
-  # Suscribirse a cambios en una sala específica
   onRoomUpdated(roomId: ID!): Room
-    @aws_subscribe(mutations: ["vote", "joinRoom", "leaveRoom", "startVoting", "resetRoom"])
-  
-  # Suscribirse a nuevos votos en una sala
-  onVoteAdded(roomId: ID!): Vote
-    @aws_subscribe(mutations: ["vote"])
-  
-  # Suscribirse a cambios de miembros en una sala
-  onMemberChanged(roomId: ID!): RoomMember
-    @aws_subscribe(mutations: ["joinRoom", "leaveRoom"])
+  @aws_subscribe(mutations: ["vote", "joinRoom"])
 }
 
-# Directivas de autorización
-# Todas las operaciones requieren autenticación con Cognito
 schema {
   query: Query
   mutation: Mutation
