@@ -1,11 +1,22 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { UsersModule } from './users/users.module';
+import { ConfigModule } from '@nestjs/config';
+import { AuthModule } from './modules/auth/auth.module';
+import { RoomModule } from './modules/room/room.module';
+import { MediaModule } from './modules/media/media.module';
+import { InteractionModule } from './modules/interaction/interaction.module';
+import { DatabaseModule } from './infrastructure/database/database.module';
 
 @Module({
-  imports: [UsersModule],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
+    DatabaseModule,
+    AuthModule,
+    RoomModule,
+    MediaModule,
+    InteractionModule,
+  ],
 })
 export class AppModule {}
