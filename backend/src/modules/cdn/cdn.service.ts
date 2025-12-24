@@ -71,11 +71,16 @@ export class CDNService {
         progressive = true,
       } = options;
 
+      // Validar y normalizar parámetros
+      const validWidth = Math.max(1, Math.abs(width) || 500);
+      const validHeight = Math.max(1, Math.abs(height) || 750);
+      const validQuality = Math.max(1, Math.min(100, Math.abs(quality) || 85));
+
       // Construir URLs optimizadas
       const optimizedUrl = this.buildOptimizedUrl(originalImagePath, {
-        width,
-        height,
-        quality,
+        width: validWidth,
+        height: validHeight,
+        quality: validQuality,
         format,
         progressive,
       });
@@ -106,7 +111,7 @@ export class CDNService {
         sizes,
         metadata: {
           format: format === 'auto' ? 'webp' : format,
-          estimatedSize: this.estimateImageSize(width, height, quality),
+          estimatedSize: this.estimateImageSize(validWidth, validHeight, validQuality),
           cacheStatus: 'miss', // En producción, esto vendría del CDN
         },
       };
@@ -339,13 +344,18 @@ export class CDNService {
   }
 
   private estimateImageSize(width: number, height: number, quality: number): number {
+    // Validar parámetros de entrada - usar valores por defecto para casos inválidos
+    const validWidth = Math.max(1, Math.abs(width) || 500);
+    const validHeight = Math.max(1, Math.abs(height) || 750);
+    const validQuality = Math.max(1, Math.min(100, Math.abs(quality) || 85));
+    
     // Estimación aproximada del tamaño de archivo en bytes
-    const pixels = width * height;
-    const compressionFactor = quality / 100;
+    const pixels = validWidth * validHeight;
+    const compressionFactor = validQuality / 100;
     const baseSize = pixels * 3; // 3 bytes por pixel (RGB)
     const compressedSize = baseSize * compressionFactor * 0.1; // Factor de compresión JPEG/WebP
     
-    return Math.round(compressedSize);
+    return Math.round(Math.max(0, compressedSize));
   }
 
   private getFallbackImageResponse(imagePath: string): CDNImageResponse {

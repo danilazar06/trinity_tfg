@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as appsync from 'aws-cdk-lib/aws-appsync';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as lambda from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as lambdaRuntime from 'aws-cdk-lib/aws-lambda';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
 import * as path from 'path';
@@ -27,6 +28,7 @@ export class TrinityStack extends cdk.Stack {
   private _movieHandler!: lambda.NodejsFunction;
   private _voteHandler!: lambda.NodejsFunction;
   private _aiHandler!: lambda.NodejsFunction;
+  private _realtimeHandler!: lambda.NodejsFunction;
 
   // Getters para acceso público
   public get api() { return this._api; }
@@ -41,6 +43,7 @@ export class TrinityStack extends cdk.Stack {
   public get movieHandler() { return this._movieHandler; }
   public get voteHandler() { return this._voteHandler; }
   public get aiHandler() { return this._aiHandler; }
+  public get realtimeHandler() { return this._realtimeHandler; }
 
   constructor(scope: Construct, id: string, props: TrinityStackProps = {}) {
     super(scope, id, props);
@@ -164,10 +167,13 @@ export class TrinityStack extends cdk.Stack {
     this._authHandler = new lambda.NodejsFunction(this, 'AuthHandler', {
       functionName: `trinity-auth-${stage}`,
       entry: path.join(__dirname, '../src/handlers/auth.ts'),
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambdaRuntime.Runtime.NODEJS_18_X,
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
       environment: commonEnvironment,
+      bundling: {
+        forceDockerBundling: false,
+      },
     });
 
     // Configurar Post Confirmation Trigger
@@ -180,10 +186,13 @@ export class TrinityStack extends cdk.Stack {
     this._roomHandler = new lambda.NodejsFunction(this, 'RoomHandler', {
       functionName: `trinity-room-${stage}`,
       entry: path.join(__dirname, '../src/handlers/room.ts'),
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambdaRuntime.Runtime.NODEJS_18_X,
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       environment: commonEnvironment,
+      bundling: {
+        forceDockerBundling: false,
+      },
     });
 
     // Permisos: RW en RoomsTable y RoomMembersTable
@@ -194,12 +203,15 @@ export class TrinityStack extends cdk.Stack {
     this._movieHandler = new lambda.NodejsFunction(this, 'MovieHandler', {
       functionName: `trinity-movie-${stage}`,
       entry: path.join(__dirname, '../src/handlers/movie.ts'),
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambdaRuntime.Runtime.NODEJS_18_X,
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       environment: {
         ...commonEnvironment,
         TMDB_API_KEY: process.env.TMDB_API_KEY || '',
+      },
+      bundling: {
+        forceDockerBundling: false,
       },
     });
 
@@ -210,10 +222,13 @@ export class TrinityStack extends cdk.Stack {
     this._voteHandler = new lambda.NodejsFunction(this, 'VoteHandler', {
       functionName: `trinity-vote-${stage}`,
       entry: path.join(__dirname, '../src/handlers/vote.ts'),
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambdaRuntime.Runtime.NODEJS_18_X,
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       environment: commonEnvironment,
+      bundling: {
+        forceDockerBundling: false,
+      },
     });
 
     // Permisos: RW en VotesTable y RoomsTable, Read en RoomMembersTable
@@ -225,14 +240,33 @@ export class TrinityStack extends cdk.Stack {
     this._aiHandler = new lambda.NodejsFunction(this, 'AIHandler', {
       functionName: `trinity-ai-${stage}`,
       entry: path.join(__dirname, '../src/handlers/ai.ts'),
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambdaRuntime.Runtime.NODEJS_18_X,
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       environment: {
         ...commonEnvironment,
         HF_API_TOKEN: process.env.HF_API_TOKEN || '',
       },
+      bundling: {
+        forceDockerBundling: false,
+      },
     });
+
+    // 6. RealtimeHandler: AppSync Subscriptions
+    this._realtimeHandler = new lambda.NodejsFunction(this, 'RealtimeHandler', {
+      functionName: `trinity-realtime-${stage}`,
+      entry: path.join(__dirname, '../src/handlers/realtime.ts'),
+      runtime: lambdaRuntime.Runtime.NODEJS_18_X,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+      environment: commonEnvironment,
+      bundling: {
+        forceDockerBundling: false,
+      },
+    });
+
+    // Permisos para RealtimeHandler: Read en RoomMembersTable para validación de acceso
+    this._roomMembersTable.grantReadData(this._realtimeHandler);
   }
 
   private createAppSyncAPI(stage: string) {
@@ -264,12 +298,13 @@ export class TrinityStack extends cdk.Stack {
       xrayEnabled: false, // Optimización Free Tier
     });
 
-    // Crear 5 Lambda Data Sources
+    // Crear 6 Lambda Data Sources
     const authDataSource = this._api.addLambdaDataSource('AuthDataSource', this._authHandler);
     const roomDataSource = this._api.addLambdaDataSource('RoomDataSource', this._roomHandler);
     const movieDataSource = this._api.addLambdaDataSource('MovieDataSource', this._movieHandler);
     const voteDataSource = this._api.addLambdaDataSource('VoteDataSource', this._voteHandler);
     const aiDataSource = this._api.addLambdaDataSource('AIDataSource', this._aiHandler);
+    const realtimeDataSource = this._api.addLambdaDataSource('RealtimeDataSource', this._realtimeHandler);
 
     // Definir Resolvers según el schema
     
@@ -303,6 +338,62 @@ export class TrinityStack extends cdk.Stack {
     voteDataSource.createResolver('VoteResolver', {
       typeName: 'Mutation',
       fieldName: 'vote',
+    });
+
+    // Real-time event publishing resolvers
+    realtimeDataSource.createResolver('PublishRoomEventResolver', {
+      typeName: 'Mutation',
+      fieldName: 'publishRoomEvent',
+    });
+
+    realtimeDataSource.createResolver('PublishVoteEventResolver', {
+      typeName: 'Mutation',
+      fieldName: 'publishVoteEvent',
+    });
+
+    realtimeDataSource.createResolver('PublishMatchEventResolver', {
+      typeName: 'Mutation',
+      fieldName: 'publishMatchEvent',
+    });
+
+    realtimeDataSource.createResolver('PublishMemberEventResolver', {
+      typeName: 'Mutation',
+      fieldName: 'publishMemberEvent',
+    });
+
+    realtimeDataSource.createResolver('PublishRoleEventResolver', {
+      typeName: 'Mutation',
+      fieldName: 'publishRoleEvent',
+    });
+
+    realtimeDataSource.createResolver('PublishModerationEventResolver', {
+      typeName: 'Mutation',
+      fieldName: 'publishModerationEvent',
+    });
+
+    realtimeDataSource.createResolver('PublishScheduleEventResolver', {
+      typeName: 'Mutation',
+      fieldName: 'publishScheduleEvent',
+    });
+
+    realtimeDataSource.createResolver('PublishThemeEventResolver', {
+      typeName: 'Mutation',
+      fieldName: 'publishThemeEvent',
+    });
+
+    realtimeDataSource.createResolver('PublishSettingsEventResolver', {
+      typeName: 'Mutation',
+      fieldName: 'publishSettingsEvent',
+    });
+
+    realtimeDataSource.createResolver('PublishChatEventResolver', {
+      typeName: 'Mutation',
+      fieldName: 'publishChatEvent',
+    });
+
+    realtimeDataSource.createResolver('PublishSuggestionEventResolver', {
+      typeName: 'Mutation',
+      fieldName: 'publishSuggestionEvent',
     });
   }
 
@@ -346,6 +437,10 @@ export class TrinityStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'AIHandlerName', {
       value: this._aiHandler.functionName,
+    });
+
+    new cdk.CfnOutput(this, 'RealtimeHandlerName', {
+      value: this._realtimeHandler.functionName,
     });
   }
 }

@@ -1,6 +1,7 @@
 import { AppSyncResolverEvent, AppSyncResolverHandler } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import fetch from 'node-fetch';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -25,7 +26,8 @@ interface CachedMovie extends Movie {
 export const handler: AppSyncResolverHandler<any, any> = async (event: AppSyncResolverEvent<any>) => {
   console.log('🎬 Movie Handler:', JSON.stringify(event, null, 2));
 
-  const { fieldName, arguments: args } = event;
+  const fieldName = event.info?.fieldName;
+  const args = event.arguments;
 
   try {
     switch (fieldName) {
@@ -153,7 +155,6 @@ async function fetchMoviesFromTMDB(genre?: string): Promise<Movie[]> {
   const url = `${endpoint}?api_key=${apiKey}&language=es-ES&page=1`;
   
   const response = await fetch(url, {
-    timeout: 10000, // 10 segundos timeout
     headers: {
       'Accept': 'application/json',
       'User-Agent': 'Trinity-App/1.0',
@@ -164,7 +165,7 @@ async function fetchMoviesFromTMDB(genre?: string): Promise<Movie[]> {
     throw new Error(`TMDB API error: ${response.status} ${response.statusText}`);
   }
 
-  const data = await response.json();
+  const data: any = await response.json();
   
   if (!data.results || !Array.isArray(data.results)) {
     throw new Error('Formato de respuesta TMDB inválido');

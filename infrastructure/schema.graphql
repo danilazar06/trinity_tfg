@@ -1,4 +1,4 @@
-# Trinity MVP - GraphQL Schema simplificado según mega prompt
+# Trinity MVP - GraphQL Schema with AppSync Real-time Subscriptions
 
 type Room {
   id: ID!
@@ -14,6 +14,251 @@ type Movie {
   overview: String
 }
 
+# Real-time Event Types
+interface BaseEvent {
+  id: ID!
+  timestamp: AWSDateTime!
+  roomId: ID!
+  eventType: String!
+}
+
+type RoomEvent implements BaseEvent {
+  id: ID!
+  timestamp: AWSDateTime!
+  roomId: ID!
+  eventType: String!
+  data: AWSJSON!
+}
+
+type VoteEvent implements BaseEvent {
+  id: ID!
+  timestamp: AWSDateTime!
+  roomId: ID!
+  eventType: String!
+  userId: ID!
+  mediaId: ID!
+  voteType: VoteType!
+  progress: VoteProgress!
+}
+
+type MatchEvent implements BaseEvent {
+  id: ID!
+  timestamp: AWSDateTime!
+  roomId: ID!
+  eventType: String!
+  matchId: ID!
+  mediaId: ID!
+  mediaTitle: String!
+  participants: [ID!]!
+  consensusType: ConsensusType!
+}
+
+type MemberEvent implements BaseEvent {
+  id: ID!
+  timestamp: AWSDateTime!
+  roomId: ID!
+  eventType: String!
+  userId: ID!
+  action: MemberAction!
+  memberCount: Int!
+  memberData: MemberData
+}
+
+type RoleEvent implements BaseEvent {
+  id: ID!
+  timestamp: AWSDateTime!
+  roomId: ID!
+  eventType: String!
+  targetUserId: ID!
+  roleId: ID!
+  roleName: String!
+  assignedBy: ID!
+  action: RoleAction!
+}
+
+type ModerationEvent implements BaseEvent {
+  id: ID!
+  timestamp: AWSDateTime!
+  roomId: ID!
+  eventType: String!
+  targetUserId: ID!
+  moderatorId: ID!
+  actionType: String!
+  reason: String!
+  duration: Int
+  expiresAt: AWSDateTime
+}
+
+type ScheduleEvent implements BaseEvent {
+  id: ID!
+  timestamp: AWSDateTime!
+  roomId: ID!
+  eventType: String!
+  scheduleId: ID!
+  title: String!
+  action: ScheduleAction!
+  startTime: AWSDateTime!
+  endTime: AWSDateTime!
+  message: String
+}
+
+type ThemeEvent implements BaseEvent {
+  id: ID!
+  timestamp: AWSDateTime!
+  roomId: ID!
+  eventType: String!
+  themeId: ID
+  themeName: String
+  action: ThemeAction!
+  appliedBy: ID!
+  customizations: AWSJSON
+}
+
+type SettingsEvent implements BaseEvent {
+  id: ID!
+  timestamp: AWSDateTime!
+  roomId: ID!
+  eventType: String!
+  settingKey: String!
+  oldValue: AWSJSON
+  newValue: AWSJSON!
+  changedBy: ID!
+  category: SettingsCategory!
+}
+
+type ChatEvent implements BaseEvent {
+  id: ID!
+  timestamp: AWSDateTime!
+  roomId: ID!
+  eventType: String!
+  messageId: ID!
+  userId: ID!
+  username: String!
+  content: String
+  messageType: ChatMessageType!
+  action: ChatAction!
+  metadata: AWSJSON
+}
+
+type SuggestionEvent implements BaseEvent {
+  id: ID!
+  timestamp: AWSDateTime!
+  roomId: ID!
+  eventType: String!
+  suggestionId: ID!
+  userId: ID!
+  username: String!
+  action: SuggestionAction!
+  suggestion: AWSJSON
+  vote: AWSJSON
+  comment: AWSJSON
+}
+
+type UserNotification {
+  id: ID!
+  timestamp: AWSDateTime!
+  userId: ID!
+  type: NotificationType!
+  title: String!
+  message: String!
+  data: AWSJSON
+  read: Boolean!
+}
+
+# Supporting Types
+type VoteProgress {
+  totalVotes: Int!
+  likesCount: Int!
+  dislikesCount: Int!
+  skipsCount: Int!
+  remainingUsers: Int!
+  percentage: Float!
+}
+
+type MemberData {
+  role: String
+  status: String
+  permissions: [String!]
+  lastActivity: AWSDateTime
+}
+
+# Enums
+enum VoteType {
+  LIKE
+  DISLIKE
+  SKIP
+}
+
+enum ConsensusType {
+  UNANIMOUS
+  MAJORITY
+}
+
+enum MemberAction {
+  JOINED
+  LEFT
+  STATUS_CHANGED
+  ROLE_CHANGED
+}
+
+enum RoleAction {
+  ASSIGNED
+  REMOVED
+}
+
+enum ScheduleAction {
+  CREATED
+  UPDATED
+  CANCELLED
+  REMINDER
+}
+
+enum ThemeAction {
+  APPLIED
+  REMOVED
+  UPDATED
+}
+
+enum SettingsCategory {
+  PRIVACY
+  CONSENSUS
+  CAPACITY
+  TIMEOUT
+  OTHER
+}
+
+enum ChatMessageType {
+  TEXT
+  SYSTEM
+  REACTION
+}
+
+enum ChatAction {
+  CREATED
+  EDITED
+  DELETED
+  REACTION_ADDED
+  REACTION_REMOVED
+}
+
+enum SuggestionAction {
+  CREATED
+  VOTED
+  COMMENTED
+  APPROVED
+  REJECTED
+  IMPLEMENTED
+}
+
+enum NotificationType {
+  ROOM_INVITE
+  MATCH_FOUND
+  ROLE_ASSIGNED
+  MODERATION_ACTION
+  SCHEDULE_REMINDER
+  SYSTEM_MESSAGE
+}
+
 type Query {
   getMovies(genre: String): [Movie]           # DataSource: MovieHandler
   getChatRecommendations(text: String!): [String] # DataSource: AIHandler
@@ -24,11 +269,65 @@ type Mutation {
   createRoom: Room                            # DataSource: RoomHandler
   joinRoom(roomId: ID!): Room                 # DataSource: RoomHandler
   vote(roomId: ID!, movieId: ID!): Room       # DataSource: VoteHandler
+  
+  # Real-time event publishing mutations
+  publishRoomEvent(roomId: ID!, eventType: String!, data: AWSJSON!): RoomEvent
+  publishVoteEvent(roomId: ID!, voteData: AWSJSON!): VoteEvent
+  publishMatchEvent(roomId: ID!, matchData: AWSJSON!): MatchEvent
+  publishMemberEvent(roomId: ID!, memberData: AWSJSON!): MemberEvent
+  publishRoleEvent(roomId: ID!, roleData: AWSJSON!): RoleEvent
+  publishModerationEvent(roomId: ID!, moderationData: AWSJSON!): ModerationEvent
+  publishScheduleEvent(roomId: ID!, scheduleData: AWSJSON!): ScheduleEvent
+  publishThemeEvent(roomId: ID!, themeData: AWSJSON!): ThemeEvent
+  publishSettingsEvent(roomId: ID!, settingsData: AWSJSON!): SettingsEvent
+  publishChatEvent(roomId: ID!, chatData: AWSJSON!): ChatEvent
+  publishSuggestionEvent(roomId: ID!, suggestionData: AWSJSON!): SuggestionEvent
 }
 
 type Subscription {
+  # Room-level subscriptions
+  onRoomEvent(roomId: ID!): RoomEvent
+    @aws_subscribe(mutations: ["publishRoomEvent"])
+  
+  onVoteUpdate(roomId: ID!): VoteEvent
+    @aws_subscribe(mutations: ["publishVoteEvent"])
+  
+  onMatchFound(roomId: ID!): MatchEvent
+    @aws_subscribe(mutations: ["publishMatchEvent"])
+  
+  onMemberUpdate(roomId: ID!): MemberEvent
+    @aws_subscribe(mutations: ["publishMemberEvent"])
+  
+  # Advanced features subscriptions
+  onRoleAssignment(roomId: ID!): RoleEvent
+    @aws_subscribe(mutations: ["publishRoleEvent"])
+  
+  onModerationAction(roomId: ID!): ModerationEvent
+    @aws_subscribe(mutations: ["publishModerationEvent"])
+  
+  onScheduleEvent(roomId: ID!): ScheduleEvent
+    @aws_subscribe(mutations: ["publishScheduleEvent"])
+  
+  onThemeChange(roomId: ID!): ThemeEvent
+    @aws_subscribe(mutations: ["publishThemeEvent"])
+  
+  onSettingsChange(roomId: ID!): SettingsEvent
+    @aws_subscribe(mutations: ["publishSettingsEvent"])
+  
+  # Collaboration subscriptions
+  onChatMessage(roomId: ID!): ChatEvent
+    @aws_subscribe(mutations: ["publishChatEvent"])
+  
+  onContentSuggestion(roomId: ID!): SuggestionEvent
+    @aws_subscribe(mutations: ["publishSuggestionEvent"])
+  
+  # User-specific subscriptions
+  onUserNotification(userId: ID!): UserNotification
+    @aws_subscribe(mutations: ["publishUserNotification"])
+  
+  # Legacy subscription for backward compatibility
   onRoomUpdated(roomId: ID!): Room
-  @aws_subscribe(mutations: ["vote", "joinRoom"])
+    @aws_subscribe(mutations: ["vote", "joinRoom"])
 }
 
 schema {

@@ -4,6 +4,9 @@ import { DynamoDBService } from '../../infrastructure/database/dynamodb.service'
 import { DynamoDBKeys } from '../../infrastructure/database/dynamodb.constants';
 import { Room, CreateRoomDto, ContentFilters, RoomSummary, MemberRole } from '../../domain/entities/room.entity';
 import { MemberService } from './member.service';
+import { RealtimeCompatibilityService } from '../realtime/realtime-compatibility.service';
+import { EventTracker } from '../analytics/event-tracker.service';
+import { EventType } from '../analytics/interfaces/analytics.interfaces';
 
 @Injectable()
 export class RoomService {
@@ -12,6 +15,8 @@ export class RoomService {
   constructor(
     private dynamoDBService: DynamoDBService,
     private memberService: MemberService,
+    private realtimeService: RealtimeCompatibilityService,
+    private eventTracker: EventTracker,
   ) {}
 
   /**
@@ -44,6 +49,23 @@ export class RoomService {
 
     // Añadir al creador como miembro con rol de creador
     await this.memberService.addMember(roomId, creatorId, MemberRole.CREATOR);
+
+    // 📝 Track room creation event
+    await this.eventTracker.trackRoomEvent(
+      roomId,
+      EventType.ROOM_CREATED,
+      creatorId,
+      {
+        roomName: createRoomDto.name,
+        filters: createRoomDto.filters,
+        inviteCode,
+        memberCount: 1,
+      },
+      {
+        source: 'room_service',
+        userAgent: 'backend',
+      }
+    );
 
     this.logger.log(`Sala creada: ${roomId} por usuario ${creatorId}`);
     return room;
@@ -155,6 +177,14 @@ export class RoomService {
     // Añadir como miembro
     await this.memberService.addMember(room.id, userId, MemberRole.MEMBER);
 
+    // Notificar cambio de estado de sala en tiempo real
+    const members = await this.memberService.getRoomMembers(room.id);
+    await this.realtimeService.notifyRoomStateChange(room.id, {
+      status: 'active',
+      queueLength: room.masterList?.length || 0,
+      activeMembers: members.length,
+    });
+
     this.logger.log(`Usuario ${userId} se unió a la sala ${room.id}`);
     return room;
   }
@@ -180,6 +210,21 @@ export class RoomService {
 
     // Eliminar al miembro y sus votos
     await this.memberService.removeMember(roomId, userId);
+
+    // Notificar cambio de estado de miembro en tiempo real
+    await this.realtimeService.notifyMemberStatusChange(roomId, {
+      userId,
+      status: 'left',
+      lastActivity: new Date().toISOString(),
+    });
+
+    // Notificar cambio de estado de sala
+    const remainingMembers = await this.memberService.getRoomMembers(roomId);
+    await this.realtimeService.notifyRoomStateChange(roomId, {
+      status: room.isActive ? 'active' : 'finished',
+      queueLength: room.masterList?.length || 0,
+      activeMembers: remainingMembers.length,
+    });
 
     this.logger.log(`Usuario ${userId} abandonó la sala ${roomId}`);
   }

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { RoomController } from './room.controller';
 import { ShuffleSyncController } from './shuffle-sync.controller';
@@ -7,9 +7,15 @@ import { RoomService } from './room.service';
 import { MemberService } from './member.service';
 import { ShuffleSyncService } from './shuffle-sync.service';
 import { InactiveMemberService } from './inactive-member.service';
+import { RealtimeModule } from '../realtime/realtime.module';
+import { AnalyticsModule } from '../analytics/analytics.module';
 
 @Module({
-  imports: [ScheduleModule.forRoot()],
+  imports: [
+    ScheduleModule.forRoot(), 
+    forwardRef(() => RealtimeModule),
+    forwardRef(() => AnalyticsModule),
+  ],
   controllers: [
     RoomController, 
     ShuffleSyncController, 

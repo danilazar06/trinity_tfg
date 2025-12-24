@@ -165,6 +165,8 @@ async function joinRoom(userId: string, roomId: string): Promise<Room> {
     status: room.status,
     resultMovieId: room.resultMovieId,
     hostId: room.hostId,
+    createdAt: room.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -205,6 +207,8 @@ async function getMyHistory(userId: string): Promise<Room[]> {
           status: room.status,
           resultMovieId: room.resultMovieId,
           hostId: room.hostId,
+          createdAt: room.createdAt || new Date().toISOString(),
+          updatedAt: room.updatedAt || new Date().toISOString(),
         });
       }
     } catch (error) {

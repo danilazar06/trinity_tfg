@@ -4,6 +4,7 @@ import * as fc from 'fast-check';
 import { RoomService } from './room.service';
 import { MemberService } from './member.service';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
+import { RealtimeService } from '../realtime/realtime.service';
 
 // Mock services
 const mockDynamoDBService = {
@@ -30,6 +31,13 @@ describe('RoomService Property Tests', () => {
   let service: RoomService;
 
   beforeEach(async () => {
+    const mockRealtimeService = {
+      notifyVote: jest.fn(),
+      notifyMatch: jest.fn(),
+      notifyRoomStateChange: jest.fn(),
+      notifyMemberStatusChange: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RoomService,
@@ -40,6 +48,10 @@ describe('RoomService Property Tests', () => {
         {
           provide: MemberService,
           useValue: mockMemberService,
+        },
+        {
+          provide: RealtimeService,
+          useValue: mockRealtimeService,
         },
       ],
     }).compile();

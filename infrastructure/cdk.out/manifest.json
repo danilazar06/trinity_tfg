@@ -1,0 +1,441 @@
+{
+  "version": "34.0.0",
+  "artifacts": {
+    "TrinityMvpStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "TrinityMvpStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "TrinityMvpStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://847850007406/eu-west-1",
+      "properties": {
+        "templateFile": "TrinityMvpStack.template.json",
+        "terminationProtection": false,
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::847850007406:role/cdk-hnb659fds-deploy-role-847850007406-eu-west-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::847850007406:role/cdk-hnb659fds-cfn-exec-role-847850007406-eu-west-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-847850007406-eu-west-1/691a4a6314020c30733c6fdc8c6adb098a1dadd206d9a88930147c6f1ae2a22d.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "TrinityMvpStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::847850007406:role/cdk-hnb659fds-lookup-role-847850007406-eu-west-1",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "TrinityMvpStack.assets"
+      ],
+      "metadata": {
+        "/TrinityMvpStack/UsersTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "UsersTable9725E9C8"
+            }
+          }
+        ],
+        "/TrinityMvpStack/UsersTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UsersTable9725E9C8"
+          }
+        ],
+        "/TrinityMvpStack/RoomsTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "RoomsTableA5C1D45B"
+            }
+          }
+        ],
+        "/TrinityMvpStack/RoomsTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RoomsTableA5C1D45B"
+          }
+        ],
+        "/TrinityMvpStack/RoomMembersTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "RoomMembersTable66DCF076"
+            }
+          }
+        ],
+        "/TrinityMvpStack/RoomMembersTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RoomMembersTable66DCF076"
+          }
+        ],
+        "/TrinityMvpStack/VotesTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "VotesTable39A917AC"
+            }
+          }
+        ],
+        "/TrinityMvpStack/VotesTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "VotesTable39A917AC"
+          }
+        ],
+        "/TrinityMvpStack/MoviesCacheTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "MoviesCacheTableE1998D48"
+            }
+          }
+        ],
+        "/TrinityMvpStack/MoviesCacheTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MoviesCacheTableE1998D48"
+          }
+        ],
+        "/TrinityMvpStack/TrinityUserPool/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityUserPool2A37BF21"
+          }
+        ],
+        "/TrinityMvpStack/TrinityUserPool/TrinityMobileClient/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityUserPoolTrinityMobileClientE4889438"
+          }
+        ],
+        "/TrinityMvpStack/TrinityUserPool/PostConfirmationCognito": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityUserPoolPostConfirmationCognito467F7114"
+          }
+        ],
+        "/TrinityMvpStack/AuthHandler/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AuthHandlerServiceRoleD970A3A9"
+          }
+        ],
+        "/TrinityMvpStack/AuthHandler/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AuthHandlerServiceRoleDefaultPolicy77B239DC"
+          }
+        ],
+        "/TrinityMvpStack/AuthHandler/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AuthHandler9DC767B7"
+          }
+        ],
+        "/TrinityMvpStack/RoomHandler/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RoomHandlerServiceRole1ABC2E17"
+          }
+        ],
+        "/TrinityMvpStack/RoomHandler/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RoomHandlerServiceRoleDefaultPolicy6585A656"
+          }
+        ],
+        "/TrinityMvpStack/RoomHandler/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RoomHandlerCF7B6EB0"
+          }
+        ],
+        "/TrinityMvpStack/MovieHandler/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MovieHandlerServiceRoleC8E15675"
+          }
+        ],
+        "/TrinityMvpStack/MovieHandler/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MovieHandlerServiceRoleDefaultPolicyE426CE08"
+          }
+        ],
+        "/TrinityMvpStack/MovieHandler/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MovieHandler51BC04A7"
+          }
+        ],
+        "/TrinityMvpStack/VoteHandler/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "VoteHandlerServiceRoleD1CC4A35"
+          }
+        ],
+        "/TrinityMvpStack/VoteHandler/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "VoteHandlerServiceRoleDefaultPolicy87A615E2"
+          }
+        ],
+        "/TrinityMvpStack/VoteHandler/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "VoteHandler897F0396"
+          }
+        ],
+        "/TrinityMvpStack/AIHandler/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIHandlerServiceRoleBE6AA9D7"
+          }
+        ],
+        "/TrinityMvpStack/AIHandler/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIHandler5D68B6F1"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/ApiLogsRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiApiLogsRoleCFF907E4"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApi1D4CC11E"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/Schema": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiSchema6986E358"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/DefaultApiKey": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiDefaultApiKey17C94109"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/AuthDataSource/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiAuthDataSourceServiceRoleAE9333AA"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/AuthDataSource/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiAuthDataSourceServiceRoleDefaultPolicy043525F5"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/AuthDataSource/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiAuthDataSource1AE57B40"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/RoomDataSource/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiRoomDataSourceServiceRole3D967D03"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/RoomDataSource/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiRoomDataSourceServiceRoleDefaultPolicy5529DCEA"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/RoomDataSource/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiRoomDataSource82006ECF"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/MovieDataSource/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiMovieDataSourceServiceRole573EF30B"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/MovieDataSource/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiMovieDataSourceServiceRoleDefaultPolicy96D09C1C"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/MovieDataSource/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiMovieDataSource51FEFFC3"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/VoteDataSource/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiVoteDataSourceServiceRole50B6F338"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/VoteDataSource/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiVoteDataSourceServiceRoleDefaultPolicy082DBDDE"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/VoteDataSource/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiVoteDataSource9F1FC398"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/AIDataSource/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiAIDataSourceServiceRole1000DC2A"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/AIDataSource/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiAIDataSourceServiceRoleDefaultPolicy975912FD"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/AIDataSource/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiAIDataSourceCB67F05B"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/GetMoviesResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiGetMoviesResolver9125698F"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/GetChatRecommendationsResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiGetChatRecommendationsResolver4210623A"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/GetMyHistoryResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiGetMyHistoryResolver279EAD74"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/CreateRoomResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiCreateRoomResolver75F89F45"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/JoinRoomResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiJoinRoomResolver057359F8"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/VoteResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiVoteResolver7A6D1215"
+          }
+        ],
+        "/TrinityMvpStack/GraphQLApiUrl": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GraphQLApiUrl"
+          }
+        ],
+        "/TrinityMvpStack/GraphQLApiId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GraphQLApiId"
+          }
+        ],
+        "/TrinityMvpStack/UserPoolId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserPoolId"
+          }
+        ],
+        "/TrinityMvpStack/Region": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "Region"
+          }
+        ],
+        "/TrinityMvpStack/AuthHandlerName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AuthHandlerName"
+          }
+        ],
+        "/TrinityMvpStack/RoomHandlerName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RoomHandlerName"
+          }
+        ],
+        "/TrinityMvpStack/MovieHandlerName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MovieHandlerName"
+          }
+        ],
+        "/TrinityMvpStack/VoteHandlerName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "VoteHandlerName"
+          }
+        ],
+        "/TrinityMvpStack/AIHandlerName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIHandlerName"
+          }
+        ],
+        "/TrinityMvpStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/TrinityMvpStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/TrinityMvpStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "TrinityMvpStack"
+    },
+    "Tree": {
+      "type": "cdk:tree",
+      "properties": {
+        "file": "tree.json"
+      }
+    }
+  }
+}

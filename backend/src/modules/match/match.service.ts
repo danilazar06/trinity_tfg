@@ -5,6 +5,9 @@ import { DynamoDBKeys } from '../../infrastructure/database/dynamodb.constants';
 import { MemberService } from '../room/member.service';
 import { MediaService } from '../media/media.service';
 import { InteractionService } from '../interaction/interaction.service';
+import { RealtimeCompatibilityService } from '../realtime/realtime-compatibility.service';
+import { EventTracker } from '../analytics/event-tracker.service';
+import { EventType } from '../analytics/interfaces/analytics.interfaces';
 import {
   Match,
   MatchSummary,
@@ -26,6 +29,8 @@ export class MatchService {
     private memberService: MemberService,
     private mediaService: MediaService,
     private interactionService: InteractionService,
+    private realtimeService: RealtimeCompatibilityService,
+    private eventTracker: EventTracker,
   ) {}
 
   /**
@@ -98,7 +103,7 @@ export class MatchService {
       const participants = positiveVotes.map(vote => vote.userId);
 
       // Obtener detalles del contenido
-      const mediaDetails = await this.mediaService.getMediaDetails(mediaId);
+      const mediaDetails = await this.mediaService.getMovieDetails(mediaId);
       if (!mediaDetails) {
         throw new NotFoundException(`Media details not found for ${mediaId}`);
       }
@@ -118,8 +123,36 @@ export class MatchService {
       // Guardar el match en DynamoDB
       await this.saveMatch(match);
 
+      // 📝 Track match found event
+      await this.eventTracker.trackContentInteraction(
+        participants[0], // Use first participant as primary user
+        roomId,
+        mediaId,
+        'match',
+        {
+          matchId,
+          consensusType,
+          totalVotes,
+          participantCount: participants.length,
+          mediaTitle: mediaDetails.title,
+          mediaGenres: mediaDetails.genres?.map(g => g.name) || [],
+        },
+        {
+          source: 'match_service',
+          userAgent: 'backend',
+        }
+      );
+
       // Enviar notificaciones a los participantes
       await this.sendMatchNotifications(match);
+
+      // Notificar match en tiempo real
+      await this.realtimeService.notifyMatch(roomId, {
+        mediaId,
+        mediaTitle: mediaDetails.title,
+        participants,
+        matchType: consensusType === ConsensusType.UNANIMOUS_LIKE ? 'unanimous' : 'majority',
+      });
 
       this.logger.log(
         `Match created: ${matchId} for media ${mediaId} in room ${roomId} with ${participants.length} participants`

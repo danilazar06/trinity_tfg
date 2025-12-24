@@ -127,10 +127,10 @@ export class CDNController {
     this.logger.log(`📈 User ${req.user.sub} setting up progressive loading for: ${dto.imagePath}`);
     
     const config: ProgressiveLoadingConfig = {
-      enablePlaceholder: dto.enablePlaceholder,
-      enableThumbnail: dto.enableThumbnail,
-      enableLazyLoading: dto.enableLazyLoading,
-      qualitySteps: dto.qualitySteps,
+      enablePlaceholder: dto.enablePlaceholder ?? true,
+      enableThumbnail: dto.enableThumbnail ?? true,
+      enableLazyLoading: dto.enableLazyLoading ?? true,
+      qualitySteps: dto.qualitySteps ?? [30, 60, 85],
     };
 
     return this.cdnService.setupProgressiveLoading(dto.imagePath, config);
@@ -159,8 +159,8 @@ export class CDNController {
     }
   })
   async getCacheStats(
-    @Query('imagePath') imagePath?: string,
     @Request() req: any,
+    @Query('imagePath') imagePath?: string,
   ) {
     this.logger.log(`📊 User ${req.user.sub} requesting CDN cache stats`);
     

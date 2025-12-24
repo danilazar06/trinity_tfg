@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
 import { DynamoDBKeys } from '../../infrastructure/database/dynamodb.constants';
 import { CognitoService } from '../../infrastructure/cognito/cognito.service';
+import { EventTracker } from '../analytics/event-tracker.service';
+import { EventType } from '../analytics/interfaces/analytics.interfaces';
 import {
   User,
   CreateUserDto,
@@ -21,6 +23,7 @@ export class AuthService {
   constructor(
     private dynamoDBService: DynamoDBService,
     private cognitoService: CognitoService,
+    private eventTracker: EventTracker,
   ) {}
 
   /**
@@ -53,6 +56,22 @@ export class AuthService {
     });
 
     const userProfile = this.toUserProfile(user);
+
+    // 📝 Track user registration event
+    await this.eventTracker.trackUserAction(
+      userSub,
+      EventType.USER_REGISTER,
+      {
+        email,
+        username,
+        hasPhoneNumber: !!phoneNumber,
+        registrationMethod: 'email',
+      },
+      {
+        source: 'auth_service',
+        userAgent: 'backend',
+      }
+    );
 
     this.logger.log(`Usuario registrado: ${email}`);
     return { 
@@ -152,6 +171,21 @@ export class AuthService {
       idToken: authResult.idToken,
       refreshToken: authResult.refreshToken,
     };
+
+    // 📝 Track user login event
+    await this.eventTracker.trackUserAction(
+      user.id,
+      EventType.USER_LOGIN,
+      {
+        email,
+        loginMethod: 'email_password',
+        emailVerified: user.emailVerified,
+      },
+      {
+        source: 'auth_service',
+        userAgent: 'backend',
+      }
+    );
 
     this.logger.log(`Usuario autenticado: ${email}`);
     return { user: userProfile, tokens };
@@ -258,6 +292,32 @@ export class AuthService {
     } catch (error) {
       this.logger.error(`Error finding user by email ${email}: ${error.message}`);
       return null;
+    }
+  }
+
+  /**
+   * Cerrar sesión
+   */
+  async logout(userId: string): Promise<{ message: string }> {
+    try {
+      // 📝 Track user logout event
+      await this.eventTracker.trackUserAction(
+        userId,
+        EventType.USER_LOGOUT,
+        {
+          logoutMethod: 'manual',
+        },
+        {
+          source: 'auth_service',
+          userAgent: 'backend',
+        }
+      );
+
+      this.logger.log(`Usuario cerró sesión: ${userId}`);
+      return { message: 'Sesión cerrada exitosamente' };
+    } catch (error) {
+      this.logger.error(`Error during logout for user ${userId}: ${error.message}`);
+      throw error;
     }
   }
 
