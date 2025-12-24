@@ -1,0 +1,2653 @@
+{
+  "version": "tree-0.1",
+  "tree": {
+    "id": "App",
+    "path": "",
+    "children": {
+      "TrinityMvpStack": {
+        "id": "TrinityMvpStack",
+        "path": "TrinityMvpStack",
+        "children": {
+          "UsersTable": {
+            "id": "UsersTable",
+            "path": "TrinityMvpStack/UsersTable",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityMvpStack/UsersTable/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::DynamoDB::Table",
+                  "aws:cdk:cloudformation:props": {
+                    "attributeDefinitions": [
+                      {
+                        "attributeName": "userId",
+                        "attributeType": "S"
+                      }
+                    ],
+                    "billingMode": "PAY_PER_REQUEST",
+                    "keySchema": [
+                      {
+                        "attributeName": "userId",
+                        "keyType": "HASH"
+                      }
+                    ],
+                    "tableName": "trinity-users-dev"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_dynamodb.CfnTable",
+                  "version": "2.100.0"
+                }
+              },
+              "ScalingRole": {
+                "id": "ScalingRole",
+                "path": "TrinityMvpStack/UsersTable/ScalingRole",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.Resource",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_dynamodb.Table",
+              "version": "2.100.0"
+            }
+          },
+          "RoomsTable": {
+            "id": "RoomsTable",
+            "path": "TrinityMvpStack/RoomsTable",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityMvpStack/RoomsTable/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::DynamoDB::Table",
+                  "aws:cdk:cloudformation:props": {
+                    "attributeDefinitions": [
+                      {
+                        "attributeName": "roomId",
+                        "attributeType": "S"
+                      }
+                    ],
+                    "billingMode": "PAY_PER_REQUEST",
+                    "keySchema": [
+                      {
+                        "attributeName": "roomId",
+                        "keyType": "HASH"
+                      }
+                    ],
+                    "tableName": "trinity-rooms-dev"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_dynamodb.CfnTable",
+                  "version": "2.100.0"
+                }
+              },
+              "ScalingRole": {
+                "id": "ScalingRole",
+                "path": "TrinityMvpStack/RoomsTable/ScalingRole",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.Resource",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_dynamodb.Table",
+              "version": "2.100.0"
+            }
+          },
+          "RoomMembersTable": {
+            "id": "RoomMembersTable",
+            "path": "TrinityMvpStack/RoomMembersTable",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityMvpStack/RoomMembersTable/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::DynamoDB::Table",
+                  "aws:cdk:cloudformation:props": {
+                    "attributeDefinitions": [
+                      {
+                        "attributeName": "roomId",
+                        "attributeType": "S"
+                      },
+                      {
+                        "attributeName": "userId",
+                        "attributeType": "S"
+                      },
+                      {
+                        "attributeName": "joinedAt",
+                        "attributeType": "S"
+                      }
+                    ],
+                    "billingMode": "PAY_PER_REQUEST",
+                    "globalSecondaryIndexes": [
+                      {
+                        "indexName": "UserHistoryIndex",
+                        "keySchema": [
+                          {
+                            "attributeName": "userId",
+                            "keyType": "HASH"
+                          },
+                          {
+                            "attributeName": "joinedAt",
+                            "keyType": "RANGE"
+                          }
+                        ],
+                        "projection": {
+                          "projectionType": "ALL"
+                        }
+                      }
+                    ],
+                    "keySchema": [
+                      {
+                        "attributeName": "roomId",
+                        "keyType": "HASH"
+                      },
+                      {
+                        "attributeName": "userId",
+                        "keyType": "RANGE"
+                      }
+                    ],
+                    "tableName": "trinity-room-members-dev"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_dynamodb.CfnTable",
+                  "version": "2.100.0"
+                }
+              },
+              "ScalingRole": {
+                "id": "ScalingRole",
+                "path": "TrinityMvpStack/RoomMembersTable/ScalingRole",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.Resource",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_dynamodb.Table",
+              "version": "2.100.0"
+            }
+          },
+          "VotesTable": {
+            "id": "VotesTable",
+            "path": "TrinityMvpStack/VotesTable",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityMvpStack/VotesTable/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::DynamoDB::Table",
+                  "aws:cdk:cloudformation:props": {
+                    "attributeDefinitions": [
+                      {
+                        "attributeName": "roomId",
+                        "attributeType": "S"
+                      },
+                      {
+                        "attributeName": "movieId",
+                        "attributeType": "S"
+                      }
+                    ],
+                    "billingMode": "PAY_PER_REQUEST",
+                    "keySchema": [
+                      {
+                        "attributeName": "roomId",
+                        "keyType": "HASH"
+                      },
+                      {
+                        "attributeName": "movieId",
+                        "keyType": "RANGE"
+                      }
+                    ],
+                    "tableName": "trinity-votes-dev"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_dynamodb.CfnTable",
+                  "version": "2.100.0"
+                }
+              },
+              "ScalingRole": {
+                "id": "ScalingRole",
+                "path": "TrinityMvpStack/VotesTable/ScalingRole",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.Resource",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_dynamodb.Table",
+              "version": "2.100.0"
+            }
+          },
+          "MoviesCacheTable": {
+            "id": "MoviesCacheTable",
+            "path": "TrinityMvpStack/MoviesCacheTable",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityMvpStack/MoviesCacheTable/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::DynamoDB::Table",
+                  "aws:cdk:cloudformation:props": {
+                    "attributeDefinitions": [
+                      {
+                        "attributeName": "tmdbId",
+                        "attributeType": "S"
+                      }
+                    ],
+                    "billingMode": "PAY_PER_REQUEST",
+                    "keySchema": [
+                      {
+                        "attributeName": "tmdbId",
+                        "keyType": "HASH"
+                      }
+                    ],
+                    "tableName": "trinity-movies-cache-dev",
+                    "timeToLiveSpecification": {
+                      "attributeName": "ttl",
+                      "enabled": true
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_dynamodb.CfnTable",
+                  "version": "2.100.0"
+                }
+              },
+              "ScalingRole": {
+                "id": "ScalingRole",
+                "path": "TrinityMvpStack/MoviesCacheTable/ScalingRole",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.Resource",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_dynamodb.Table",
+              "version": "2.100.0"
+            }
+          },
+          "TrinityUserPool": {
+            "id": "TrinityUserPool",
+            "path": "TrinityMvpStack/TrinityUserPool",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityMvpStack/TrinityUserPool/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::Cognito::UserPool",
+                  "aws:cdk:cloudformation:props": {
+                    "accountRecoverySetting": {
+                      "recoveryMechanisms": [
+                        {
+                          "name": "verified_email",
+                          "priority": 1
+                        }
+                      ]
+                    },
+                    "adminCreateUserConfig": {
+                      "allowAdminCreateUserOnly": false
+                    },
+                    "autoVerifiedAttributes": [
+                      "email"
+                    ],
+                    "emailVerificationMessage": "The verification code to your new account is {####}",
+                    "emailVerificationSubject": "Verify your new account",
+                    "lambdaConfig": {
+                      "postConfirmation": {
+                        "Fn::GetAtt": [
+                          "AuthHandler9DC767B7",
+                          "Arn"
+                        ]
+                      }
+                    },
+                    "policies": {
+                      "passwordPolicy": {
+                        "minimumLength": 8,
+                        "requireLowercase": true,
+                        "requireUppercase": true,
+                        "requireNumbers": true,
+                        "requireSymbols": false
+                      }
+                    },
+                    "smsVerificationMessage": "The verification code to your new account is {####}",
+                    "usernameAttributes": [
+                      "email"
+                    ],
+                    "userPoolName": "trinity-users-dev",
+                    "verificationMessageTemplate": {
+                      "defaultEmailOption": "CONFIRM_WITH_CODE",
+                      "emailMessage": "The verification code to your new account is {####}",
+                      "emailSubject": "Verify your new account",
+                      "smsMessage": "The verification code to your new account is {####}"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cognito.CfnUserPool",
+                  "version": "2.100.0"
+                }
+              },
+              "TrinityMobileClient": {
+                "id": "TrinityMobileClient",
+                "path": "TrinityMvpStack/TrinityUserPool/TrinityMobileClient",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityUserPool/TrinityMobileClient/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Cognito::UserPoolClient",
+                      "aws:cdk:cloudformation:props": {
+                        "allowedOAuthFlows": [
+                          "implicit",
+                          "code"
+                        ],
+                        "allowedOAuthFlowsUserPoolClient": true,
+                        "allowedOAuthScopes": [
+                          "profile",
+                          "phone",
+                          "email",
+                          "openid",
+                          "aws.cognito.signin.user.admin"
+                        ],
+                        "callbackUrLs": [
+                          "https://example.com"
+                        ],
+                        "clientName": "trinity-mobile-dev",
+                        "explicitAuthFlows": [
+                          "ALLOW_USER_PASSWORD_AUTH",
+                          "ALLOW_USER_SRP_AUTH",
+                          "ALLOW_REFRESH_TOKEN_AUTH"
+                        ],
+                        "generateSecret": false,
+                        "supportedIdentityProviders": [
+                          "COGNITO"
+                        ],
+                        "userPoolId": {
+                          "Ref": "TrinityUserPool2A37BF21"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_cognito.CfnUserPoolClient",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cognito.UserPoolClient",
+                  "version": "2.100.0"
+                }
+              },
+              "PostConfirmationCognito": {
+                "id": "PostConfirmationCognito",
+                "path": "TrinityMvpStack/TrinityUserPool/PostConfirmationCognito",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::Lambda::Permission",
+                  "aws:cdk:cloudformation:props": {
+                    "action": "lambda:InvokeFunction",
+                    "functionName": {
+                      "Fn::GetAtt": [
+                        "AuthHandler9DC767B7",
+                        "Arn"
+                      ]
+                    },
+                    "principal": "cognito-idp.amazonaws.com",
+                    "sourceArn": {
+                      "Fn::GetAtt": [
+                        "TrinityUserPool2A37BF21",
+                        "Arn"
+                      ]
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.CfnPermission",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cognito.UserPool",
+              "version": "2.100.0"
+            }
+          },
+          "AuthHandler": {
+            "id": "AuthHandler",
+            "path": "TrinityMvpStack/AuthHandler",
+            "children": {
+              "ServiceRole": {
+                "id": "ServiceRole",
+                "path": "TrinityMvpStack/AuthHandler/ServiceRole",
+                "children": {
+                  "ImportServiceRole": {
+                    "id": "ImportServiceRole",
+                    "path": "TrinityMvpStack/AuthHandler/ServiceRole/ImportServiceRole",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.Resource",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/AuthHandler/ServiceRole/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                      "aws:cdk:cloudformation:props": {
+                        "assumeRolePolicyDocument": {
+                          "Statement": [
+                            {
+                              "Action": "sts:AssumeRole",
+                              "Effect": "Allow",
+                              "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                              }
+                            }
+                          ],
+                          "Version": "2012-10-17"
+                        },
+                        "managedPolicyArns": [
+                          {
+                            "Fn::Join": [
+                              "",
+                              [
+                                "arn:",
+                                {
+                                  "Ref": "AWS::Partition"
+                                },
+                                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                              ]
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "DefaultPolicy": {
+                    "id": "DefaultPolicy",
+                    "path": "TrinityMvpStack/AuthHandler/ServiceRole/DefaultPolicy",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "TrinityMvpStack/AuthHandler/ServiceRole/DefaultPolicy/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                          "aws:cdk:cloudformation:props": {
+                            "policyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": [
+                                    "dynamodb:BatchWriteItem",
+                                    "dynamodb:DeleteItem",
+                                    "dynamodb:DescribeTable",
+                                    "dynamodb:PutItem",
+                                    "dynamodb:UpdateItem"
+                                  ],
+                                  "Effect": "Allow",
+                                  "Resource": [
+                                    {
+                                      "Fn::GetAtt": [
+                                        "UsersTable9725E9C8",
+                                        "Arn"
+                                      ]
+                                    },
+                                    {
+                                      "Ref": "AWS::NoValue"
+                                    }
+                                  ]
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            },
+                            "policyName": "AuthHandlerServiceRoleDefaultPolicy77B239DC",
+                            "roles": [
+                              {
+                                "Ref": "AuthHandlerServiceRoleD970A3A9"
+                              }
+                            ]
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                          "version": "2.100.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Policy",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_iam.Role",
+                  "version": "2.100.0"
+                }
+              },
+              "Code": {
+                "id": "Code",
+                "path": "TrinityMvpStack/AuthHandler/Code",
+                "children": {
+                  "Stage": {
+                    "id": "Stage",
+                    "path": "TrinityMvpStack/AuthHandler/Code/Stage",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.AssetStaging",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "AssetBucket": {
+                    "id": "AssetBucket",
+                    "path": "TrinityMvpStack/AuthHandler/Code/AssetBucket",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                  "version": "2.100.0"
+                }
+              },
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityMvpStack/AuthHandler/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
+                  "aws:cdk:cloudformation:props": {
+                    "code": {
+                      "s3Bucket": "cdk-hnb659fds-assets-847850007406-eu-west-1",
+                      "s3Key": "964017b3b030d94967c7ae939986665d6ff7a2d37b06f2d6fce7e40d0eb71899.zip"
+                    },
+                    "environment": {
+                      "variables": {
+                        "USERS_TABLE": {
+                          "Ref": "UsersTable9725E9C8"
+                        },
+                        "ROOMS_TABLE": {
+                          "Ref": "RoomsTableA5C1D45B"
+                        },
+                        "ROOM_MEMBERS_TABLE": {
+                          "Ref": "RoomMembersTable66DCF076"
+                        },
+                        "VOTES_TABLE": {
+                          "Ref": "VotesTable39A917AC"
+                        },
+                        "MOVIES_CACHE_TABLE": {
+                          "Ref": "MoviesCacheTableE1998D48"
+                        },
+                        "STAGE": "dev",
+                        "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+                      }
+                    },
+                    "functionName": "trinity-auth-dev",
+                    "handler": "index.handler",
+                    "memorySize": 256,
+                    "role": {
+                      "Fn::GetAtt": [
+                        "AuthHandlerServiceRoleD970A3A9",
+                        "Arn"
+                      ]
+                    },
+                    "runtime": "nodejs18.x",
+                    "timeout": 30
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.CfnFunction",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_lambda_nodejs.NodejsFunction",
+              "version": "2.100.0"
+            }
+          },
+          "RoomHandler": {
+            "id": "RoomHandler",
+            "path": "TrinityMvpStack/RoomHandler",
+            "children": {
+              "ServiceRole": {
+                "id": "ServiceRole",
+                "path": "TrinityMvpStack/RoomHandler/ServiceRole",
+                "children": {
+                  "ImportServiceRole": {
+                    "id": "ImportServiceRole",
+                    "path": "TrinityMvpStack/RoomHandler/ServiceRole/ImportServiceRole",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.Resource",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/RoomHandler/ServiceRole/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                      "aws:cdk:cloudformation:props": {
+                        "assumeRolePolicyDocument": {
+                          "Statement": [
+                            {
+                              "Action": "sts:AssumeRole",
+                              "Effect": "Allow",
+                              "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                              }
+                            }
+                          ],
+                          "Version": "2012-10-17"
+                        },
+                        "managedPolicyArns": [
+                          {
+                            "Fn::Join": [
+                              "",
+                              [
+                                "arn:",
+                                {
+                                  "Ref": "AWS::Partition"
+                                },
+                                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                              ]
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "DefaultPolicy": {
+                    "id": "DefaultPolicy",
+                    "path": "TrinityMvpStack/RoomHandler/ServiceRole/DefaultPolicy",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "TrinityMvpStack/RoomHandler/ServiceRole/DefaultPolicy/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                          "aws:cdk:cloudformation:props": {
+                            "policyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": [
+                                    "dynamodb:BatchGetItem",
+                                    "dynamodb:BatchWriteItem",
+                                    "dynamodb:ConditionCheckItem",
+                                    "dynamodb:DeleteItem",
+                                    "dynamodb:DescribeTable",
+                                    "dynamodb:GetItem",
+                                    "dynamodb:GetRecords",
+                                    "dynamodb:GetShardIterator",
+                                    "dynamodb:PutItem",
+                                    "dynamodb:Query",
+                                    "dynamodb:Scan",
+                                    "dynamodb:UpdateItem"
+                                  ],
+                                  "Effect": "Allow",
+                                  "Resource": [
+                                    {
+                                      "Fn::GetAtt": [
+                                        "RoomMembersTable66DCF076",
+                                        "Arn"
+                                      ]
+                                    },
+                                    {
+                                      "Fn::GetAtt": [
+                                        "RoomsTableA5C1D45B",
+                                        "Arn"
+                                      ]
+                                    },
+                                    {
+                                      "Fn::Join": [
+                                        "",
+                                        [
+                                          {
+                                            "Fn::GetAtt": [
+                                              "RoomMembersTable66DCF076",
+                                              "Arn"
+                                            ]
+                                          },
+                                          "/index/*"
+                                        ]
+                                      ]
+                                    },
+                                    {
+                                      "Ref": "AWS::NoValue"
+                                    }
+                                  ]
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            },
+                            "policyName": "RoomHandlerServiceRoleDefaultPolicy6585A656",
+                            "roles": [
+                              {
+                                "Ref": "RoomHandlerServiceRole1ABC2E17"
+                              }
+                            ]
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                          "version": "2.100.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Policy",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_iam.Role",
+                  "version": "2.100.0"
+                }
+              },
+              "Code": {
+                "id": "Code",
+                "path": "TrinityMvpStack/RoomHandler/Code",
+                "children": {
+                  "Stage": {
+                    "id": "Stage",
+                    "path": "TrinityMvpStack/RoomHandler/Code/Stage",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.AssetStaging",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "AssetBucket": {
+                    "id": "AssetBucket",
+                    "path": "TrinityMvpStack/RoomHandler/Code/AssetBucket",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                  "version": "2.100.0"
+                }
+              },
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityMvpStack/RoomHandler/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
+                  "aws:cdk:cloudformation:props": {
+                    "code": {
+                      "s3Bucket": "cdk-hnb659fds-assets-847850007406-eu-west-1",
+                      "s3Key": "4bdc65205f2afbfcc6ec217eb0ee468eed50629e0aa309db403c3db62fc7da63.zip"
+                    },
+                    "environment": {
+                      "variables": {
+                        "USERS_TABLE": {
+                          "Ref": "UsersTable9725E9C8"
+                        },
+                        "ROOMS_TABLE": {
+                          "Ref": "RoomsTableA5C1D45B"
+                        },
+                        "ROOM_MEMBERS_TABLE": {
+                          "Ref": "RoomMembersTable66DCF076"
+                        },
+                        "VOTES_TABLE": {
+                          "Ref": "VotesTable39A917AC"
+                        },
+                        "MOVIES_CACHE_TABLE": {
+                          "Ref": "MoviesCacheTableE1998D48"
+                        },
+                        "STAGE": "dev",
+                        "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+                      }
+                    },
+                    "functionName": "trinity-room-dev",
+                    "handler": "index.handler",
+                    "memorySize": 512,
+                    "role": {
+                      "Fn::GetAtt": [
+                        "RoomHandlerServiceRole1ABC2E17",
+                        "Arn"
+                      ]
+                    },
+                    "runtime": "nodejs18.x",
+                    "timeout": 30
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.CfnFunction",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_lambda_nodejs.NodejsFunction",
+              "version": "2.100.0"
+            }
+          },
+          "MovieHandler": {
+            "id": "MovieHandler",
+            "path": "TrinityMvpStack/MovieHandler",
+            "children": {
+              "ServiceRole": {
+                "id": "ServiceRole",
+                "path": "TrinityMvpStack/MovieHandler/ServiceRole",
+                "children": {
+                  "ImportServiceRole": {
+                    "id": "ImportServiceRole",
+                    "path": "TrinityMvpStack/MovieHandler/ServiceRole/ImportServiceRole",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.Resource",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/MovieHandler/ServiceRole/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                      "aws:cdk:cloudformation:props": {
+                        "assumeRolePolicyDocument": {
+                          "Statement": [
+                            {
+                              "Action": "sts:AssumeRole",
+                              "Effect": "Allow",
+                              "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                              }
+                            }
+                          ],
+                          "Version": "2012-10-17"
+                        },
+                        "managedPolicyArns": [
+                          {
+                            "Fn::Join": [
+                              "",
+                              [
+                                "arn:",
+                                {
+                                  "Ref": "AWS::Partition"
+                                },
+                                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                              ]
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "DefaultPolicy": {
+                    "id": "DefaultPolicy",
+                    "path": "TrinityMvpStack/MovieHandler/ServiceRole/DefaultPolicy",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "TrinityMvpStack/MovieHandler/ServiceRole/DefaultPolicy/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                          "aws:cdk:cloudformation:props": {
+                            "policyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": [
+                                    "dynamodb:BatchGetItem",
+                                    "dynamodb:BatchWriteItem",
+                                    "dynamodb:ConditionCheckItem",
+                                    "dynamodb:DeleteItem",
+                                    "dynamodb:DescribeTable",
+                                    "dynamodb:GetItem",
+                                    "dynamodb:GetRecords",
+                                    "dynamodb:GetShardIterator",
+                                    "dynamodb:PutItem",
+                                    "dynamodb:Query",
+                                    "dynamodb:Scan",
+                                    "dynamodb:UpdateItem"
+                                  ],
+                                  "Effect": "Allow",
+                                  "Resource": [
+                                    {
+                                      "Fn::GetAtt": [
+                                        "MoviesCacheTableE1998D48",
+                                        "Arn"
+                                      ]
+                                    },
+                                    {
+                                      "Ref": "AWS::NoValue"
+                                    }
+                                  ]
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            },
+                            "policyName": "MovieHandlerServiceRoleDefaultPolicyE426CE08",
+                            "roles": [
+                              {
+                                "Ref": "MovieHandlerServiceRoleC8E15675"
+                              }
+                            ]
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                          "version": "2.100.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Policy",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_iam.Role",
+                  "version": "2.100.0"
+                }
+              },
+              "Code": {
+                "id": "Code",
+                "path": "TrinityMvpStack/MovieHandler/Code",
+                "children": {
+                  "Stage": {
+                    "id": "Stage",
+                    "path": "TrinityMvpStack/MovieHandler/Code/Stage",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.AssetStaging",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "AssetBucket": {
+                    "id": "AssetBucket",
+                    "path": "TrinityMvpStack/MovieHandler/Code/AssetBucket",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                  "version": "2.100.0"
+                }
+              },
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityMvpStack/MovieHandler/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
+                  "aws:cdk:cloudformation:props": {
+                    "code": {
+                      "s3Bucket": "cdk-hnb659fds-assets-847850007406-eu-west-1",
+                      "s3Key": "fb02e0857777037f8e936878d16750c667ed5ca7b3e02d2beee9e34ca832fcd4.zip"
+                    },
+                    "environment": {
+                      "variables": {
+                        "USERS_TABLE": {
+                          "Ref": "UsersTable9725E9C8"
+                        },
+                        "ROOMS_TABLE": {
+                          "Ref": "RoomsTableA5C1D45B"
+                        },
+                        "ROOM_MEMBERS_TABLE": {
+                          "Ref": "RoomMembersTable66DCF076"
+                        },
+                        "VOTES_TABLE": {
+                          "Ref": "VotesTable39A917AC"
+                        },
+                        "MOVIES_CACHE_TABLE": {
+                          "Ref": "MoviesCacheTableE1998D48"
+                        },
+                        "STAGE": "dev",
+                        "TMDB_API_KEY": "dc4dbcd2404c1ca852f8eb964add267d",
+                        "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+                      }
+                    },
+                    "functionName": "trinity-movie-dev",
+                    "handler": "index.handler",
+                    "memorySize": 512,
+                    "role": {
+                      "Fn::GetAtt": [
+                        "MovieHandlerServiceRoleC8E15675",
+                        "Arn"
+                      ]
+                    },
+                    "runtime": "nodejs18.x",
+                    "timeout": 30
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.CfnFunction",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_lambda_nodejs.NodejsFunction",
+              "version": "2.100.0"
+            }
+          },
+          "VoteHandler": {
+            "id": "VoteHandler",
+            "path": "TrinityMvpStack/VoteHandler",
+            "children": {
+              "ServiceRole": {
+                "id": "ServiceRole",
+                "path": "TrinityMvpStack/VoteHandler/ServiceRole",
+                "children": {
+                  "ImportServiceRole": {
+                    "id": "ImportServiceRole",
+                    "path": "TrinityMvpStack/VoteHandler/ServiceRole/ImportServiceRole",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.Resource",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/VoteHandler/ServiceRole/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                      "aws:cdk:cloudformation:props": {
+                        "assumeRolePolicyDocument": {
+                          "Statement": [
+                            {
+                              "Action": "sts:AssumeRole",
+                              "Effect": "Allow",
+                              "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                              }
+                            }
+                          ],
+                          "Version": "2012-10-17"
+                        },
+                        "managedPolicyArns": [
+                          {
+                            "Fn::Join": [
+                              "",
+                              [
+                                "arn:",
+                                {
+                                  "Ref": "AWS::Partition"
+                                },
+                                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                              ]
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "DefaultPolicy": {
+                    "id": "DefaultPolicy",
+                    "path": "TrinityMvpStack/VoteHandler/ServiceRole/DefaultPolicy",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "TrinityMvpStack/VoteHandler/ServiceRole/DefaultPolicy/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                          "aws:cdk:cloudformation:props": {
+                            "policyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": [
+                                    "dynamodb:BatchGetItem",
+                                    "dynamodb:BatchWriteItem",
+                                    "dynamodb:ConditionCheckItem",
+                                    "dynamodb:DeleteItem",
+                                    "dynamodb:DescribeTable",
+                                    "dynamodb:GetItem",
+                                    "dynamodb:GetRecords",
+                                    "dynamodb:GetShardIterator",
+                                    "dynamodb:PutItem",
+                                    "dynamodb:Query",
+                                    "dynamodb:Scan",
+                                    "dynamodb:UpdateItem"
+                                  ],
+                                  "Effect": "Allow",
+                                  "Resource": [
+                                    {
+                                      "Fn::GetAtt": [
+                                        "RoomsTableA5C1D45B",
+                                        "Arn"
+                                      ]
+                                    },
+                                    {
+                                      "Fn::GetAtt": [
+                                        "VotesTable39A917AC",
+                                        "Arn"
+                                      ]
+                                    },
+                                    {
+                                      "Ref": "AWS::NoValue"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "Action": [
+                                    "dynamodb:BatchGetItem",
+                                    "dynamodb:ConditionCheckItem",
+                                    "dynamodb:DescribeTable",
+                                    "dynamodb:GetItem",
+                                    "dynamodb:GetRecords",
+                                    "dynamodb:GetShardIterator",
+                                    "dynamodb:Query",
+                                    "dynamodb:Scan"
+                                  ],
+                                  "Effect": "Allow",
+                                  "Resource": [
+                                    {
+                                      "Fn::GetAtt": [
+                                        "RoomMembersTable66DCF076",
+                                        "Arn"
+                                      ]
+                                    },
+                                    {
+                                      "Fn::Join": [
+                                        "",
+                                        [
+                                          {
+                                            "Fn::GetAtt": [
+                                              "RoomMembersTable66DCF076",
+                                              "Arn"
+                                            ]
+                                          },
+                                          "/index/*"
+                                        ]
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            },
+                            "policyName": "VoteHandlerServiceRoleDefaultPolicy87A615E2",
+                            "roles": [
+                              {
+                                "Ref": "VoteHandlerServiceRoleD1CC4A35"
+                              }
+                            ]
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                          "version": "2.100.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Policy",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_iam.Role",
+                  "version": "2.100.0"
+                }
+              },
+              "Code": {
+                "id": "Code",
+                "path": "TrinityMvpStack/VoteHandler/Code",
+                "children": {
+                  "Stage": {
+                    "id": "Stage",
+                    "path": "TrinityMvpStack/VoteHandler/Code/Stage",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.AssetStaging",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "AssetBucket": {
+                    "id": "AssetBucket",
+                    "path": "TrinityMvpStack/VoteHandler/Code/AssetBucket",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                  "version": "2.100.0"
+                }
+              },
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityMvpStack/VoteHandler/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
+                  "aws:cdk:cloudformation:props": {
+                    "code": {
+                      "s3Bucket": "cdk-hnb659fds-assets-847850007406-eu-west-1",
+                      "s3Key": "48248cfe555d333df25a013817374b99c39f07dae5617fbec3a9377afe275424.zip"
+                    },
+                    "environment": {
+                      "variables": {
+                        "USERS_TABLE": {
+                          "Ref": "UsersTable9725E9C8"
+                        },
+                        "ROOMS_TABLE": {
+                          "Ref": "RoomsTableA5C1D45B"
+                        },
+                        "ROOM_MEMBERS_TABLE": {
+                          "Ref": "RoomMembersTable66DCF076"
+                        },
+                        "VOTES_TABLE": {
+                          "Ref": "VotesTable39A917AC"
+                        },
+                        "MOVIES_CACHE_TABLE": {
+                          "Ref": "MoviesCacheTableE1998D48"
+                        },
+                        "STAGE": "dev",
+                        "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+                      }
+                    },
+                    "functionName": "trinity-vote-dev",
+                    "handler": "index.handler",
+                    "memorySize": 512,
+                    "role": {
+                      "Fn::GetAtt": [
+                        "VoteHandlerServiceRoleD1CC4A35",
+                        "Arn"
+                      ]
+                    },
+                    "runtime": "nodejs18.x",
+                    "timeout": 30
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.CfnFunction",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_lambda_nodejs.NodejsFunction",
+              "version": "2.100.0"
+            }
+          },
+          "AIHandler": {
+            "id": "AIHandler",
+            "path": "TrinityMvpStack/AIHandler",
+            "children": {
+              "ServiceRole": {
+                "id": "ServiceRole",
+                "path": "TrinityMvpStack/AIHandler/ServiceRole",
+                "children": {
+                  "ImportServiceRole": {
+                    "id": "ImportServiceRole",
+                    "path": "TrinityMvpStack/AIHandler/ServiceRole/ImportServiceRole",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.Resource",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/AIHandler/ServiceRole/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                      "aws:cdk:cloudformation:props": {
+                        "assumeRolePolicyDocument": {
+                          "Statement": [
+                            {
+                              "Action": "sts:AssumeRole",
+                              "Effect": "Allow",
+                              "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                              }
+                            }
+                          ],
+                          "Version": "2012-10-17"
+                        },
+                        "managedPolicyArns": [
+                          {
+                            "Fn::Join": [
+                              "",
+                              [
+                                "arn:",
+                                {
+                                  "Ref": "AWS::Partition"
+                                },
+                                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                              ]
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_iam.Role",
+                  "version": "2.100.0"
+                }
+              },
+              "Code": {
+                "id": "Code",
+                "path": "TrinityMvpStack/AIHandler/Code",
+                "children": {
+                  "Stage": {
+                    "id": "Stage",
+                    "path": "TrinityMvpStack/AIHandler/Code/Stage",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.AssetStaging",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "AssetBucket": {
+                    "id": "AssetBucket",
+                    "path": "TrinityMvpStack/AIHandler/Code/AssetBucket",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                  "version": "2.100.0"
+                }
+              },
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityMvpStack/AIHandler/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
+                  "aws:cdk:cloudformation:props": {
+                    "code": {
+                      "s3Bucket": "cdk-hnb659fds-assets-847850007406-eu-west-1",
+                      "s3Key": "99c3d45bdf88c835436fb32aa68d46f819ac7294ebb427814b26c7386a909b7a.zip"
+                    },
+                    "environment": {
+                      "variables": {
+                        "USERS_TABLE": {
+                          "Ref": "UsersTable9725E9C8"
+                        },
+                        "ROOMS_TABLE": {
+                          "Ref": "RoomsTableA5C1D45B"
+                        },
+                        "ROOM_MEMBERS_TABLE": {
+                          "Ref": "RoomMembersTable66DCF076"
+                        },
+                        "VOTES_TABLE": {
+                          "Ref": "VotesTable39A917AC"
+                        },
+                        "MOVIES_CACHE_TABLE": {
+                          "Ref": "MoviesCacheTableE1998D48"
+                        },
+                        "STAGE": "dev",
+                        "HF_API_TOKEN": "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",
+                        "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+                      }
+                    },
+                    "functionName": "trinity-ai-dev",
+                    "handler": "index.handler",
+                    "memorySize": 512,
+                    "role": {
+                      "Fn::GetAtt": [
+                        "AIHandlerServiceRoleBE6AA9D7",
+                        "Arn"
+                      ]
+                    },
+                    "runtime": "nodejs18.x",
+                    "timeout": 30
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.CfnFunction",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_lambda_nodejs.NodejsFunction",
+              "version": "2.100.0"
+            }
+          },
+          "TrinityGraphQLApi": {
+            "id": "TrinityGraphQLApi",
+            "path": "TrinityMvpStack/TrinityGraphQLApi",
+            "children": {
+              "ApiLogsRole": {
+                "id": "ApiLogsRole",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/ApiLogsRole",
+                "children": {
+                  "ImportApiLogsRole": {
+                    "id": "ImportApiLogsRole",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/ApiLogsRole/ImportApiLogsRole",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.Resource",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/ApiLogsRole/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                      "aws:cdk:cloudformation:props": {
+                        "assumeRolePolicyDocument": {
+                          "Statement": [
+                            {
+                              "Action": "sts:AssumeRole",
+                              "Effect": "Allow",
+                              "Principal": {
+                                "Service": "appsync.amazonaws.com"
+                              }
+                            }
+                          ],
+                          "Version": "2012-10-17"
+                        },
+                        "managedPolicyArns": [
+                          {
+                            "Fn::Join": [
+                              "",
+                              [
+                                "arn:",
+                                {
+                                  "Ref": "AWS::Partition"
+                                },
+                                ":iam::aws:policy/service-role/AWSAppSyncPushToCloudWatchLogs"
+                              ]
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_iam.Role",
+                  "version": "2.100.0"
+                }
+              },
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::AppSync::GraphQLApi",
+                  "aws:cdk:cloudformation:props": {
+                    "additionalAuthenticationProviders": [
+                      {
+                        "authenticationType": "API_KEY"
+                      }
+                    ],
+                    "authenticationType": "AMAZON_COGNITO_USER_POOLS",
+                    "logConfig": {
+                      "cloudWatchLogsRoleArn": {
+                        "Fn::GetAtt": [
+                          "TrinityGraphQLApiApiLogsRoleCFF907E4",
+                          "Arn"
+                        ]
+                      },
+                      "fieldLogLevel": "ERROR"
+                    },
+                    "name": "trinity-api-dev",
+                    "userPoolConfig": {
+                      "userPoolId": {
+                        "Ref": "TrinityUserPool2A37BF21"
+                      },
+                      "awsRegion": "eu-west-1",
+                      "defaultAction": "ALLOW"
+                    },
+                    "xrayEnabled": false
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.CfnGraphQLApi",
+                  "version": "2.100.0"
+                }
+              },
+              "Schema": {
+                "id": "Schema",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/Schema",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::AppSync::GraphQLSchema",
+                  "aws:cdk:cloudformation:props": {
+                    "apiId": {
+                      "Fn::GetAtt": [
+                        "TrinityGraphQLApi1D4CC11E",
+                        "ApiId"
+                      ]
+                    },
+                    "definition": "# Trinity MVP - GraphQL Schema simplificado según mega prompt\r\n\r\ntype Room {\r\n  id: ID!\r\n  status: String\r\n  resultMovieId: String\r\n  hostId: String\r\n}\r\n\r\ntype Movie {\r\n  id: ID!\r\n  title: String\r\n  poster: String\r\n  overview: String\r\n}\r\n\r\ntype Query {\r\n  getMovies(genre: String): [Movie]           # DataSource: MovieHandler\r\n  getChatRecommendations(text: String!): [String] # DataSource: AIHandler\r\n  getMyHistory: [Room]                        # DataSource: RoomHandler\r\n}\r\n\r\ntype Mutation {\r\n  createRoom: Room                            # DataSource: RoomHandler\r\n  joinRoom(roomId: ID!): Room                 # DataSource: RoomHandler\r\n  vote(roomId: ID!, movieId: ID!): Room       # DataSource: VoteHandler\r\n}\r\n\r\ntype Subscription {\r\n  onRoomUpdated(roomId: ID!): Room\r\n  @aws_subscribe(mutations: [\"vote\", \"joinRoom\"])\r\n}\r\n\r\nschema {\r\n  query: Query\r\n  mutation: Mutation\r\n  subscription: Subscription\r\n}"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.CfnGraphQLSchema",
+                  "version": "2.100.0"
+                }
+              },
+              "DefaultApiKey": {
+                "id": "DefaultApiKey",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/DefaultApiKey",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::AppSync::ApiKey",
+                  "aws:cdk:cloudformation:props": {
+                    "apiId": {
+                      "Fn::GetAtt": [
+                        "TrinityGraphQLApi1D4CC11E",
+                        "ApiId"
+                      ]
+                    },
+                    "expires": 1798071868
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.CfnApiKey",
+                  "version": "2.100.0"
+                }
+              },
+              "LogGroup": {
+                "id": "LogGroup",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/LogGroup",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.Resource",
+                  "version": "2.100.0"
+                }
+              },
+              "AuthDataSource": {
+                "id": "AuthDataSource",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/AuthDataSource",
+                "children": {
+                  "ServiceRole": {
+                    "id": "ServiceRole",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/AuthDataSource/ServiceRole",
+                    "children": {
+                      "ImportServiceRole": {
+                        "id": "ImportServiceRole",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/AuthDataSource/ServiceRole/ImportServiceRole",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.Resource",
+                          "version": "2.100.0"
+                        }
+                      },
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/AuthDataSource/ServiceRole/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                          "aws:cdk:cloudformation:props": {
+                            "assumeRolePolicyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "sts:AssumeRole",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "Service": "appsync.amazonaws.com"
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                          "version": "2.100.0"
+                        }
+                      },
+                      "DefaultPolicy": {
+                        "id": "DefaultPolicy",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/AuthDataSource/ServiceRole/DefaultPolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "TrinityMvpStack/TrinityGraphQLApi/AuthDataSource/ServiceRole/DefaultPolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": "lambda:InvokeFunction",
+                                      "Effect": "Allow",
+                                      "Resource": [
+                                        {
+                                          "Fn::GetAtt": [
+                                            "AuthHandler9DC767B7",
+                                            "Arn"
+                                          ]
+                                        },
+                                        {
+                                          "Fn::Join": [
+                                            "",
+                                            [
+                                              {
+                                                "Fn::GetAtt": [
+                                                  "AuthHandler9DC767B7",
+                                                  "Arn"
+                                                ]
+                                              },
+                                              ":*"
+                                            ]
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "TrinityGraphQLApiAuthDataSourceServiceRoleDefaultPolicy043525F5",
+                                "roles": [
+                                  {
+                                    "Ref": "TrinityGraphQLApiAuthDataSourceServiceRoleAE9333AA"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.100.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.100.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Role",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/AuthDataSource/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::DataSource",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "lambdaConfig": {
+                          "lambdaFunctionArn": {
+                            "Fn::GetAtt": [
+                              "AuthHandler9DC767B7",
+                              "Arn"
+                            ]
+                          }
+                        },
+                        "name": "AuthDataSource",
+                        "serviceRoleArn": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApiAuthDataSourceServiceRoleAE9333AA",
+                            "Arn"
+                          ]
+                        },
+                        "type": "AWS_LAMBDA"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnDataSource",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.LambdaDataSource",
+                  "version": "2.100.0"
+                }
+              },
+              "RoomDataSource": {
+                "id": "RoomDataSource",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/RoomDataSource",
+                "children": {
+                  "ServiceRole": {
+                    "id": "ServiceRole",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/RoomDataSource/ServiceRole",
+                    "children": {
+                      "ImportServiceRole": {
+                        "id": "ImportServiceRole",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/RoomDataSource/ServiceRole/ImportServiceRole",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.Resource",
+                          "version": "2.100.0"
+                        }
+                      },
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/RoomDataSource/ServiceRole/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                          "aws:cdk:cloudformation:props": {
+                            "assumeRolePolicyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "sts:AssumeRole",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "Service": "appsync.amazonaws.com"
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                          "version": "2.100.0"
+                        }
+                      },
+                      "DefaultPolicy": {
+                        "id": "DefaultPolicy",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/RoomDataSource/ServiceRole/DefaultPolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "TrinityMvpStack/TrinityGraphQLApi/RoomDataSource/ServiceRole/DefaultPolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": "lambda:InvokeFunction",
+                                      "Effect": "Allow",
+                                      "Resource": [
+                                        {
+                                          "Fn::GetAtt": [
+                                            "RoomHandlerCF7B6EB0",
+                                            "Arn"
+                                          ]
+                                        },
+                                        {
+                                          "Fn::Join": [
+                                            "",
+                                            [
+                                              {
+                                                "Fn::GetAtt": [
+                                                  "RoomHandlerCF7B6EB0",
+                                                  "Arn"
+                                                ]
+                                              },
+                                              ":*"
+                                            ]
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "TrinityGraphQLApiRoomDataSourceServiceRoleDefaultPolicy5529DCEA",
+                                "roles": [
+                                  {
+                                    "Ref": "TrinityGraphQLApiRoomDataSourceServiceRole3D967D03"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.100.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.100.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Role",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/RoomDataSource/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::DataSource",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "lambdaConfig": {
+                          "lambdaFunctionArn": {
+                            "Fn::GetAtt": [
+                              "RoomHandlerCF7B6EB0",
+                              "Arn"
+                            ]
+                          }
+                        },
+                        "name": "RoomDataSource",
+                        "serviceRoleArn": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApiRoomDataSourceServiceRole3D967D03",
+                            "Arn"
+                          ]
+                        },
+                        "type": "AWS_LAMBDA"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnDataSource",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.LambdaDataSource",
+                  "version": "2.100.0"
+                }
+              },
+              "MovieDataSource": {
+                "id": "MovieDataSource",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/MovieDataSource",
+                "children": {
+                  "ServiceRole": {
+                    "id": "ServiceRole",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/MovieDataSource/ServiceRole",
+                    "children": {
+                      "ImportServiceRole": {
+                        "id": "ImportServiceRole",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/MovieDataSource/ServiceRole/ImportServiceRole",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.Resource",
+                          "version": "2.100.0"
+                        }
+                      },
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/MovieDataSource/ServiceRole/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                          "aws:cdk:cloudformation:props": {
+                            "assumeRolePolicyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "sts:AssumeRole",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "Service": "appsync.amazonaws.com"
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                          "version": "2.100.0"
+                        }
+                      },
+                      "DefaultPolicy": {
+                        "id": "DefaultPolicy",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/MovieDataSource/ServiceRole/DefaultPolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "TrinityMvpStack/TrinityGraphQLApi/MovieDataSource/ServiceRole/DefaultPolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": "lambda:InvokeFunction",
+                                      "Effect": "Allow",
+                                      "Resource": [
+                                        {
+                                          "Fn::GetAtt": [
+                                            "MovieHandler51BC04A7",
+                                            "Arn"
+                                          ]
+                                        },
+                                        {
+                                          "Fn::Join": [
+                                            "",
+                                            [
+                                              {
+                                                "Fn::GetAtt": [
+                                                  "MovieHandler51BC04A7",
+                                                  "Arn"
+                                                ]
+                                              },
+                                              ":*"
+                                            ]
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "TrinityGraphQLApiMovieDataSourceServiceRoleDefaultPolicy96D09C1C",
+                                "roles": [
+                                  {
+                                    "Ref": "TrinityGraphQLApiMovieDataSourceServiceRole573EF30B"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.100.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.100.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Role",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/MovieDataSource/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::DataSource",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "lambdaConfig": {
+                          "lambdaFunctionArn": {
+                            "Fn::GetAtt": [
+                              "MovieHandler51BC04A7",
+                              "Arn"
+                            ]
+                          }
+                        },
+                        "name": "MovieDataSource",
+                        "serviceRoleArn": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApiMovieDataSourceServiceRole573EF30B",
+                            "Arn"
+                          ]
+                        },
+                        "type": "AWS_LAMBDA"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnDataSource",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.LambdaDataSource",
+                  "version": "2.100.0"
+                }
+              },
+              "VoteDataSource": {
+                "id": "VoteDataSource",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/VoteDataSource",
+                "children": {
+                  "ServiceRole": {
+                    "id": "ServiceRole",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/VoteDataSource/ServiceRole",
+                    "children": {
+                      "ImportServiceRole": {
+                        "id": "ImportServiceRole",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/VoteDataSource/ServiceRole/ImportServiceRole",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.Resource",
+                          "version": "2.100.0"
+                        }
+                      },
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/VoteDataSource/ServiceRole/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                          "aws:cdk:cloudformation:props": {
+                            "assumeRolePolicyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "sts:AssumeRole",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "Service": "appsync.amazonaws.com"
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                          "version": "2.100.0"
+                        }
+                      },
+                      "DefaultPolicy": {
+                        "id": "DefaultPolicy",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/VoteDataSource/ServiceRole/DefaultPolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "TrinityMvpStack/TrinityGraphQLApi/VoteDataSource/ServiceRole/DefaultPolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": "lambda:InvokeFunction",
+                                      "Effect": "Allow",
+                                      "Resource": [
+                                        {
+                                          "Fn::GetAtt": [
+                                            "VoteHandler897F0396",
+                                            "Arn"
+                                          ]
+                                        },
+                                        {
+                                          "Fn::Join": [
+                                            "",
+                                            [
+                                              {
+                                                "Fn::GetAtt": [
+                                                  "VoteHandler897F0396",
+                                                  "Arn"
+                                                ]
+                                              },
+                                              ":*"
+                                            ]
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "TrinityGraphQLApiVoteDataSourceServiceRoleDefaultPolicy082DBDDE",
+                                "roles": [
+                                  {
+                                    "Ref": "TrinityGraphQLApiVoteDataSourceServiceRole50B6F338"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.100.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.100.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Role",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/VoteDataSource/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::DataSource",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "lambdaConfig": {
+                          "lambdaFunctionArn": {
+                            "Fn::GetAtt": [
+                              "VoteHandler897F0396",
+                              "Arn"
+                            ]
+                          }
+                        },
+                        "name": "VoteDataSource",
+                        "serviceRoleArn": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApiVoteDataSourceServiceRole50B6F338",
+                            "Arn"
+                          ]
+                        },
+                        "type": "AWS_LAMBDA"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnDataSource",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.LambdaDataSource",
+                  "version": "2.100.0"
+                }
+              },
+              "AIDataSource": {
+                "id": "AIDataSource",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/AIDataSource",
+                "children": {
+                  "ServiceRole": {
+                    "id": "ServiceRole",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/AIDataSource/ServiceRole",
+                    "children": {
+                      "ImportServiceRole": {
+                        "id": "ImportServiceRole",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/AIDataSource/ServiceRole/ImportServiceRole",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.Resource",
+                          "version": "2.100.0"
+                        }
+                      },
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/AIDataSource/ServiceRole/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                          "aws:cdk:cloudformation:props": {
+                            "assumeRolePolicyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "sts:AssumeRole",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "Service": "appsync.amazonaws.com"
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                          "version": "2.100.0"
+                        }
+                      },
+                      "DefaultPolicy": {
+                        "id": "DefaultPolicy",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/AIDataSource/ServiceRole/DefaultPolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "TrinityMvpStack/TrinityGraphQLApi/AIDataSource/ServiceRole/DefaultPolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": "lambda:InvokeFunction",
+                                      "Effect": "Allow",
+                                      "Resource": [
+                                        {
+                                          "Fn::GetAtt": [
+                                            "AIHandler5D68B6F1",
+                                            "Arn"
+                                          ]
+                                        },
+                                        {
+                                          "Fn::Join": [
+                                            "",
+                                            [
+                                              {
+                                                "Fn::GetAtt": [
+                                                  "AIHandler5D68B6F1",
+                                                  "Arn"
+                                                ]
+                                              },
+                                              ":*"
+                                            ]
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "TrinityGraphQLApiAIDataSourceServiceRoleDefaultPolicy975912FD",
+                                "roles": [
+                                  {
+                                    "Ref": "TrinityGraphQLApiAIDataSourceServiceRole1000DC2A"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.100.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.100.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Role",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/AIDataSource/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::DataSource",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "lambdaConfig": {
+                          "lambdaFunctionArn": {
+                            "Fn::GetAtt": [
+                              "AIHandler5D68B6F1",
+                              "Arn"
+                            ]
+                          }
+                        },
+                        "name": "AIDataSource",
+                        "serviceRoleArn": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApiAIDataSourceServiceRole1000DC2A",
+                            "Arn"
+                          ]
+                        },
+                        "type": "AWS_LAMBDA"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnDataSource",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.LambdaDataSource",
+                  "version": "2.100.0"
+                }
+              },
+              "GetMoviesResolver": {
+                "id": "GetMoviesResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/GetMoviesResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/GetMoviesResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "MovieDataSource",
+                        "fieldName": "getMovies",
+                        "kind": "UNIT",
+                        "typeName": "Query"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "GetChatRecommendationsResolver": {
+                "id": "GetChatRecommendationsResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/GetChatRecommendationsResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/GetChatRecommendationsResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "AIDataSource",
+                        "fieldName": "getChatRecommendations",
+                        "kind": "UNIT",
+                        "typeName": "Query"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "GetMyHistoryResolver": {
+                "id": "GetMyHistoryResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/GetMyHistoryResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/GetMyHistoryResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "RoomDataSource",
+                        "fieldName": "getMyHistory",
+                        "kind": "UNIT",
+                        "typeName": "Query"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "CreateRoomResolver": {
+                "id": "CreateRoomResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/CreateRoomResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/CreateRoomResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "RoomDataSource",
+                        "fieldName": "createRoom",
+                        "kind": "UNIT",
+                        "typeName": "Mutation"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "JoinRoomResolver": {
+                "id": "JoinRoomResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/JoinRoomResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/JoinRoomResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "RoomDataSource",
+                        "fieldName": "joinRoom",
+                        "kind": "UNIT",
+                        "typeName": "Mutation"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "VoteResolver": {
+                "id": "VoteResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/VoteResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/VoteResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "VoteDataSource",
+                        "fieldName": "vote",
+                        "kind": "UNIT",
+                        "typeName": "Mutation"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_appsync.GraphqlApi",
+              "version": "2.100.0"
+            }
+          },
+          "GraphQLApiUrl": {
+            "id": "GraphQLApiUrl",
+            "path": "TrinityMvpStack/GraphQLApiUrl",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "GraphQLApiId": {
+            "id": "GraphQLApiId",
+            "path": "TrinityMvpStack/GraphQLApiId",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "UserPoolId": {
+            "id": "UserPoolId",
+            "path": "TrinityMvpStack/UserPoolId",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "Region": {
+            "id": "Region",
+            "path": "TrinityMvpStack/Region",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "AuthHandlerName": {
+            "id": "AuthHandlerName",
+            "path": "TrinityMvpStack/AuthHandlerName",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "RoomHandlerName": {
+            "id": "RoomHandlerName",
+            "path": "TrinityMvpStack/RoomHandlerName",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "MovieHandlerName": {
+            "id": "MovieHandlerName",
+            "path": "TrinityMvpStack/MovieHandlerName",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "VoteHandlerName": {
+            "id": "VoteHandlerName",
+            "path": "TrinityMvpStack/VoteHandlerName",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "AIHandlerName": {
+            "id": "AIHandlerName",
+            "path": "TrinityMvpStack/AIHandlerName",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "CDKMetadata": {
+            "id": "CDKMetadata",
+            "path": "TrinityMvpStack/CDKMetadata",
+            "children": {
+              "Default": {
+                "id": "Default",
+                "path": "TrinityMvpStack/CDKMetadata/Default",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnResource",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "constructs.Construct",
+              "version": "10.4.4"
+            }
+          },
+          "BootstrapVersion": {
+            "id": "BootstrapVersion",
+            "path": "TrinityMvpStack/BootstrapVersion",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnParameter",
+              "version": "2.100.0"
+            }
+          },
+          "CheckBootstrapVersion": {
+            "id": "CheckBootstrapVersion",
+            "path": "TrinityMvpStack/CheckBootstrapVersion",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnRule",
+              "version": "2.100.0"
+            }
+          }
+        },
+        "constructInfo": {
+          "fqn": "aws-cdk-lib.Stack",
+          "version": "2.100.0"
+        }
+      },
+      "Tree": {
+        "id": "Tree",
+        "path": "Tree",
+        "constructInfo": {
+          "fqn": "constructs.Construct",
+          "version": "10.4.4"
+        }
+      }
+    },
+    "constructInfo": {
+      "fqn": "aws-cdk-lib.App",
+      "version": "2.100.0"
+    }
+  }
+}

@@ -6,6 +6,7 @@ import { DynamoDBService } from '../../infrastructure/database/dynamodb.service'
 import { MemberService } from '../room/member.service';
 import { RoomService } from '../room/room.service';
 import { MediaService } from '../media/media.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { 
   Vote, 
   VoteType, 
@@ -54,6 +55,13 @@ describe('InteractionService', () => {
       getMediaDetails: jest.fn(),
     };
 
+    const mockRealtimeService = {
+      notifyVote: jest.fn(),
+      notifyMatch: jest.fn(),
+      notifyRoomStateChange: jest.fn(),
+      notifyMemberStatusChange: jest.fn(),
+    };
+
     const mockConfigService = {
       get: jest.fn(),
     };
@@ -65,6 +73,7 @@ describe('InteractionService', () => {
         { provide: MemberService, useValue: mockMemberService },
         { provide: RoomService, useValue: mockRoomService },
         { provide: MediaService, useValue: mockMediaService },
+        { provide: RealtimeService, useValue: mockRealtimeService },
         { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();

@@ -5,6 +5,9 @@ import { DynamoDBKeys } from '../../infrastructure/database/dynamodb.constants';
 import { MemberService } from '../room/member.service';
 import { RoomService } from '../room/room.service';
 import { MediaService } from '../media/media.service';
+import { RealtimeCompatibilityService } from '../realtime/realtime-compatibility.service';
+import { EventTracker } from '../analytics/event-tracker.service';
+import { EventType } from '../analytics/interfaces/analytics.interfaces';
 import {
   Vote,
   VoteType,
@@ -24,6 +27,8 @@ export class InteractionService {
     private memberService: MemberService,
     private roomService: RoomService,
     private mediaService: MediaService,
+    private realtimeService: RealtimeCompatibilityService,
+    private eventTracker: EventTracker,
   ) {}
 
   /**
@@ -69,6 +74,22 @@ export class InteractionService {
 
       await this.saveVote(vote);
 
+      // 📝 Track content vote event
+      await this.eventTracker.trackContentInteraction(
+        userId,
+        roomId,
+        createVoteDto.mediaId,
+        'vote',
+        {
+          voteType: createVoteDto.voteType,
+          sessionId: createVoteDto.sessionId,
+        },
+        {
+          source: 'interaction_service',
+          userAgent: 'backend',
+        }
+      );
+
       // 5. Avanzar el índice del miembro
       const newIndex = await this.memberService.advanceMemberIndex(roomId, userId);
 
@@ -80,6 +101,18 @@ export class InteractionService {
 
       // 8. Calcular progreso
       const progress = await this.memberService.getMemberProgress(roomId, userId);
+
+      // 9. Notificar voto en tiempo real
+      await this.realtimeService.notifyVote(roomId, {
+        userId,
+        mediaId: createVoteDto.mediaId,
+        voteType: createVoteDto.voteType,
+        progress: {
+          totalVotes: progress.currentIndex,
+          requiredVotes: progress.totalItems,
+          percentage: progress.progressPercentage,
+        },
+      });
 
       this.logger.log(
         `Voto registrado: ${userId} votó ${createVoteDto.voteType} por ${createVoteDto.mediaId} en sala ${roomId}`
@@ -139,7 +172,7 @@ export class InteractionService {
     }
 
     // Obtener detalles del contenido desde el servicio de media
-    const mediaDetails = await this.mediaService.getMediaDetails(queueStatus.currentMediaId);
+    const mediaDetails = await this.mediaService.getMovieDetails(queueStatus.currentMediaId);
     
     return {
       ...mediaDetails,
