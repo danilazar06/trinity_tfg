@@ -14,7 +14,8 @@ export const handler: PostConfirmationTriggerHandler = async (event: PostConfirm
   console.log('🔐 Post Confirmation Trigger:', JSON.stringify(event, null, 2));
 
   try {
-    const { userAttributes, userName } = event.request;
+    const { userAttributes } = event.request;
+    const userName = event.userName;
     
     // Extraer información del usuario desde Cognito
     const userId = userName;
@@ -91,7 +92,7 @@ export const ensureUserProfile = async (userId: string, email?: string) => {
     console.log(`✅ Perfil de usuario creado: ${userId}`);
     return userProfile;
 
-  } catch (error) {
+  } catch (error: any) {
     if (error.name === 'ConditionalCheckFailedException') {
       console.log(`ℹ️ Usuario ya existe: ${userId}`);
       return null; // Usuario ya existe

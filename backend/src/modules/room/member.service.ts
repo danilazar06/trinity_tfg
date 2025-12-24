@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
 import { DynamoDBKeys } from '../../infrastructure/database/dynamodb.constants';
 import { Member, MemberRole, MemberStatus } from '../../domain/entities/room.entity';
+import { EventTracker } from '../analytics/event-tracker.service';
+import { EventType } from '../analytics/interfaces/analytics.interfaces';
 
 @Injectable()
 export class MemberService {
@@ -12,6 +14,7 @@ export class MemberService {
   constructor(
     private dynamoDBService: DynamoDBService,
     private configService: ConfigService,
+    private eventTracker: EventTracker,
   ) {
     this.inactiveTimeoutMinutes = this.configService.get('INACTIVE_MEMBER_TIMEOUT_MINUTES', 30);
   }
@@ -38,6 +41,23 @@ export class MemberService {
       GSI1SK: DynamoDBKeys.memberGSI1SK(roomId),
       ...member,
     });
+
+    // 📝 Track room join event (only if not creator - creator join is tracked in room creation)
+    if (role !== MemberRole.CREATOR) {
+      await this.eventTracker.trackRoomEvent(
+        roomId,
+        EventType.ROOM_JOINED,
+        userId,
+        {
+          memberRole: role,
+          joinMethod: 'invite',
+        },
+        {
+          source: 'member_service',
+          userAgent: 'backend',
+        }
+      );
+    }
 
     this.logger.log(`Miembro añadido: ${userId} a la sala ${roomId} con rol ${role}`);
     return member;
@@ -99,6 +119,20 @@ export class MemberService {
    * Eliminar un miembro de la sala
    */
   async removeMember(roomId: string, userId: string): Promise<void> {
+    // 📝 Track room leave event
+    await this.eventTracker.trackRoomEvent(
+      roomId,
+      EventType.ROOM_LEFT,
+      userId,
+      {
+        leaveMethod: 'manual',
+      },
+      {
+        source: 'member_service',
+        userAgent: 'backend',
+      }
+    );
+
     // Eliminar el miembro
     await this.dynamoDBService.deleteItem(
       DynamoDBKeys.roomPK(roomId),

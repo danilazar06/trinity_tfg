@@ -27,7 +27,8 @@ interface Vote {
 export const handler: AppSyncResolverHandler<any, any> = async (event: AppSyncResolverEvent<any>) => {
   console.log('🗳️ Vote Handler:', JSON.stringify(event, null, 2));
 
-  const { fieldName, arguments: args } = event;
+  const fieldName = event.info?.fieldName;
+  const args = event.arguments;
   const { sub: userId } = event.identity as any; // Usuario autenticado
 
   try {

@@ -6,6 +6,7 @@ import { DynamoDBService } from '../../infrastructure/database/dynamodb.service'
 import { MemberService } from '../room/member.service';
 import { MediaService } from '../media/media.service';
 import { InteractionService } from '../interaction/interaction.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { 
   Match, 
   MatchDetectionResult, 
@@ -52,6 +53,13 @@ describe('MatchService', () => {
       get: jest.fn(),
     };
 
+    const mockRealtimeService = {
+      notifyVote: jest.fn(),
+      notifyMatch: jest.fn(),
+      notifyRoomStateChange: jest.fn(),
+      notifyMemberStatusChange: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MatchService,
@@ -59,6 +67,7 @@ describe('MatchService', () => {
         { provide: MemberService, useValue: mockMemberService },
         { provide: MediaService, useValue: mockMediaService },
         { provide: InteractionService, useValue: mockInteractionService },
+        { provide: RealtimeService, useValue: mockRealtimeService },
         { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
