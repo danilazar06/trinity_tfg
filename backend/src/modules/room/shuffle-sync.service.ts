@@ -26,7 +26,9 @@ export class ShuffleSyncService {
   /**
    * Generar Lista Maestra y Listas Desordenadas para una sala
    */
-  async generateMasterListAndShuffledLists(roomId: string): Promise<ShuffleResult> {
+  async generateMasterListAndShuffledLists(
+    roomId: string,
+  ): Promise<ShuffleResult> {
     try {
       // 1. Obtener la sala y sus filtros
       const room = await this.roomService.getRoomById(roomId);
@@ -36,9 +38,11 @@ export class ShuffleSyncService {
 
       // 2. Obtener contenido de TMDB basado en filtros
       const mediaItems = await this.mediaService.fetchMovies(room.filters);
-      
+
       if (mediaItems.length === 0) {
-        this.logger.warn(`No se encontró contenido para la sala ${roomId} con los filtros aplicados`);
+        this.logger.warn(
+          `No se encontró contenido para la sala ${roomId} con los filtros aplicados`,
+        );
         return {
           masterListUpdated: false,
           shuffledListsGenerated: 0,
@@ -47,17 +51,21 @@ export class ShuffleSyncService {
       }
 
       // 3. Crear Lista Maestra (array de mediaIds)
-      const masterList = mediaItems.map(item => item.tmdbId);
+      const masterList = mediaItems.map((item) => item.tmdbId);
 
       // 4. Actualizar Lista Maestra en la sala
       await this.roomService.updateMasterList(roomId, masterList);
 
       // 5. Generar Listas Desordenadas para todos los miembros
-      const shuffledCount = await this.memberService.generateShuffledListsForAllMembers(roomId, masterList);
+      const shuffledCount =
+        await this.memberService.generateShuffledListsForAllMembers(
+          roomId,
+          masterList,
+        );
 
       this.logger.log(
         `Shuffle & Sync completado para sala ${roomId}: ` +
-        `${masterList.length} elementos, ${shuffledCount} listas generadas`
+          `${masterList.length} elementos, ${shuffledCount} listas generadas`,
       );
 
       return {
@@ -66,7 +74,9 @@ export class ShuffleSyncService {
         totalMediaItems: masterList.length,
       };
     } catch (error) {
-      this.logger.error(`Error en Shuffle & Sync para sala ${roomId}: ${error.message}`);
+      this.logger.error(
+        `Error en Shuffle & Sync para sala ${roomId}: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -87,12 +97,15 @@ export class ShuffleSyncService {
       }
 
       // Regenerar solo las listas desordenadas
-      const shuffledCount = await this.memberService.generateShuffledListsForAllMembers(
-        roomId, 
-        room.masterList
-      );
+      const shuffledCount =
+        await this.memberService.generateShuffledListsForAllMembers(
+          roomId,
+          room.masterList,
+        );
 
-      this.logger.log(`Listas desordenadas regeneradas para sala ${roomId}: ${shuffledCount} listas`);
+      this.logger.log(
+        `Listas desordenadas regeneradas para sala ${roomId}: ${shuffledCount} listas`,
+      );
 
       return {
         masterListUpdated: false,
@@ -100,7 +113,9 @@ export class ShuffleSyncService {
         totalMediaItems: room.masterList.length,
       };
     } catch (error) {
-      this.logger.error(`Error regenerando listas desordenadas: ${error.message}`);
+      this.logger.error(
+        `Error regenerando listas desordenadas: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -108,7 +123,10 @@ export class ShuffleSyncService {
   /**
    * Añadir nuevo contenido a la Lista Maestra y actualizar listas desordenadas
    */
-  async injectNewContent(roomId: string, newMediaIds: string[]): Promise<ShuffleResult> {
+  async injectNewContent(
+    roomId: string,
+    newMediaIds: string[],
+  ): Promise<ShuffleResult> {
     try {
       const room = await this.roomService.getRoomById(roomId);
       if (!room) {
@@ -117,10 +135,12 @@ export class ShuffleSyncService {
 
       // Combinar contenido existente con nuevo contenido (evitar duplicados)
       const existingIds = new Set(room.masterList);
-      const uniqueNewIds = newMediaIds.filter(id => !existingIds.has(id));
+      const uniqueNewIds = newMediaIds.filter((id) => !existingIds.has(id));
 
       if (uniqueNewIds.length === 0) {
-        this.logger.log(`No hay contenido nuevo para inyectar en sala ${roomId}`);
+        this.logger.log(
+          `No hay contenido nuevo para inyectar en sala ${roomId}`,
+        );
         return {
           masterListUpdated: false,
           shuffledListsGenerated: 0,
@@ -137,12 +157,14 @@ export class ShuffleSyncService {
 
       this.logger.log(
         `Contenido inyectado en sala ${roomId}: ` +
-        `${uniqueNewIds.length} nuevos elementos, total ${updatedMasterList.length}`
+          `${uniqueNewIds.length} nuevos elementos, total ${updatedMasterList.length}`,
       );
 
       return {
         masterListUpdated: true,
-        shuffledListsGenerated: await this.memberService.getRoomMembers(roomId).then(m => m.length),
+        shuffledListsGenerated: await this.memberService
+          .getRoomMembers(roomId)
+          .then((m) => m.length),
         totalMediaItems: updatedMasterList.length,
       };
     } catch (error) {
@@ -154,27 +176,36 @@ export class ShuffleSyncService {
   /**
    * Inyectar contenido en listas desordenadas existentes
    */
-  private async injectContentIntoShuffledLists(roomId: string, newMediaIds: string[]): Promise<void> {
+  private async injectContentIntoShuffledLists(
+    roomId: string,
+    newMediaIds: string[],
+  ): Promise<void> {
     const members = await this.memberService.getRoomMembers(roomId);
 
     for (const member of members) {
       // Generar posiciones aleatorias para insertar el nuevo contenido
       const updatedList = [...member.shuffledList];
-      
+
       for (const mediaId of newMediaIds) {
         // Insertar en posición aleatoria después del índice actual
         const insertPosition = Math.max(
           member.currentIndex + 1,
-          Math.floor(Math.random() * (updatedList.length + 1))
+          Math.floor(Math.random() * (updatedList.length + 1)),
         );
         updatedList.splice(insertPosition, 0, mediaId);
       }
 
       // Actualizar la lista del miembro
-      await this.memberService.updateMemberShuffledList(roomId, member.userId, updatedList);
+      await this.memberService.updateMemberShuffledList(
+        roomId,
+        member.userId,
+        updatedList,
+      );
     }
 
-    this.logger.log(`Contenido inyectado en ${members.length} listas desordenadas`);
+    this.logger.log(
+      `Contenido inyectado en ${members.length} listas desordenadas`,
+    );
   }
 
   /**
@@ -190,7 +221,7 @@ export class ShuffleSyncService {
     try {
       const room = await this.roomService.getRoomById(roomId);
       const members = await this.memberService.getRoomMembers(roomId);
-      
+
       if (!room) {
         return {
           isConsistent: false,
@@ -215,7 +246,9 @@ export class ShuffleSyncService {
         const masterSet = new Set(room.masterList);
 
         if (memberSet.size !== masterSet.size) {
-          issues.push(`Miembro ${member.userId}: tamaño de lista inconsistente`);
+          issues.push(
+            `Miembro ${member.userId}: tamaño de lista inconsistente`,
+          );
         }
 
         for (const mediaId of room.masterList) {
@@ -235,8 +268,8 @@ export class ShuffleSyncService {
       let uniqueOrderings = true;
       if (memberLists.length > 1) {
         const firstList = memberLists[0];
-        uniqueOrderings = memberLists.some(list => 
-          JSON.stringify(list) !== JSON.stringify(firstList)
+        uniqueOrderings = memberLists.some(
+          (list) => JSON.stringify(list) !== JSON.stringify(firstList),
         );
       }
 
@@ -281,23 +314,27 @@ export class ShuffleSyncService {
 
       // Calcular progreso promedio
       const totalProgress = members.reduce((sum, member) => {
-        const progress = member.shuffledList.length > 0 
-          ? (member.currentIndex / member.shuffledList.length) * 100 
-          : 0;
+        const progress =
+          member.shuffledList.length > 0
+            ? (member.currentIndex / member.shuffledList.length) * 100
+            : 0;
         return sum + progress;
       }, 0);
 
-      const averageProgress = members.length > 0 ? totalProgress / members.length : 0;
+      const averageProgress =
+        members.length > 0 ? totalProgress / members.length : 0;
 
       return {
         masterListSize: room.masterList.length,
         totalMembers: members.length,
         averageProgress: Math.round(averageProgress),
-        listsGenerated: members.every(m => m.shuffledList.length > 0),
+        listsGenerated: members.every((m) => m.shuffledList.length > 0),
         lastUpdate: room.updatedAt,
       };
     } catch (error) {
-      this.logger.error(`Error obteniendo estadísticas Shuffle & Sync: ${error.message}`);
+      this.logger.error(
+        `Error obteniendo estadísticas Shuffle & Sync: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -311,7 +348,11 @@ export class ShuffleSyncService {
 
       // Resetear índices y listas de todos los miembros
       for (const member of members) {
-        await this.memberService.updateMemberShuffledList(roomId, member.userId, []);
+        await this.memberService.updateMemberShuffledList(
+          roomId,
+          member.userId,
+          [],
+        );
       }
 
       // Limpiar Lista Maestra

@@ -1,16 +1,16 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Put, 
-  Delete, 
-  Body, 
-  Param, 
-  Query, 
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
   UseGuards,
   Request,
   HttpStatus,
-  HttpCode
+  HttpCode,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RoomThemeService } from './room-theme.service';
@@ -41,9 +41,12 @@ export class RoomThemeController {
   @HttpCode(HttpStatus.CREATED)
   async createTheme(
     @Body() createThemeDto: CreateThemeDto,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<ThemeResponseDto> {
-    const theme = await this.roomThemeService.createTheme(req.user.id, createThemeDto);
+    const theme = await this.roomThemeService.createTheme(
+      req.user.id,
+      createThemeDto,
+    );
 
     return {
       id: theme.id,
@@ -68,11 +71,11 @@ export class RoomThemeController {
    */
   @Get()
   async getPublicThemes(
-    @Query() filters: ThemeFiltersDto
+    @Query() filters: ThemeFiltersDto,
   ): Promise<PopularThemesResponseDto> {
     const themes = await this.roomThemeService.getPublicThemes(filters);
-    
-    const themeResponses: ThemeResponseDto[] = themes.map(theme => ({
+
+    const themeResponses: ThemeResponseDto[] = themes.map((theme) => ({
       id: theme.id,
       name: theme.name,
       description: theme.description,
@@ -104,8 +107,8 @@ export class RoomThemeController {
   @Get('my-themes')
   async getMyThemes(@Request() req: any): Promise<ThemeResponseDto[]> {
     const themes = await this.roomThemeService.getUserThemes(req.user.id);
-    
-    return themes.map(theme => ({
+
+    return themes.map((theme) => ({
       id: theme.id,
       name: theme.name,
       description: theme.description,
@@ -128,11 +131,11 @@ export class RoomThemeController {
    */
   @Get('popular')
   async getPopularThemes(
-    @Query('limit') limit?: number
+    @Query('limit') limit?: number,
   ): Promise<ThemeResponseDto[]> {
     const popularThemes = await this.roomThemeService.getPopularThemes(limit);
-    
-    return popularThemes.map(theme => ({
+
+    return popularThemes.map((theme) => ({
       id: theme.id,
       name: theme.name,
       description: theme.description,
@@ -186,9 +189,13 @@ export class RoomThemeController {
   async updateTheme(
     @Param('id') themeId: string,
     @Body() updateThemeDto: UpdateThemeDto,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<ThemeResponseDto> {
-    const theme = await this.roomThemeService.updateTheme(themeId, req.user.id, updateThemeDto);
+    const theme = await this.roomThemeService.updateTheme(
+      themeId,
+      req.user.id,
+      updateThemeDto,
+    );
 
     return {
       id: theme.id,
@@ -215,7 +222,7 @@ export class RoomThemeController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteTheme(
     @Param('id') themeId: string,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<void> {
     await this.roomThemeService.deleteTheme(themeId, req.user.id);
   }
@@ -228,13 +235,13 @@ export class RoomThemeController {
   async rateTheme(
     @Param('id') themeId: string,
     @Body() rateThemeDto: RateThemeDto,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<{ success: boolean; message: string }> {
     await this.roomThemeService.rateTheme(themeId, req.user.id, rateThemeDto);
 
     return {
       success: true,
-      message: 'Tema calificado exitosamente'
+      message: 'Tema calificado exitosamente',
     };
   }
 
@@ -243,7 +250,7 @@ export class RoomThemeController {
    */
   @Post('validate')
   async validateTheme(
-    @Body() createThemeDto: CreateThemeDto
+    @Body() createThemeDto: CreateThemeDto,
   ): Promise<ThemeValidationResponseDto> {
     // Usar el método privado de validación del servicio
     // En una implementación completa, esto sería un método público
@@ -253,8 +260,8 @@ export class RoomThemeController {
       warnings: [],
       suggestions: [
         'Considera usar colores con buen contraste para accesibilidad',
-        'Prueba tu tema en diferentes dispositivos'
-      ]
+        'Prueba tu tema en diferentes dispositivos',
+      ],
     };
   }
 }
@@ -272,12 +279,12 @@ export class RoomThemeManagementController {
   async applyTheme(
     @Param('roomId') roomId: string,
     @Body() applyThemeDto: ApplyThemeDto,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<AppliedThemeResponseDto> {
     const application = await this.roomThemeService.applyThemeToRoom(
       roomId,
       req.user.id,
-      applyThemeDto
+      applyThemeDto,
     );
 
     const theme = await this.roomThemeService.getTheme(application.themeId);
@@ -313,7 +320,7 @@ export class RoomThemeManagementController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeTheme(
     @Param('roomId') roomId: string,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<void> {
     await this.roomThemeService.removeThemeFromRoom(roomId, req.user.id);
   }
@@ -324,7 +331,7 @@ export class RoomThemeManagementController {
   @Get('theme')
   async getRoomTheme(
     @Param('roomId') roomId: string,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<AppliedThemeResponseDto | null> {
     const activeTheme = await this.roomThemeService.getRoomTheme(roomId);
 
@@ -362,8 +369,12 @@ export class RoomThemeManagementController {
   @Get('theme/stats')
   async getRoomThemeStats(
     @Param('roomId') roomId: string,
-    @Request() req: any
-  ): Promise<{ totalThemeChanges: number; currentTheme?: string; lastChanged?: Date }> {
+    @Request() req: any,
+  ): Promise<{
+    totalThemeChanges: number;
+    currentTheme?: string;
+    lastChanged?: Date;
+  }> {
     // En una implementación completa, esto consultaría el historial real
     return {
       totalThemeChanges: Math.floor(Math.random() * 10) + 1,
@@ -379,7 +390,7 @@ export class RoomThemeManagementController {
   async getThemeHistory(
     @Param('roomId') roomId: string,
     @Query('limit') limit?: number,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<any[]> {
     // En una implementación completa, esto consultaría el historial real
     return [
@@ -389,8 +400,8 @@ export class RoomThemeManagementController {
         newTheme: 'dark-cinema',
         changedBy: req.user.id,
         changedAt: new Date(),
-        reason: 'Tema inicial'
-      }
+        reason: 'Tema inicial',
+      },
     ];
   }
 }

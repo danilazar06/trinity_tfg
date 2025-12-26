@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { 
-  RoomAutomationConfig, 
+import {
+  RoomAutomationConfig,
   AutomationLevel,
   OptimizationDecision,
   OptimizationType,
@@ -13,7 +13,7 @@ import {
   ContentPerformanceData,
   SessionPattern,
   OptimizationResult,
-  AutomationPerformanceMetrics
+  AutomationPerformanceMetrics,
 } from '../../domain/entities/room-automation.entity';
 import { Room } from '../../domain/entities/room.entity';
 import { MultiTableService } from '../../infrastructure/database/multi-table.service';
@@ -44,7 +44,7 @@ export class RoomAutomationService {
   async createAutomationConfig(
     roomId: string,
     userId: string,
-    config: Partial<RoomAutomationConfig>
+    config: Partial<RoomAutomationConfig>,
   ): Promise<RoomAutomationConfig> {
     this.logger.log(`🤖 Creating automation config for room ${roomId}`);
 
@@ -54,10 +54,14 @@ export class RoomAutomationService {
       creatorId: userId,
       isEnabled: config.isEnabled ?? true,
       automationLevel: config.automationLevel ?? AutomationLevel.BASIC,
-      contentOptimization: config.contentOptimization ?? this.getDefaultContentOptimization(),
-      sessionOptimization: config.sessionOptimization ?? this.getDefaultSessionOptimization(),
-      memberEngagement: config.memberEngagement ?? this.getDefaultMemberEngagement(),
-      preferenceLearning: config.preferenceLearning ?? this.getDefaultPreferenceLearning(),
+      contentOptimization:
+        config.contentOptimization ?? this.getDefaultContentOptimization(),
+      sessionOptimization:
+        config.sessionOptimization ?? this.getDefaultSessionOptimization(),
+      memberEngagement:
+        config.memberEngagement ?? this.getDefaultMemberEngagement(),
+      preferenceLearning:
+        config.preferenceLearning ?? this.getDefaultPreferenceLearning(),
       performanceMetrics: this.getInitialPerformanceMetrics(),
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -87,13 +91,15 @@ export class RoomAutomationService {
   /**
    * Get automation configuration for a room
    */
-  async getAutomationConfig(roomId: string): Promise<RoomAutomationConfig | null> {
+  async getAutomationConfig(
+    roomId: string,
+  ): Promise<RoomAutomationConfig | null> {
     const result = await this.multiTableService.query('RoomAutomation', {
       PK: `ROOM#${roomId}`,
       SK: { beginsWith: 'AUTOMATION#' },
     });
 
-    return result.length > 0 ? result[0] as RoomAutomationConfig : null;
+    return result.length > 0 ? (result[0] as RoomAutomationConfig) : null;
   }
 
   /**
@@ -102,7 +108,7 @@ export class RoomAutomationService {
   async updateAutomationConfig(
     roomId: string,
     userId: string,
-    updates: Partial<RoomAutomationConfig>
+    updates: Partial<RoomAutomationConfig>,
   ): Promise<RoomAutomationConfig> {
     const existing = await this.getAutomationConfig(roomId);
     if (!existing) {
@@ -115,10 +121,14 @@ export class RoomAutomationService {
       updatedAt: new Date(),
     };
 
-    await this.multiTableService.update('RoomAutomation', {
-      PK: `ROOM#${roomId}`,
-      SK: `AUTOMATION#${existing.id}`,
-    }, updated);
+    await this.multiTableService.update(
+      'RoomAutomation',
+      {
+        PK: `ROOM#${roomId}`,
+        SK: `AUTOMATION#${existing.id}`,
+      },
+      updated,
+    );
 
     // Track automation update event
     await this.eventTracker.trackEvent({
@@ -143,12 +153,14 @@ export class RoomAutomationService {
 
     try {
       const activeRooms = await this.getActiveRoomsWithAutomation();
-      
+
       for (const room of activeRooms) {
         await this.optimizeRoom(room.id);
       }
 
-      this.logger.log(`✅ Completed automation optimizations for ${activeRooms.length} rooms`);
+      this.logger.log(
+        `✅ Completed automation optimizations for ${activeRooms.length} rooms`,
+      );
     } catch (error) {
       this.logger.error('❌ Error running automation optimizations:', error);
     }
@@ -163,31 +175,49 @@ export class RoomAutomationService {
       return [];
     }
 
-    this.logger.log(`🎯 Optimizing room ${roomId} with ${config.automationLevel} automation`);
+    this.logger.log(
+      `🎯 Optimizing room ${roomId} with ${config.automationLevel} automation`,
+    );
 
     const decisions: OptimizationDecision[] = [];
     const learningData = await this.getAutomationLearningData(roomId);
 
     // Content Optimization
     if (config.contentOptimization.enabled) {
-      const contentDecisions = await this.optimizeContent(roomId, config, learningData);
+      const contentDecisions = await this.optimizeContent(
+        roomId,
+        config,
+        learningData,
+      );
       decisions.push(...contentDecisions);
     }
 
     // Session Optimization
     if (config.sessionOptimization.enabled) {
-      const sessionDecisions = await this.optimizeSession(roomId, config, learningData);
+      const sessionDecisions = await this.optimizeSession(
+        roomId,
+        config,
+        learningData,
+      );
       decisions.push(...sessionDecisions);
     }
 
     // Member Engagement Optimization
     if (config.memberEngagement.enabled) {
-      const engagementDecisions = await this.optimizeMemberEngagement(roomId, config, learningData);
+      const engagementDecisions = await this.optimizeMemberEngagement(
+        roomId,
+        config,
+        learningData,
+      );
       decisions.push(...engagementDecisions);
     }
 
     // Apply decisions based on automation level
-    const appliedDecisions = await this.applyOptimizationDecisions(roomId, decisions, config.automationLevel);
+    const appliedDecisions = await this.applyOptimizationDecisions(
+      roomId,
+      decisions,
+      config.automationLevel,
+    );
 
     // Update performance metrics
     await this.updatePerformanceMetrics(roomId, appliedDecisions);
@@ -201,13 +231,17 @@ export class RoomAutomationService {
   private async optimizeContent(
     roomId: string,
     config: RoomAutomationConfig,
-    learningData: AutomationLearningData
+    learningData: AutomationLearningData,
   ): Promise<OptimizationDecision[]> {
     const decisions: OptimizationDecision[] = [];
 
     // Smart content injection
     if (config.contentOptimization.smartInjection.enabled) {
-      const injectionDecision = await this.decideContentInjection(roomId, config, learningData);
+      const injectionDecision = await this.decideContentInjection(
+        roomId,
+        config,
+        learningData,
+      );
       if (injectionDecision) {
         decisions.push(injectionDecision);
       }
@@ -215,7 +249,11 @@ export class RoomAutomationService {
 
     // Queue optimization
     if (config.contentOptimization.queueOptimization.enabled) {
-      const queueDecision = await this.decideQueueOptimization(roomId, config, learningData);
+      const queueDecision = await this.decideQueueOptimization(
+        roomId,
+        config,
+        learningData,
+      );
       if (queueDecision) {
         decisions.push(queueDecision);
       }
@@ -223,7 +261,11 @@ export class RoomAutomationService {
 
     // Content curation
     if (config.contentOptimization.smartCuration.enabled) {
-      const curationDecisions = await this.decideCurationOptimizations(roomId, config, learningData);
+      const curationDecisions = await this.decideCurationOptimizations(
+        roomId,
+        config,
+        learningData,
+      );
       decisions.push(...curationDecisions);
     }
 
@@ -236,7 +278,7 @@ export class RoomAutomationService {
   private async optimizeSession(
     roomId: string,
     config: RoomAutomationConfig,
-    learningData: AutomationLearningData
+    learningData: AutomationLearningData,
   ): Promise<OptimizationDecision[]> {
     const decisions: OptimizationDecision[] = [];
 
@@ -247,7 +289,11 @@ export class RoomAutomationService {
 
       // Auto-pause on inactivity
       if (config.sessionOptimization.sessionManagement.autoPauseOnInactivity) {
-        const pauseDecision = await this.decideSessionPause(roomId, config, learningData);
+        const pauseDecision = await this.decideSessionPause(
+          roomId,
+          config,
+          learningData,
+        );
         if (pauseDecision) {
           decisions.push(pauseDecision);
         }
@@ -255,7 +301,11 @@ export class RoomAutomationService {
 
       // Auto-resume on activity
       if (config.sessionOptimization.sessionManagement.autoResumeOnActivity) {
-        const resumeDecision = await this.decideSessionResume(roomId, config, learningData);
+        const resumeDecision = await this.decideSessionResume(
+          roomId,
+          config,
+          learningData,
+        );
         if (resumeDecision) {
           decisions.push(resumeDecision);
         }
@@ -271,20 +321,34 @@ export class RoomAutomationService {
   private async optimizeMemberEngagement(
     roomId: string,
     config: RoomAutomationConfig,
-    learningData: AutomationLearningData
+    learningData: AutomationLearningData,
   ): Promise<OptimizationDecision[]> {
     const decisions: OptimizationDecision[] = [];
 
     if (config.memberEngagement.engagementOptimization.enabled) {
       // Encourage participation
-      if (config.memberEngagement.engagementOptimization.encourageParticipation) {
-        const participationDecisions = await this.decideParticipationEncouragement(roomId, config, learningData);
+      if (
+        config.memberEngagement.engagementOptimization.encourageParticipation
+      ) {
+        const participationDecisions =
+          await this.decideParticipationEncouragement(
+            roomId,
+            config,
+            learningData,
+          );
         decisions.push(...participationDecisions);
       }
 
       // Personalized notifications
-      if (config.memberEngagement.engagementOptimization.personalizedNotifications) {
-        const notificationDecisions = await this.decidePersonalizedNotifications(roomId, config, learningData);
+      if (
+        config.memberEngagement.engagementOptimization.personalizedNotifications
+      ) {
+        const notificationDecisions =
+          await this.decidePersonalizedNotifications(
+            roomId,
+            config,
+            learningData,
+          );
         decisions.push(...notificationDecisions);
       }
     }
@@ -298,7 +362,7 @@ export class RoomAutomationService {
   private async applyOptimizationDecisions(
     roomId: string,
     decisions: OptimizationDecision[],
-    automationLevel: AutomationLevel
+    automationLevel: AutomationLevel,
   ): Promise<OptimizationDecision[]> {
     const appliedDecisions: OptimizationDecision[] = [];
 
@@ -308,7 +372,8 @@ export class RoomAutomationService {
       switch (automationLevel) {
         case AutomationLevel.BASIC:
           // Only apply high-confidence, low-risk decisions
-          shouldApply = decision.confidence > 0.8 && this.isLowRiskDecision(decision);
+          shouldApply =
+            decision.confidence > 0.8 && this.isLowRiskDecision(decision);
           break;
         case AutomationLevel.INTERMEDIATE:
           // Apply medium to high confidence decisions
@@ -326,7 +391,10 @@ export class RoomAutomationService {
 
       if (shouldApply) {
         try {
-          const result = await this.executeOptimizationDecision(roomId, decision);
+          const result = await this.executeOptimizationDecision(
+            roomId,
+            decision,
+          );
           decision.applied = true;
           decision.result = result;
           appliedDecisions.push(decision);
@@ -334,9 +402,14 @@ export class RoomAutomationService {
           // Notify room members about automation action
           await this.notifyAutomationAction(roomId, decision);
 
-          this.logger.log(`✅ Applied optimization: ${decision.type} for room ${roomId}`);
+          this.logger.log(
+            `✅ Applied optimization: ${decision.type} for room ${roomId}`,
+          );
         } catch (error) {
-          this.logger.error(`❌ Failed to apply optimization ${decision.type} for room ${roomId}:`, error);
+          this.logger.error(
+            `❌ Failed to apply optimization ${decision.type} for room ${roomId}:`,
+            error,
+          );
           decision.applied = false;
         }
       }
@@ -351,7 +424,9 @@ export class RoomAutomationService {
   /**
    * Generate smart recommendations for room improvement
    */
-  async generateSmartRecommendations(roomId: string): Promise<SmartRecommendation[]> {
+  async generateSmartRecommendations(
+    roomId: string,
+  ): Promise<SmartRecommendation[]> {
     const config = await this.getAutomationConfig(roomId);
     if (!config) {
       return [];
@@ -361,15 +436,27 @@ export class RoomAutomationService {
     const recommendations: SmartRecommendation[] = [];
 
     // Content strategy recommendations
-    const contentRecs = await this.generateContentRecommendations(roomId, config, learningData);
+    const contentRecs = await this.generateContentRecommendations(
+      roomId,
+      config,
+      learningData,
+    );
     recommendations.push(...contentRecs);
 
     // Session timing recommendations
-    const timingRecs = await this.generateTimingRecommendations(roomId, config, learningData);
+    const timingRecs = await this.generateTimingRecommendations(
+      roomId,
+      config,
+      learningData,
+    );
     recommendations.push(...timingRecs);
 
     // Member management recommendations
-    const memberRecs = await this.generateMemberRecommendations(roomId, config, learningData);
+    const memberRecs = await this.generateMemberRecommendations(
+      roomId,
+      config,
+      learningData,
+    );
     recommendations.push(...memberRecs);
 
     // Sort by priority and confidence
@@ -377,7 +464,7 @@ export class RoomAutomationService {
       const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
       const aPriority = priorityOrder[a.priority];
       const bPriority = priorityOrder[b.priority];
-      
+
       if (aPriority !== bPriority) {
         return bPriority - aPriority;
       }
@@ -390,7 +477,9 @@ export class RoomAutomationService {
   /**
    * Get automation performance metrics for a room
    */
-  async getAutomationPerformance(roomId: string): Promise<AutomationPerformanceMetrics | null> {
+  async getAutomationPerformance(
+    roomId: string,
+  ): Promise<AutomationPerformanceMetrics | null> {
     const config = await this.getAutomationConfig(roomId);
     return config?.performanceMetrics || null;
   }
@@ -403,7 +492,7 @@ export class RoomAutomationService {
     userId: string,
     automationType: string,
     rating: number,
-    comment?: string
+    comment?: string,
   ): Promise<void> {
     await this.eventTracker.trackEvent({
       eventType: 'automation_feedback',
@@ -417,21 +506,28 @@ export class RoomAutomationService {
     });
 
     // Update performance metrics based on feedback
-    await this.updatePerformanceMetricsFromFeedback(roomId, automationType, rating);
+    await this.updatePerformanceMetricsFromFeedback(
+      roomId,
+      automationType,
+      rating,
+    );
   }
 
   // Private helper methods
 
   private async getActiveRoomsWithAutomation(): Promise<Room[]> {
     // Get all active rooms that have automation enabled
-    const automationConfigs = await this.multiTableService.scan('RoomAutomation', {
-      FilterExpression: 'isEnabled = :enabled',
-      ExpressionAttributeValues: {
-        ':enabled': true,
+    const automationConfigs = await this.multiTableService.scan(
+      'RoomAutomation',
+      {
+        FilterExpression: 'isEnabled = :enabled',
+        ExpressionAttributeValues: {
+          ':enabled': true,
+        },
       },
-    });
+    );
 
-    const roomIds = automationConfigs.map(config => config.roomId);
+    const roomIds = automationConfigs.map((config) => config.roomId);
     const rooms: Room[] = [];
 
     for (const roomId of roomIds) {
@@ -448,7 +544,9 @@ export class RoomAutomationService {
     return rooms;
   }
 
-  private async getAutomationLearningData(roomId: string): Promise<AutomationLearningData> {
+  private async getAutomationLearningData(
+    roomId: string,
+  ): Promise<AutomationLearningData> {
     // This would typically fetch from analytics service
     // For now, return mock data structure
     return {
@@ -470,7 +568,7 @@ export class RoomAutomationService {
   private async decideContentInjection(
     roomId: string,
     config: RoomAutomationConfig,
-    learningData: AutomationLearningData
+    learningData: AutomationLearningData,
   ): Promise<OptimizationDecision | null> {
     // Analyze current room state and decide if content injection would be beneficial
     const room = await this.roomService.getRoomById(roomId);
@@ -487,11 +585,14 @@ export class RoomAutomationService {
         type: OptimizationType.CONTENT_INJECTION,
         decision: {
           contentCount: 3,
-          preferenceWeight: config.contentOptimization.smartInjection.preferenceWeight,
-          diversityWeight: config.contentOptimization.smartInjection.diversityWeight,
+          preferenceWeight:
+            config.contentOptimization.smartInjection.preferenceWeight,
+          diversityWeight:
+            config.contentOptimization.smartInjection.diversityWeight,
         },
         confidence: 0.7,
-        reasoning: 'Queue length is low, injecting content to maintain engagement',
+        reasoning:
+          'Queue length is low, injecting content to maintain engagement',
         expectedImpact: 0.6,
         timestamp: new Date(),
         applied: false,
@@ -504,7 +605,7 @@ export class RoomAutomationService {
   private async decideQueueOptimization(
     roomId: string,
     config: RoomAutomationConfig,
-    learningData: AutomationLearningData
+    learningData: AutomationLearningData,
   ): Promise<OptimizationDecision | null> {
     // Decide if queue should be reordered based on preferences
     return {
@@ -526,7 +627,7 @@ export class RoomAutomationService {
   private async decideCurationOptimizations(
     roomId: string,
     config: RoomAutomationConfig,
-    learningData: AutomationLearningData
+    learningData: AutomationLearningData,
   ): Promise<OptimizationDecision[]> {
     const decisions: OptimizationDecision[] = [];
 
@@ -554,11 +655,12 @@ export class RoomAutomationService {
   private async decideSessionPause(
     roomId: string,
     config: RoomAutomationConfig,
-    learningData: AutomationLearningData
+    learningData: AutomationLearningData,
   ): Promise<OptimizationDecision | null> {
     // Check if session should be paused due to inactivity
-    const inactivityThreshold = config.sessionOptimization.sessionManagement.inactivityThresholdMinutes;
-    
+    const inactivityThreshold =
+      config.sessionOptimization.sessionManagement.inactivityThresholdMinutes;
+
     // This would check actual member activity
     const shouldPause = false; // Placeholder logic
 
@@ -585,7 +687,7 @@ export class RoomAutomationService {
   private async decideSessionResume(
     roomId: string,
     config: RoomAutomationConfig,
-    learningData: AutomationLearningData
+    learningData: AutomationLearningData,
   ): Promise<OptimizationDecision | null> {
     // Check if paused session should be resumed due to activity
     const room = await this.roomService.getRoomById(roomId);
@@ -616,7 +718,7 @@ export class RoomAutomationService {
   private async decideParticipationEncouragement(
     roomId: string,
     config: RoomAutomationConfig,
-    learningData: AutomationLearningData
+    learningData: AutomationLearningData,
   ): Promise<OptimizationDecision[]> {
     // Identify members who need encouragement and decide on actions
     return [];
@@ -625,7 +727,7 @@ export class RoomAutomationService {
   private async decidePersonalizedNotifications(
     roomId: string,
     config: RoomAutomationConfig,
-    learningData: AutomationLearningData
+    learningData: AutomationLearningData,
   ): Promise<OptimizationDecision[]> {
     // Decide on personalized notifications to send
     return [];
@@ -642,7 +744,7 @@ export class RoomAutomationService {
 
   private async executeOptimizationDecision(
     roomId: string,
-    decision: OptimizationDecision
+    decision: OptimizationDecision,
   ): Promise<OptimizationResult> {
     const startTime = Date.now();
     let success = false;
@@ -674,7 +776,10 @@ export class RoomAutomationService {
           throw new Error(`Unknown optimization type: ${decision.type}`);
       }
     } catch (error) {
-      this.logger.error(`Failed to execute optimization ${decision.type}:`, error);
+      this.logger.error(
+        `Failed to execute optimization ${decision.type}:`,
+        error,
+      );
       success = false;
     }
 
@@ -689,31 +794,54 @@ export class RoomAutomationService {
     };
   }
 
-  private async executeContentInjection(roomId: string, decision: any): Promise<void> {
+  private async executeContentInjection(
+    roomId: string,
+    decision: any,
+  ): Promise<void> {
     // Inject content based on decision parameters
-    this.logger.log(`🎬 Injecting ${decision.contentCount} content items for room ${roomId}`);
+    this.logger.log(
+      `🎬 Injecting ${decision.contentCount} content items for room ${roomId}`,
+    );
     // Implementation would call MediaService to inject content
   }
 
-  private async executeQueueReorder(roomId: string, decision: any): Promise<void> {
+  private async executeQueueReorder(
+    roomId: string,
+    decision: any,
+  ): Promise<void> {
     // Reorder queue based on decision parameters
-    this.logger.log(`🔄 Reordering queue for room ${roomId} using ${decision.strategy} strategy`);
+    this.logger.log(
+      `🔄 Reordering queue for room ${roomId} using ${decision.strategy} strategy`,
+    );
     // Implementation would call RoomService to reorder queue
   }
 
-  private async executeSessionPause(roomId: string, decision: any): Promise<void> {
+  private async executeSessionPause(
+    roomId: string,
+    decision: any,
+  ): Promise<void> {
     // Pause session
-    this.logger.log(`⏸️ Pausing session for room ${roomId} due to ${decision.reason}`);
+    this.logger.log(
+      `⏸️ Pausing session for room ${roomId} due to ${decision.reason}`,
+    );
     await this.roomService.pauseRoom(roomId, 'system');
   }
 
-  private async executeSessionResume(roomId: string, decision: any): Promise<void> {
+  private async executeSessionResume(
+    roomId: string,
+    decision: any,
+  ): Promise<void> {
     // Resume session
-    this.logger.log(`▶️ Resuming session for room ${roomId} due to ${decision.reason}`);
+    this.logger.log(
+      `▶️ Resuming session for room ${roomId} due to ${decision.reason}`,
+    );
     await this.roomService.resumeRoom(roomId, 'system');
   }
 
-  private async notifyAutomationAction(roomId: string, decision: OptimizationDecision): Promise<void> {
+  private async notifyAutomationAction(
+    roomId: string,
+    decision: OptimizationDecision,
+  ): Promise<void> {
     // Notify room members about automation action
     try {
       await this.realtimeService.notifyRoom(roomId, 'automationAction', {
@@ -722,11 +850,17 @@ export class RoomAutomationService {
         timestamp: decision.timestamp,
       });
     } catch (error) {
-      this.logger.warn(`Failed to notify automation action for room ${roomId}:`, error);
+      this.logger.warn(
+        `Failed to notify automation action for room ${roomId}:`,
+        error,
+      );
     }
   }
 
-  private async storeOptimizationDecision(roomId: string, decision: OptimizationDecision): Promise<void> {
+  private async storeOptimizationDecision(
+    roomId: string,
+    decision: OptimizationDecision,
+  ): Promise<void> {
     await this.multiTableService.create('RoomAutomation', {
       PK: `ROOM#${roomId}`,
       SK: `DECISION#${decision.id}`,
@@ -736,39 +870,50 @@ export class RoomAutomationService {
 
   private async updatePerformanceMetrics(
     roomId: string,
-    appliedDecisions: OptimizationDecision[]
+    appliedDecisions: OptimizationDecision[],
   ): Promise<void> {
     const config = await this.getAutomationConfig(roomId);
     if (!config) return;
 
-    const successfulOptimizations = appliedDecisions.filter(d => d.result?.success).length;
-    const failedOptimizations = appliedDecisions.filter(d => d.result?.success === false).length;
+    const successfulOptimizations = appliedDecisions.filter(
+      (d) => d.result?.success,
+    ).length;
+    const failedOptimizations = appliedDecisions.filter(
+      (d) => d.result?.success === false,
+    ).length;
 
     config.performanceMetrics.totalOptimizations += appliedDecisions.length;
-    config.performanceMetrics.successfulOptimizations += successfulOptimizations;
+    config.performanceMetrics.successfulOptimizations +=
+      successfulOptimizations;
     config.performanceMetrics.failedOptimizations += failedOptimizations;
 
     if (appliedDecisions.length > 0) {
-      const avgImpact = appliedDecisions
-        .filter(d => d.result?.actualImpact !== undefined)
-        .reduce((sum, d) => sum + (d.result?.actualImpact || 0), 0) / appliedDecisions.length;
-      
+      const avgImpact =
+        appliedDecisions
+          .filter((d) => d.result?.actualImpact !== undefined)
+          .reduce((sum, d) => sum + (d.result?.actualImpact || 0), 0) /
+        appliedDecisions.length;
+
       config.performanceMetrics.lastOptimizationScore = avgImpact;
     }
 
     config.lastOptimizedAt = new Date();
     config.updatedAt = new Date();
 
-    await this.multiTableService.update('RoomAutomation', {
-      PK: `ROOM#${roomId}`,
-      SK: `AUTOMATION#${config.id}`,
-    }, config);
+    await this.multiTableService.update(
+      'RoomAutomation',
+      {
+        PK: `ROOM#${roomId}`,
+        SK: `AUTOMATION#${config.id}`,
+      },
+      config,
+    );
   }
 
   private async updatePerformanceMetricsFromFeedback(
     roomId: string,
     automationType: string,
-    rating: number
+    rating: number,
   ): Promise<void> {
     const config = await this.getAutomationConfig(roomId);
     if (!config) return;
@@ -778,16 +923,20 @@ export class RoomAutomationService {
     const newScore = (currentScore + rating) / 2;
     config.performanceMetrics.userSatisfactionScore = newScore;
 
-    await this.multiTableService.update('RoomAutomation', {
-      PK: `ROOM#${roomId}`,
-      SK: `AUTOMATION#${config.id}`,
-    }, config);
+    await this.multiTableService.update(
+      'RoomAutomation',
+      {
+        PK: `ROOM#${roomId}`,
+        SK: `AUTOMATION#${config.id}`,
+      },
+      config,
+    );
   }
 
   private async generateContentRecommendations(
     roomId: string,
     config: RoomAutomationConfig,
-    learningData: AutomationLearningData
+    learningData: AutomationLearningData,
   ): Promise<SmartRecommendation[]> {
     return [
       {
@@ -795,7 +944,8 @@ export class RoomAutomationService {
         roomId,
         type: RecommendationType.CONTENT_STRATEGY,
         title: 'Optimize Content Injection Frequency',
-        description: 'Based on member behavior, consider adjusting content injection to every 8-10 items instead of current frequency.',
+        description:
+          'Based on member behavior, consider adjusting content injection to every 8-10 items instead of current frequency.',
         confidence: 0.75,
         priority: RecommendationPriority.MEDIUM,
         expectedBenefit: 'Could improve match rate by 15-20%',
@@ -809,7 +959,7 @@ export class RoomAutomationService {
   private async generateTimingRecommendations(
     roomId: string,
     config: RoomAutomationConfig,
-    learningData: AutomationLearningData
+    learningData: AutomationLearningData,
   ): Promise<SmartRecommendation[]> {
     return [
       {
@@ -817,7 +967,8 @@ export class RoomAutomationService {
         roomId,
         type: RecommendationType.SESSION_TIMING,
         title: 'Optimal Session Timing',
-        description: 'Members are most active between 7-9 PM. Consider scheduling sessions during these hours.',
+        description:
+          'Members are most active between 7-9 PM. Consider scheduling sessions during these hours.',
         confidence: 0.85,
         priority: RecommendationPriority.HIGH,
         expectedBenefit: 'Could increase participation by 25%',
@@ -831,7 +982,7 @@ export class RoomAutomationService {
   private async generateMemberRecommendations(
     roomId: string,
     config: RoomAutomationConfig,
-    learningData: AutomationLearningData
+    learningData: AutomationLearningData,
   ): Promise<SmartRecommendation[]> {
     return [
       {
@@ -839,7 +990,8 @@ export class RoomAutomationService {
         roomId,
         type: RecommendationType.MEMBER_MANAGEMENT,
         title: 'Re-engage Inactive Members',
-        description: '3 members have been inactive for over a week. Consider sending personalized re-engagement messages.',
+        description:
+          '3 members have been inactive for over a week. Consider sending personalized re-engagement messages.',
         confidence: 0.65,
         priority: RecommendationPriority.LOW,
         expectedBenefit: 'Could recover 1-2 active members',

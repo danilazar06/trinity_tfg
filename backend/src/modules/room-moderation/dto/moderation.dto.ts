@@ -1,6 +1,23 @@
-import { IsString, IsEnum, IsOptional, IsNumber, IsBoolean, IsArray, IsDateString, Min, Max, ArrayNotEmpty, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsNumber,
+  IsBoolean,
+  IsArray,
+  IsDateString,
+  Min,
+  Max,
+  ArrayNotEmpty,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
-import { RoomPermission, ModerationActionType, SystemRole, RoleTemplateCategory } from '../../../domain/entities/room-moderation.entity';
+import {
+  RoomPermission,
+  ModerationActionType,
+  SystemRole,
+  RoleTemplateCategory,
+} from '../../../domain/entities/room-moderation.entity';
 
 /**
  * DTO para crear un rol personalizado

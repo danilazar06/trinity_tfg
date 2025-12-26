@@ -58,7 +58,7 @@ describe('UsersService', () => {
     it('should return only active users', () => {
       const activeUsers = service.findActiveUsers();
       expect(activeUsers).toBeInstanceOf(Array);
-      activeUsers.forEach(user => {
+      activeUsers.forEach((user) => {
         expect(user.activo).toBe(true);
       });
     });

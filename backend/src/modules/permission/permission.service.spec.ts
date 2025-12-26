@@ -3,12 +3,12 @@ import { PermissionService } from './permission.service';
 import { RoomModerationService } from '../room-moderation/room-moderation.service';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
 import * as fc from 'fast-check';
-import { 
-  RoomPermission, 
-  SystemRole, 
+import {
+  RoomPermission,
+  SystemRole,
   CustomRole,
   PermissionCheckResult,
-  PermissionConflict
+  PermissionConflict,
 } from '../../domain/entities/room-moderation.entity';
 
 describe('PermissionService', () => {
@@ -61,7 +61,10 @@ describe('PermissionService', () => {
     const roomIdArb = fc.string({ minLength: 1, maxLength: 50 });
     const userIdArb = fc.string({ minLength: 1, maxLength: 50 });
     const permissionArb = fc.constantFrom(...Object.values(RoomPermission));
-    const permissionsArrayArb = fc.array(permissionArb, { minLength: 1, maxLength: 5 });
+    const permissionsArrayArb = fc.array(permissionArb, {
+      minLength: 1,
+      maxLength: 5,
+    });
 
     const customRoleArb = fc.record({
       id: fc.string({ minLength: 1, maxLength: 20 }),
@@ -69,7 +72,7 @@ describe('PermissionService', () => {
       description: fc.string({ maxLength: 100 }),
       roomId: roomIdArb,
       permissions: permissionsArrayArb,
-      color: fc.hexaString({ minLength: 6, maxLength: 6 }).map(s => `#${s}`),
+      color: fc.hexaString({ minLength: 6, maxLength: 6 }).map((s) => `#${s}`),
       priority: fc.integer({ min: 1, max: 100 }),
       isSystemRole: fc.boolean(),
       createdBy: userIdArb,
@@ -93,34 +96,52 @@ describe('PermissionService', () => {
           async (roomId, userId, permissions) => {
             // Limpiar mocks antes de cada iteración
             mockRoomModerationService.checkPermission.mockClear();
-            
+
             // Configurar mock para que siempre tenga éxito
             const mockResult: PermissionCheckResult = {
               hasPermission: true,
               currentRoles: ['member'],
             };
-            mockRoomModerationService.checkPermission.mockResolvedValue(mockResult);
+            mockRoomModerationService.checkPermission.mockResolvedValue(
+              mockResult,
+            );
 
             // Primera llamada sin caché
-            const results1 = await service.checkPermissions(roomId, userId, permissions, { useCache: false });
-            
+            const results1 = await service.checkPermissions(
+              roomId,
+              userId,
+              permissions,
+              { useCache: false },
+            );
+
             // Segunda llamada con caché
-            const results2 = await service.checkPermissions(roomId, userId, permissions, { useCache: true });
+            const results2 = await service.checkPermissions(
+              roomId,
+              userId,
+              permissions,
+              { useCache: true },
+            );
 
             // Verificar que ambas devuelven el mismo resultado
             expect(results1).toHaveLength(permissions.length);
             expect(results2).toHaveLength(permissions.length);
-            
+
             // Verificar que todas las verificaciones fueron exitosas
-            results1.forEach(result => expect(result.hasPermission).toBe(true));
-            results2.forEach(result => expect(result.hasPermission).toBe(true));
-            
+            results1.forEach((result) =>
+              expect(result.hasPermission).toBe(true),
+            );
+            results2.forEach((result) =>
+              expect(result.hasPermission).toBe(true),
+            );
+
             // Verificar que se llamó al servicio de moderación
             // El número exacto depende de si el caché se usa o no
-            expect(mockRoomModerationService.checkPermission).toHaveBeenCalled();
-          }
+            expect(
+              mockRoomModerationService.checkPermission,
+            ).toHaveBeenCalled();
+          },
         ),
-        { numRuns: 30 }
+        { numRuns: 30 },
       );
     });
 
@@ -135,29 +156,40 @@ describe('PermissionService', () => {
             const rolesWithConflicts = roles.map((role, index) => ({
               ...role,
               roomId,
-              id: index === 0 ? SystemRole.OWNER : index === 1 ? SystemRole.GUEST : role.id,
+              id:
+                index === 0
+                  ? SystemRole.OWNER
+                  : index === 1
+                    ? SystemRole.GUEST
+                    : role.id,
               priority: index === 0 ? 100 : index === 1 ? 20 : role.priority,
               isSystemRole: index < 2,
             }));
 
-            mockRoomModerationService.getUserRoles.mockResolvedValue(rolesWithConflicts);
+            mockRoomModerationService.getUserRoles.mockResolvedValue(
+              rolesWithConflicts,
+            );
 
-            const conflicts = await service.detectPermissionConflicts(roomId, userId);
+            const conflicts = await service.detectPermissionConflicts(
+              roomId,
+              userId,
+            );
 
             // Verificar que se detectan conflictos cuando hay roles con gran diferencia de prioridad
-            const hasHighPriorityConflict = rolesWithConflicts.some(r1 => 
-              rolesWithConflicts.some(r2 => 
-                r1.id !== r2.id && Math.abs(r1.priority - r2.priority) > 60
-              )
+            const hasHighPriorityConflict = rolesWithConflicts.some((r1) =>
+              rolesWithConflicts.some(
+                (r2) =>
+                  r1.id !== r2.id && Math.abs(r1.priority - r2.priority) > 60,
+              ),
             );
 
             if (hasHighPriorityConflict) {
               expect(conflicts.length).toBeGreaterThan(0);
-              expect(conflicts.some(c => c.type === 'hierarchy')).toBe(true);
+              expect(conflicts.some((c) => c.type === 'hierarchy')).toBe(true);
             }
-          }
+          },
         ),
-        { numRuns: 30 }
+        { numRuns: 30 },
       );
     });
 
@@ -170,18 +202,20 @@ describe('PermissionService', () => {
               roomId: roomIdArb,
               permissions: permissionsArrayArb,
             }),
-            { minLength: 1, maxLength: 3 }
+            { minLength: 1, maxLength: 3 },
           ),
           async (checks) => {
             // Limpiar mocks antes de cada iteración
             mockRoomModerationService.checkPermission.mockClear();
-            
+
             // Configurar mock para que siempre tenga éxito
             const mockResult: PermissionCheckResult = {
               hasPermission: true,
               currentRoles: ['member'],
             };
-            mockRoomModerationService.checkPermission.mockResolvedValue(mockResult);
+            mockRoomModerationService.checkPermission.mockResolvedValue(
+              mockResult,
+            );
 
             const results = await service.bulkCheckPermissions(checks);
 
@@ -194,16 +228,20 @@ describe('PermissionService', () => {
               const checkResults = results.get(key);
               expect(checkResults).toBeDefined();
               expect(checkResults).toHaveLength(check.permissions.length);
-              
+
               // Verificar que todas las verificaciones fueron exitosas
-              checkResults!.forEach(result => expect(result.hasPermission).toBe(true));
+              checkResults!.forEach((result) =>
+                expect(result.hasPermission).toBe(true),
+              );
             }
 
             // Verificar que se llamó al servicio de moderación
-            expect(mockRoomModerationService.checkPermission).toHaveBeenCalled();
-          }
+            expect(
+              mockRoomModerationService.checkPermission,
+            ).toHaveBeenCalled();
+          },
         ),
-        { numRuns: 20 }
+        { numRuns: 20 },
       );
     });
 
@@ -215,16 +253,22 @@ describe('PermissionService', () => {
           permissionArb,
           permissionCheckResultArb,
           async (roomId, userId, permission, mockResult) => {
-            mockRoomModerationService.checkPermission.mockResolvedValue(mockResult);
+            mockRoomModerationService.checkPermission.mockResolvedValue(
+              mockResult,
+            );
 
             // Primera verificación con caché
-            await service.checkPermissions(roomId, userId, [permission], { useCache: true });
+            await service.checkPermissions(roomId, userId, [permission], {
+              useCache: true,
+            });
 
             // Obtener estadísticas de caché
             const statsBefore = service.getPermissionCacheStats();
 
             // Segunda verificación con caché (debería usar caché)
-            await service.checkPermissions(roomId, userId, [permission], { useCache: true });
+            await service.checkPermissions(roomId, userId, [permission], {
+              useCache: true,
+            });
 
             const statsAfter = service.getPermissionCacheStats();
 
@@ -235,10 +279,12 @@ describe('PermissionService', () => {
             service.invalidatePermissionCache(roomId, userId);
 
             const statsAfterInvalidation = service.getPermissionCacheStats();
-            expect(statsAfterInvalidation.size).toBeLessThanOrEqual(statsAfter.size);
-          }
+            expect(statsAfterInvalidation.size).toBeLessThanOrEqual(
+              statsAfter.size,
+            );
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -249,8 +295,10 @@ describe('PermissionService', () => {
           userIdArb,
           fc.array(customRoleArb, { minLength: 1, maxLength: 3 }),
           async (roomId, userId, roles) => {
-            const rolesWithRoomId = roles.map(role => ({ ...role, roomId }));
-            mockRoomModerationService.getUserRoles.mockResolvedValue(rolesWithRoomId);
+            const rolesWithRoomId = roles.map((role) => ({ ...role, roomId }));
+            mockRoomModerationService.getUserRoles.mockResolvedValue(
+              rolesWithRoomId,
+            );
 
             const summary = await service.getPermissionSummary(roomId, userId);
 
@@ -264,14 +312,16 @@ describe('PermissionService', () => {
             expect(summary.lastUpdated).toBeInstanceOf(Date);
 
             // Verificar que los roles coinciden
-            expect(summary.roles).toEqual(rolesWithRoomId.map(role => role.id));
+            expect(summary.roles).toEqual(
+              rolesWithRoomId.map((role) => role.id),
+            );
 
             // Verificar que los permisos son únicos
             const uniquePermissions = new Set(summary.permissions);
             expect(uniquePermissions.size).toBe(summary.permissions.length);
-          }
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -312,10 +362,16 @@ describe('PermissionService', () => {
               },
             ];
 
-            mockRoomModerationService.getUserRoles.mockResolvedValue(conflictingRoles);
+            mockRoomModerationService.getUserRoles.mockResolvedValue(
+              conflictingRoles,
+            );
             mockRoomModerationService.removeRole.mockResolvedValue();
 
-            const result = await service.resolvePermissionConflicts(roomId, userId, moderatorId);
+            const result = await service.resolvePermissionConflicts(
+              roomId,
+              userId,
+              moderatorId,
+            );
 
             // Verificar que se intentó resolver al menos un conflicto
             expect(result.resolved).toBeGreaterThanOrEqual(0);
@@ -325,9 +381,9 @@ describe('PermissionService', () => {
             if (result.resolved > 0) {
               expect(mockRoomModerationService.removeRole).toHaveBeenCalled();
             }
-          }
+          },
         ),
-        { numRuns: 30 }
+        { numRuns: 30 },
       );
     });
 
@@ -339,24 +395,28 @@ describe('PermissionService', () => {
           permissionArb,
           permissionCheckResultArb,
           async (roomId, userId, permission, mockResult) => {
-            mockRoomModerationService.checkPermission.mockResolvedValue(mockResult);
+            mockRoomModerationService.checkPermission.mockResolvedValue(
+              mockResult,
+            );
 
             // Verificar permiso con caché
-            await service.checkPermissions(roomId, userId, [permission], { useCache: true });
+            await service.checkPermissions(roomId, userId, [permission], {
+              useCache: true,
+            });
 
             const stats = service.getPermissionCacheStats();
-            
+
             // Verificar que hay entradas en el caché
             expect(stats.size).toBeGreaterThan(0);
-            
+
             // Verificar que las entradas tienen TTL válido
             for (const entry of stats.entries) {
               expect(entry.ttl).toBeGreaterThan(0);
               expect(entry.lastAccessed).toBeInstanceOf(Date);
             }
-          }
+          },
         ),
-        { numRuns: 30 }
+        { numRuns: 30 },
       );
     });
   });
@@ -368,10 +428,14 @@ describe('PermissionService', () => {
     });
 
     it('should handle non-existent users gracefully', async () => {
-      mockRoomModerationService.checkPermission.mockRejectedValue(new Error('User not found'));
+      mockRoomModerationService.checkPermission.mockRejectedValue(
+        new Error('User not found'),
+      );
 
-      const result = await service.checkPermissions('room1', 'nonexistent', [RoomPermission.VIEW_ROOM]);
-      
+      const result = await service.checkPermissions('room1', 'nonexistent', [
+        RoomPermission.VIEW_ROOM,
+      ]);
+
       expect(result).toHaveLength(1);
       expect(result[0].hasPermission).toBe(false);
       expect(result[0].reason).toContain('User not found');
@@ -379,7 +443,10 @@ describe('PermissionService', () => {
 
     it('should handle cache invalidation for non-existent entries', () => {
       expect(() => {
-        service.invalidatePermissionCache('nonexistent-room', 'nonexistent-user');
+        service.invalidatePermissionCache(
+          'nonexistent-room',
+          'nonexistent-user',
+        );
       }).not.toThrow();
     });
 
@@ -400,7 +467,10 @@ describe('PermissionService', () => {
 
       mockRoomModerationService.getUserRoles.mockResolvedValue([singleRole]);
 
-      const conflicts = await service.detectPermissionConflicts('room1', 'user1');
+      const conflicts = await service.detectPermissionConflicts(
+        'room1',
+        'user1',
+      );
       expect(conflicts).toEqual([]);
     });
   });

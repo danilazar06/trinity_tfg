@@ -19,7 +19,7 @@ export class MultiTableService {
   constructor(private configService: ConfigService) {
     // Configuración para desarrollo local o AWS
     const isLocal = this.configService.get('NODE_ENV') === 'development';
-    
+
     if (isLocal) {
       this.dynamodb = new AWS.DynamoDB.DocumentClient({
         region: 'localhost',
@@ -38,24 +38,32 @@ export class MultiTableService {
     this.tables = {
       usersTable: this.configService.get('USERS_TABLE', 'Trinity_Users_dev'),
       roomsTable: this.configService.get('ROOMS_TABLE', 'Trinity_Rooms_dev'),
-      roomMembersTable: this.configService.get('ROOM_MEMBERS_TABLE', 'Trinity_RoomMembers_dev'),
+      roomMembersTable: this.configService.get(
+        'ROOM_MEMBERS_TABLE',
+        'Trinity_RoomMembers_dev',
+      ),
       votesTable: this.configService.get('VOTES_TABLE', 'Trinity_Votes_dev'),
-      moviesCacheTable: this.configService.get('MOVIES_CACHE_TABLE', 'Trinity_MoviesCache_dev'),
+      moviesCacheTable: this.configService.get(
+        'MOVIES_CACHE_TABLE',
+        'Trinity_MoviesCache_dev',
+      ),
     };
   }
 
   // ==================== USERS TABLE ====================
-  
+
   async createUser(user: any): Promise<void> {
     try {
-      await this.dynamodb.put({
-        TableName: this.tables.usersTable,
-        Item: {
-          ...user,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      }).promise();
+      await this.dynamodb
+        .put({
+          TableName: this.tables.usersTable,
+          Item: {
+            ...user,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        })
+        .promise();
 
       this.logger.debug(`User created: ${user.userId}`);
     } catch (error) {
@@ -66,10 +74,12 @@ export class MultiTableService {
 
   async getUser(userId: string): Promise<any | null> {
     try {
-      const result = await this.dynamodb.get({
-        TableName: this.tables.usersTable,
-        Key: { userId },
-      }).promise();
+      const result = await this.dynamodb
+        .get({
+          TableName: this.tables.usersTable,
+          Key: { userId },
+        })
+        .promise();
 
       return result.Item || null;
     } catch (error) {
@@ -82,14 +92,16 @@ export class MultiTableService {
 
   async createRoom(room: any): Promise<void> {
     try {
-      await this.dynamodb.put({
-        TableName: this.tables.roomsTable,
-        Item: {
-          ...room,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      }).promise();
+      await this.dynamodb
+        .put({
+          TableName: this.tables.roomsTable,
+          Item: {
+            ...room,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        })
+        .promise();
 
       this.logger.debug(`Room created: ${room.roomId}`);
     } catch (error) {
@@ -100,10 +112,12 @@ export class MultiTableService {
 
   async getRoom(roomId: string): Promise<any | null> {
     try {
-      const result = await this.dynamodb.get({
-        TableName: this.tables.roomsTable,
-        Key: { roomId },
-      }).promise();
+      const result = await this.dynamodb
+        .get({
+          TableName: this.tables.roomsTable,
+          Key: { roomId },
+        })
+        .promise();
 
       return result.Item || null;
     } catch (error) {
@@ -112,25 +126,35 @@ export class MultiTableService {
     }
   }
 
-  async updateRoomStatus(roomId: string, status: string, resultMovieId?: string): Promise<void> {
+  async updateRoomStatus(
+    roomId: string,
+    status: string,
+    resultMovieId?: string,
+  ): Promise<void> {
     try {
-      const updateExpression = resultMovieId 
+      const updateExpression = resultMovieId
         ? 'SET #status = :status, resultMovieId = :resultMovieId, updatedAt = :updatedAt'
         : 'SET #status = :status, updatedAt = :updatedAt';
 
       const expressionAttributeValues = resultMovieId
-        ? { ':status': status, ':resultMovieId': resultMovieId, ':updatedAt': new Date().toISOString() }
+        ? {
+            ':status': status,
+            ':resultMovieId': resultMovieId,
+            ':updatedAt': new Date().toISOString(),
+          }
         : { ':status': status, ':updatedAt': new Date().toISOString() };
 
-      await this.dynamodb.update({
-        TableName: this.tables.roomsTable,
-        Key: { roomId },
-        UpdateExpression: updateExpression,
-        ExpressionAttributeNames: {
-          '#status': 'status',
-        },
-        ExpressionAttributeValues: expressionAttributeValues,
-      }).promise();
+      await this.dynamodb
+        .update({
+          TableName: this.tables.roomsTable,
+          Key: { roomId },
+          UpdateExpression: updateExpression,
+          ExpressionAttributeNames: {
+            '#status': 'status',
+          },
+          ExpressionAttributeValues: expressionAttributeValues,
+        })
+        .promise();
 
       this.logger.debug(`Room status updated: ${roomId} -> ${status}`);
     } catch (error) {
@@ -141,18 +165,24 @@ export class MultiTableService {
 
   // ==================== ROOM MEMBERS TABLE ====================
 
-  async addRoomMember(roomId: string, userId: string, role: string = 'MEMBER'): Promise<void> {
+  async addRoomMember(
+    roomId: string,
+    userId: string,
+    role: string = 'MEMBER',
+  ): Promise<void> {
     try {
-      await this.dynamodb.put({
-        TableName: this.tables.roomMembersTable,
-        Item: {
-          roomId,
-          userId,
-          role,
-          joinedAt: new Date().toISOString(),
-          isActive: true,
-        },
-      }).promise();
+      await this.dynamodb
+        .put({
+          TableName: this.tables.roomMembersTable,
+          Item: {
+            roomId,
+            userId,
+            role,
+            joinedAt: new Date().toISOString(),
+            isActive: true,
+          },
+        })
+        .promise();
 
       this.logger.debug(`Member added to room: ${userId} -> ${roomId}`);
     } catch (error) {
@@ -163,13 +193,15 @@ export class MultiTableService {
 
   async getRoomMembers(roomId: string): Promise<any[]> {
     try {
-      const result = await this.dynamodb.query({
-        TableName: this.tables.roomMembersTable,
-        KeyConditionExpression: 'roomId = :roomId',
-        ExpressionAttributeValues: {
-          ':roomId': roomId,
-        },
-      }).promise();
+      const result = await this.dynamodb
+        .query({
+          TableName: this.tables.roomMembersTable,
+          KeyConditionExpression: 'roomId = :roomId',
+          ExpressionAttributeValues: {
+            ':roomId': roomId,
+          },
+        })
+        .promise();
 
       return result.Items || [];
     } catch (error) {
@@ -180,15 +212,17 @@ export class MultiTableService {
 
   async getUserHistory(userId: string): Promise<any[]> {
     try {
-      const result = await this.dynamodb.query({
-        TableName: this.tables.roomMembersTable,
-        IndexName: 'UserHistoryIndex',
-        KeyConditionExpression: 'userId = :userId',
-        ExpressionAttributeValues: {
-          ':userId': userId,
-        },
-        ScanIndexForward: false, // Más recientes primero
-      }).promise();
+      const result = await this.dynamodb
+        .query({
+          TableName: this.tables.roomMembersTable,
+          IndexName: 'UserHistoryIndex',
+          KeyConditionExpression: 'userId = :userId',
+          ExpressionAttributeValues: {
+            ':userId': userId,
+          },
+          ScanIndexForward: false, // Más recientes primero
+        })
+        .promise();
 
       return result.Items || [];
     } catch (error) {
@@ -199,24 +233,33 @@ export class MultiTableService {
 
   // ==================== VOTES TABLE ====================
 
-  async incrementVote(roomId: string, movieId: string, voteType: 'LIKE' | 'DISLIKE'): Promise<any> {
+  async incrementVote(
+    roomId: string,
+    movieId: string,
+    voteType: 'LIKE' | 'DISLIKE',
+  ): Promise<any> {
     try {
-      const updateExpression = voteType === 'LIKE' 
-        ? 'ADD likesCount :inc SET updatedAt = :updatedAt'
-        : 'ADD dislikesCount :inc SET updatedAt = :updatedAt';
+      const updateExpression =
+        voteType === 'LIKE'
+          ? 'ADD likesCount :inc SET updatedAt = :updatedAt'
+          : 'ADD dislikesCount :inc SET updatedAt = :updatedAt';
 
-      const result = await this.dynamodb.update({
-        TableName: this.tables.votesTable,
-        Key: { roomId, movieId },
-        UpdateExpression: updateExpression,
-        ExpressionAttributeValues: {
-          ':inc': 1,
-          ':updatedAt': new Date().toISOString(),
-        },
-        ReturnValues: 'ALL_NEW',
-      }).promise();
+      const result = await this.dynamodb
+        .update({
+          TableName: this.tables.votesTable,
+          Key: { roomId, movieId },
+          UpdateExpression: updateExpression,
+          ExpressionAttributeValues: {
+            ':inc': 1,
+            ':updatedAt': new Date().toISOString(),
+          },
+          ReturnValues: 'ALL_NEW',
+        })
+        .promise();
 
-      this.logger.debug(`Vote incremented: ${roomId}/${movieId} -> ${voteType}`);
+      this.logger.debug(
+        `Vote incremented: ${roomId}/${movieId} -> ${voteType}`,
+      );
       return result.Attributes;
     } catch (error) {
       this.logger.error(`Error incrementing vote: ${error.message}`);
@@ -226,10 +269,12 @@ export class MultiTableService {
 
   async getVote(roomId: string, movieId: string): Promise<any | null> {
     try {
-      const result = await this.dynamodb.get({
-        TableName: this.tables.votesTable,
-        Key: { roomId, movieId },
-      }).promise();
+      const result = await this.dynamodb
+        .get({
+          TableName: this.tables.votesTable,
+          Key: { roomId, movieId },
+        })
+        .promise();
 
       return result.Item || null;
     } catch (error) {
@@ -240,13 +285,15 @@ export class MultiTableService {
 
   async getRoomVotes(roomId: string): Promise<any[]> {
     try {
-      const result = await this.dynamodb.query({
-        TableName: this.tables.votesTable,
-        KeyConditionExpression: 'roomId = :roomId',
-        ExpressionAttributeValues: {
-          ':roomId': roomId,
-        },
-      }).promise();
+      const result = await this.dynamodb
+        .query({
+          TableName: this.tables.votesTable,
+          KeyConditionExpression: 'roomId = :roomId',
+          ExpressionAttributeValues: {
+            ':roomId': roomId,
+          },
+        })
+        .promise();
 
       return result.Items || [];
     } catch (error) {
@@ -259,16 +306,18 @@ export class MultiTableService {
 
   async cacheMovie(movie: any): Promise<void> {
     try {
-      const ttl = Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60); // 30 días
+      const ttl = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60; // 30 días
 
-      await this.dynamodb.put({
-        TableName: this.tables.moviesCacheTable,
-        Item: {
-          ...movie,
-          cachedAt: new Date().toISOString(),
-          ttl, // TTL automático de DynamoDB
-        },
-      }).promise();
+      await this.dynamodb
+        .put({
+          TableName: this.tables.moviesCacheTable,
+          Item: {
+            ...movie,
+            cachedAt: new Date().toISOString(),
+            ttl, // TTL automático de DynamoDB
+          },
+        })
+        .promise();
 
       this.logger.debug(`Movie cached: ${movie.tmdbId}`);
     } catch (error) {
@@ -279,10 +328,12 @@ export class MultiTableService {
 
   async getCachedMovie(tmdbId: string): Promise<any | null> {
     try {
-      const result = await this.dynamodb.get({
-        TableName: this.tables.moviesCacheTable,
-        Key: { tmdbId },
-      }).promise();
+      const result = await this.dynamodb
+        .get({
+          TableName: this.tables.moviesCacheTable,
+          Key: { tmdbId },
+        })
+        .promise();
 
       return result.Item || null;
     } catch (error) {
@@ -323,15 +374,17 @@ export class MultiTableService {
       const chunks = this.chunkArray(items, 25); // Límite de DynamoDB
 
       for (const chunk of chunks) {
-        const writeRequests = chunk.map(item => ({
+        const writeRequests = chunk.map((item) => ({
           PutRequest: { Item: item },
         }));
 
-        await this.dynamodb.batchWrite({
-          RequestItems: {
-            [tableName]: writeRequests,
-          },
-        }).promise();
+        await this.dynamodb
+          .batchWrite({
+            RequestItems: {
+              [tableName]: writeRequests,
+            },
+          })
+          .promise();
       }
 
       this.logger.debug(`Batch write completed: ${items.length} items`);

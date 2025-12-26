@@ -22,15 +22,21 @@ export class InsightEngine {
       this.logger.log('🔮 Generating predictive insights...');
 
       const endDate = timeRange?.endDate || new Date();
-      const startDate = timeRange?.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Last 30 days
+      const startDate =
+        timeRange?.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Last 30 days
 
       const insights: PredictiveInsights = {
         userChurnPrediction: await this.predictUserChurn(startDate, endDate),
-        roomSuccessPrediction: await this.predictRoomSuccess(startDate, endDate),
+        roomSuccessPrediction: await this.predictRoomSuccess(
+          startDate,
+          endDate,
+        ),
         contentTrends: await this.predictContentTrends(startDate, endDate),
       };
 
-      this.logger.log(`🔮 Generated insights: ${insights.userChurnPrediction.length} churn predictions`);
+      this.logger.log(
+        `🔮 Generated insights: ${insights.userChurnPrediction.length} churn predictions`,
+      );
       return insights;
     } catch (error) {
       this.logger.error('❌ Error generating insights:', error);
@@ -49,7 +55,9 @@ export class InsightEngine {
     recommendations: string[];
   }> {
     try {
-      this.logger.log(`📊 Analyzing user patterns${userId ? ` for ${userId}` : ''}...`);
+      this.logger.log(
+        `📊 Analyzing user patterns${userId ? ` for ${userId}` : ''}...`,
+      );
 
       // Mock implementation - in real scenario, analyze user metrics
       return {
@@ -79,7 +87,9 @@ export class InsightEngine {
     contentDiversityScore: number;
   }> {
     try {
-      this.logger.log(`🏠 Analyzing room patterns${roomId ? ` for ${roomId}` : ''}...`);
+      this.logger.log(
+        `🏠 Analyzing room patterns${roomId ? ` for ${roomId}` : ''}...`,
+      );
 
       // Mock implementation - in real scenario, analyze room metrics
       return {
@@ -106,13 +116,19 @@ export class InsightEngine {
         userId: 'user123',
         churnProbability: 0.75,
         riskFactors: ['Low engagement', 'No recent room joins'],
-        recommendations: ['Send personalized content recommendations', 'Invite to popular rooms'],
+        recommendations: [
+          'Send personalized content recommendations',
+          'Invite to popular rooms',
+        ],
       },
       {
         userId: 'user456',
         churnProbability: 0.45,
         riskFactors: ['Declining vote frequency'],
-        recommendations: ['Suggest new content genres', 'Connect with similar users'],
+        recommendations: [
+          'Suggest new content genres',
+          'Connect with similar users',
+        ],
       },
     ];
   }
@@ -123,7 +139,10 @@ export class InsightEngine {
       {
         roomId: 'room789',
         successProbability: 0.85,
-        optimizationSuggestions: ['Add more diverse content', 'Invite active members'],
+        optimizationSuggestions: [
+          'Add more diverse content',
+          'Invite active members',
+        ],
       },
     ];
   }

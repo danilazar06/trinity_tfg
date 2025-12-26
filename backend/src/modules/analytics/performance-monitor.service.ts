@@ -30,7 +30,9 @@ export class PerformanceMonitor {
         cpuUsage: 0.45, // 45%
       };
 
-      this.logger.log(`⚡ Performance monitored: ${performance.apiResponseTime}ms response time`);
+      this.logger.log(
+        `⚡ Performance monitored: ${performance.apiResponseTime}ms response time`,
+      );
       return performance;
     } catch (error) {
       this.logger.error('❌ Error monitoring performance:', error);
@@ -41,13 +43,15 @@ export class PerformanceMonitor {
   /**
    * 🚨 Check for performance alerts
    */
-  async checkAlerts(): Promise<Array<{
-    type: string;
-    severity: 'warning' | 'critical';
-    message: string;
-    value: number;
-    threshold: number;
-  }>> {
+  async checkAlerts(): Promise<
+    Array<{
+      type: string;
+      severity: 'warning' | 'critical';
+      message: string;
+      value: number;
+      threshold: number;
+    }>
+  > {
     try {
       this.logger.log('🚨 Checking performance alerts...');
 
@@ -71,7 +75,9 @@ export class PerformanceMonitor {
     throughputTrend: number[];
   }> {
     try {
-      this.logger.log(`📈 Getting performance trends for last ${hours} hours...`);
+      this.logger.log(
+        `📈 Getting performance trends for last ${hours} hours...`,
+      );
 
       // Mock implementation
       return {

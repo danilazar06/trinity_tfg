@@ -30,7 +30,8 @@ export class ALIAService {
   private readonly isEnabled: boolean;
 
   constructor(private configService: ConfigService) {
-    this.salamandraEndpoint = 'https://api-inference.huggingface.co/models/BSC-LT/salamandra-7b-instruct';
+    this.salamandraEndpoint =
+      'https://api-inference.huggingface.co/models/BSC-LT/salamandra-7b-instruct';
     this.hfApiToken = this.configService.get('HF_API_TOKEN', '');
     this.isEnabled = !!this.hfApiToken;
 
@@ -38,7 +39,7 @@ export class ALIAService {
       timeout: 30000, // 30 segundos para modelos de IA
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.hfApiToken}`,
+        Authorization: `Bearer ${this.hfApiToken}`,
         'User-Agent': 'Trinity-MVP/1.0',
       },
     });
@@ -53,13 +54,17 @@ export class ALIAService {
   /**
    * Obtener recomendaciones cinematográficas de Salamandra basadas en estado emocional
    */
-  async getChatRecommendations(request: ALIARequest): Promise<AIRecommendation> {
+  async getChatRecommendations(
+    request: ALIARequest,
+  ): Promise<AIRecommendation> {
     if (!this.isEnabled) {
       return this.getFallbackRecommendations(request.userText);
     }
 
     try {
-      this.logger.log(`Getting Salamandra recommendations for: "${request.userText}"`);
+      this.logger.log(
+        `Getting Salamandra recommendations for: "${request.userText}"`,
+      );
 
       // System prompt específico para Salamandra
       const systemPrompt = this.buildSalamandraPrompt(request.userText);
@@ -80,10 +85,9 @@ export class ALIAService {
       // Procesar respuesta de Salamandra
       const salamandraResponse = response.data;
       return this.parseSalamandraResponse(salamandraResponse, request.userText);
-
     } catch (error) {
       this.logger.error(`Error calling Salamandra API: ${error.message}`);
-      
+
       // Fallback a recomendaciones locales
       return this.getFallbackRecommendations(request.userText);
     }
@@ -103,11 +107,14 @@ Respuesta JSON:`;
   /**
    * Procesar respuesta de Salamandra
    */
-  private parseSalamandraResponse(salamandraResponse: any, originalContext: string): AIRecommendation {
+  private parseSalamandraResponse(
+    salamandraResponse: any,
+    originalContext: string,
+  ): AIRecommendation {
     try {
       // Salamandra devuelve un array con la respuesta generada
-      const generatedText = Array.isArray(salamandraResponse) 
-        ? salamandraResponse[0]?.generated_text 
+      const generatedText = Array.isArray(salamandraResponse)
+        ? salamandraResponse[0]?.generated_text
         : salamandraResponse.generated_text;
 
       if (!generatedText) {
@@ -120,7 +127,8 @@ Respuesta JSON:`;
         throw new Error('No JSON found in response');
       }
 
-      const parsed: SalamandraRecommendation & { approach?: string } = JSON.parse(jsonMatch[0]);
+      const parsed: SalamandraRecommendation & { approach?: string } =
+        JSON.parse(jsonMatch[0]);
 
       if (!parsed.recommendations || !Array.isArray(parsed.recommendations)) {
         throw new Error('Invalid recommendations format');
@@ -146,20 +154,41 @@ Respuesta JSON:`;
   private getFallbackRecommendations(userText: string): AIRecommendation {
     const analysis = this.analyzeEmotionalContext(userText);
     const emotionalState = this.detectEmotionalState(userText);
-    
+
     // Mapeo de emociones a géneros cinematográficos (enfoque psicológico)
-    const emotionToGenres: { [key: string]: { genres: string[], approach: 'catarsis' | 'evasion' } } = {
+    const emotionToGenres: {
+      [key: string]: { genres: string[]; approach: 'catarsis' | 'evasion' };
+    } = {
       sad: { genres: ['Drama', 'Romance', 'Biografía'], approach: 'catarsis' },
-      happy: { genres: ['Comedia', 'Musical', 'Aventura'], approach: 'evasion' },
-      stressed: { genres: ['Comedia', 'Documental', 'Animación'], approach: 'evasion' },
-      angry: { genres: ['Drama', 'Thriller', 'Deportes'], approach: 'catarsis' },
-      lonely: { genres: ['Romance', 'Drama familiar', 'Comedia romántica'], approach: 'catarsis' },
-      anxious: { genres: ['Comedia', 'Animación', 'Documental de naturaleza'], approach: 'evasion' },
-      depressed: { genres: ['Drama inspiracional', 'Biografía', 'Comedia'], approach: 'catarsis' },
+      happy: {
+        genres: ['Comedia', 'Musical', 'Aventura'],
+        approach: 'evasion',
+      },
+      stressed: {
+        genres: ['Comedia', 'Documental', 'Animación'],
+        approach: 'evasion',
+      },
+      angry: {
+        genres: ['Drama', 'Thriller', 'Deportes'],
+        approach: 'catarsis',
+      },
+      lonely: {
+        genres: ['Romance', 'Drama familiar', 'Comedia romántica'],
+        approach: 'catarsis',
+      },
+      anxious: {
+        genres: ['Comedia', 'Animación', 'Documental de naturaleza'],
+        approach: 'evasion',
+      },
+      depressed: {
+        genres: ['Drama inspiracional', 'Biografía', 'Comedia'],
+        approach: 'catarsis',
+      },
       default: { genres: ['Drama', 'Comedia', 'Aventura'], approach: 'mixed' },
     };
 
-    const recommendation = emotionToGenres[emotionalState] || emotionToGenres.default;
+    const recommendation =
+      emotionToGenres[emotionalState] || emotionToGenres.default;
 
     return {
       recommendations: recommendation.genres,
@@ -176,28 +205,48 @@ Respuesta JSON:`;
    */
   private analyzeEmotionalContext(userText: string): string {
     const lowerText = userText.toLowerCase();
-    
+
     if (lowerText.includes('bullying') || lowerText.includes('acoso')) {
       return 'Situación de acoso detectada. Se recomienda catarsis a través de dramas que aborden superación personal y apoyo social.';
     }
-    
-    if (lowerText.includes('triste') || lowerText.includes('deprimido') || lowerText.includes('melancolía')) {
+
+    if (
+      lowerText.includes('triste') ||
+      lowerText.includes('deprimido') ||
+      lowerText.includes('melancolía')
+    ) {
       return 'Estado depresivo detectado. Catarsis recomendada con dramas inspiracionales seguidos de comedias ligeras.';
     }
-    
-    if (lowerText.includes('estresado') || lowerText.includes('ansiedad') || lowerText.includes('agobiado')) {
+
+    if (
+      lowerText.includes('estresado') ||
+      lowerText.includes('ansiedad') ||
+      lowerText.includes('agobiado')
+    ) {
       return 'Estrés/ansiedad detectados. Evasión recomendada con comedias y contenido relajante.';
     }
-    
-    if (lowerText.includes('enfadado') || lowerText.includes('furioso') || lowerText.includes('rabia')) {
+
+    if (
+      lowerText.includes('enfadado') ||
+      lowerText.includes('furioso') ||
+      lowerText.includes('rabia')
+    ) {
       return 'Estado de ira detectado. Catarsis recomendada con thrillers o deportes para canalizar la energía.';
     }
-    
-    if (lowerText.includes('solo') || lowerText.includes('aislado') || lowerText.includes('abandonado')) {
+
+    if (
+      lowerText.includes('solo') ||
+      lowerText.includes('aislado') ||
+      lowerText.includes('abandonado')
+    ) {
       return 'Sentimientos de soledad detectados. Catarsis con dramas familiares y romances.';
     }
 
-    if (lowerText.includes('feliz') || lowerText.includes('celebrar') || lowerText.includes('eufórico')) {
+    if (
+      lowerText.includes('feliz') ||
+      lowerText.includes('celebrar') ||
+      lowerText.includes('eufórico')
+    ) {
       return 'Estado positivo detectado. Evasión para mantener y amplificar el buen ánimo.';
     }
 
@@ -209,10 +258,17 @@ Respuesta JSON:`;
    */
   private detectEmotionalState(userText: string): string {
     const lowerText = userText.toLowerCase();
-    
+
     const emotionKeywords = {
       sad: ['triste', 'deprimido', 'melancólico', 'llorar', 'pena', 'dolor'],
-      happy: ['feliz', 'alegre', 'contento', 'celebrar', 'emocionado', 'eufórico'],
+      happy: [
+        'feliz',
+        'alegre',
+        'contento',
+        'celebrar',
+        'emocionado',
+        'eufórico',
+      ],
       stressed: ['estresado', 'ansiedad', 'nervioso', 'preocupado', 'agobiado'],
       angry: ['enfadado', 'furioso', 'molesto', 'irritado', 'rabioso', 'ira'],
       lonely: ['solo', 'solitario', 'aislado', 'abandonado', 'vacío'],
@@ -221,7 +277,7 @@ Respuesta JSON:`;
     };
 
     for (const [emotion, keywords] of Object.entries(emotionKeywords)) {
-      if (keywords.some(keyword => lowerText.includes(keyword))) {
+      if (keywords.some((keyword) => lowerText.includes(keyword))) {
         return emotion;
       }
     }
@@ -232,17 +288,21 @@ Respuesta JSON:`;
   /**
    * Verificar estado del servicio Salamandra
    */
-  async healthCheck(): Promise<{ available: boolean; latency?: number; model?: string }> {
+  async healthCheck(): Promise<{
+    available: boolean;
+    latency?: number;
+    model?: string;
+  }> {
     if (!this.isEnabled) {
       return { available: false };
     }
 
     try {
       const startTime = Date.now();
-      
+
       // Test simple con Salamandra
       const testResponse = await this.httpClient.post(this.salamandraEndpoint, {
-        inputs: "Test de conectividad",
+        inputs: 'Test de conectividad',
         parameters: {
           max_new_tokens: 10,
           temperature: 0.1,
@@ -251,13 +311,13 @@ Respuesta JSON:`;
           wait_for_model: true,
         },
       });
-      
+
       const latency = Date.now() - startTime;
-      
-      return { 
-        available: true, 
+
+      return {
+        available: true,
         latency,
-        model: 'BSC-LT/salamandra-7b-instruct'
+        model: 'BSC-LT/salamandra-7b-instruct',
       };
     } catch (error) {
       this.logger.warn(`Salamandra health check failed: ${error.message}`);

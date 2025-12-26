@@ -8,22 +8,22 @@ import { RealtimeCompatibilityService } from './realtime-compatibility.service';
 @Module({
   imports: [ConfigModule],
   providers: [
-    RealtimeGateway, 
-    RealtimeService, 
+    RealtimeGateway,
+    RealtimeService,
     AppSyncPublisher,
     RealtimeCompatibilityService,
     // Alias for backward compatibility
     {
       provide: 'RealtimeServiceCompat',
       useExisting: RealtimeCompatibilityService,
-    }
+    },
   ],
   exports: [
-    RealtimeGateway, 
-    RealtimeService, 
+    RealtimeGateway,
+    RealtimeService,
     AppSyncPublisher,
     RealtimeCompatibilityService,
-    'RealtimeServiceCompat'
+    'RealtimeServiceCompat',
   ],
 })
 export class RealtimeModule {}

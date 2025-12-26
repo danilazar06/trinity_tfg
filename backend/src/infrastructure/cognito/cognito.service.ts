@@ -1,4 +1,9 @@
-import { Injectable, Logger, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as AWS from 'aws-sdk';
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
@@ -33,7 +38,9 @@ export class CognitoService {
     this.clientId = this.configService.get('COGNITO_CLIENT_ID');
 
     if (!this.userPoolId || !this.clientId) {
-      throw new Error('Cognito configuration missing: USER_POOL_ID and CLIENT_ID are required');
+      throw new Error(
+        'Cognito configuration missing: USER_POOL_ID and CLIENT_ID are required',
+      );
     }
 
     // Configurar AWS SDK v2 para Cognito
@@ -43,7 +50,8 @@ export class CognitoService {
       secretAccessKey: this.configService.get('AWS_SECRET_ACCESS_KEY'),
     });
 
-    this.cognitoIdentityServiceProvider = new AWS.CognitoIdentityServiceProvider();
+    this.cognitoIdentityServiceProvider =
+      new AWS.CognitoIdentityServiceProvider();
 
     // Configurar verificador JWT para tokens de Cognito
     this.jwtVerifier = CognitoJwtVerifier.create({
@@ -56,7 +64,12 @@ export class CognitoService {
   /**
    * Registrar un nuevo usuario en Cognito
    */
-  async signUp(email: string, username: string, password: string, phoneNumber?: string): Promise<{ userSub: string }> {
+  async signUp(
+    email: string,
+    username: string,
+    password: string,
+    phoneNumber?: string,
+  ): Promise<{ userSub: string }> {
     try {
       const userAttributes = [
         { Name: 'email', Value: email },
@@ -67,36 +80,44 @@ export class CognitoService {
         userAttributes.push({ Name: 'phone_number', Value: phoneNumber });
       }
 
-      const params: AWS.CognitoIdentityServiceProvider.AdminCreateUserRequest = {
-        UserPoolId: this.userPoolId,
-        Username: email, // Usar email como username principal
-        UserAttributes: userAttributes,
-        TemporaryPassword: password,
-        MessageAction: 'SUPPRESS', // No enviar email automático
-        DeliveryMediums: ['EMAIL'],
-      };
+      const params: AWS.CognitoIdentityServiceProvider.AdminCreateUserRequest =
+        {
+          UserPoolId: this.userPoolId,
+          Username: email, // Usar email como username principal
+          UserAttributes: userAttributes,
+          TemporaryPassword: password,
+          MessageAction: 'SUPPRESS', // No enviar email automático
+          DeliveryMediums: ['EMAIL'],
+        };
 
-      const result = await this.cognitoIdentityServiceProvider.adminCreateUser(params).promise();
+      const result = await this.cognitoIdentityServiceProvider
+        .adminCreateUser(params)
+        .promise();
 
       // Establecer contraseña permanente
-      const setPasswordParams: AWS.CognitoIdentityServiceProvider.AdminSetUserPasswordRequest = {
-        UserPoolId: this.userPoolId,
-        Username: email,
-        Password: password,
-        Permanent: true,
-      };
+      const setPasswordParams: AWS.CognitoIdentityServiceProvider.AdminSetUserPasswordRequest =
+        {
+          UserPoolId: this.userPoolId,
+          Username: email,
+          Password: password,
+          Permanent: true,
+        };
 
-      await this.cognitoIdentityServiceProvider.adminSetUserPassword(setPasswordParams).promise();
+      await this.cognitoIdentityServiceProvider
+        .adminSetUserPassword(setPasswordParams)
+        .promise();
 
       this.logger.log(`Usuario registrado en Cognito: ${email}`);
       return { userSub: result.User?.Username || email };
     } catch (error) {
-      this.logger.error(`Error registrando usuario en Cognito: ${error.message}`);
-      
+      this.logger.error(
+        `Error registrando usuario en Cognito: ${error.message}`,
+      );
+
       if (error.code === 'UsernameExistsException') {
         throw new ConflictException('El email ya está registrado');
       }
-      
+
       throw error;
     }
   }
@@ -106,23 +127,27 @@ export class CognitoService {
    */
   async signIn(email: string, password: string): Promise<AuthResult> {
     try {
-      const params: AWS.CognitoIdentityServiceProvider.AdminInitiateAuthRequest = {
-        UserPoolId: this.userPoolId,
-        ClientId: this.clientId,
-        AuthFlow: 'ADMIN_NO_SRP_AUTH',
-        AuthParameters: {
-          USERNAME: email,
-          PASSWORD: password,
-        },
-      };
+      const params: AWS.CognitoIdentityServiceProvider.AdminInitiateAuthRequest =
+        {
+          UserPoolId: this.userPoolId,
+          ClientId: this.clientId,
+          AuthFlow: 'ADMIN_NO_SRP_AUTH',
+          AuthParameters: {
+            USERNAME: email,
+            PASSWORD: password,
+          },
+        };
 
-      const result = await this.cognitoIdentityServiceProvider.adminInitiateAuth(params).promise();
+      const result = await this.cognitoIdentityServiceProvider
+        .adminInitiateAuth(params)
+        .promise();
 
       if (!result.AuthenticationResult) {
         throw new UnauthorizedException('Credenciales inválidas');
       }
 
-      const { AccessToken, IdToken, RefreshToken } = result.AuthenticationResult;
+      const { AccessToken, IdToken, RefreshToken } =
+        result.AuthenticationResult;
 
       if (!AccessToken || !IdToken) {
         throw new UnauthorizedException('Error obteniendo tokens');
@@ -140,11 +165,11 @@ export class CognitoService {
       };
     } catch (error) {
       this.logger.error(`Error en login: ${error.message}`);
-      
+
       if (error.code === 'NotAuthorizedException') {
         throw new UnauthorizedException('Credenciales inválidas');
       }
-      
+
       throw error;
     }
   }
@@ -163,19 +188,24 @@ export class CognitoService {
         Username: payload.username,
       };
 
-      const result = await this.cognitoIdentityServiceProvider.adminGetUser(params).promise();
+      const result = await this.cognitoIdentityServiceProvider
+        .adminGetUser(params)
+        .promise();
 
       if (!result.UserAttributes) {
         throw new Error('No se pudieron obtener los atributos del usuario');
       }
 
       // Convertir atributos a objeto
-      const attributes = result.UserAttributes.reduce((acc, attr) => {
-        if (attr.Name && attr.Value) {
-          acc[attr.Name] = attr.Value;
-        }
-        return acc;
-      }, {} as Record<string, string>);
+      const attributes = result.UserAttributes.reduce(
+        (acc, attr) => {
+          if (attr.Name && attr.Value) {
+            acc[attr.Name] = attr.Value;
+          }
+          return acc;
+        },
+        {} as Record<string, string>,
+      );
 
       return {
         sub: payload.sub,
@@ -186,7 +216,9 @@ export class CognitoService {
         phone_number_verified: attributes.phone_number_verified === 'true',
       };
     } catch (error) {
-      this.logger.error(`Error obteniendo usuario desde token: ${error.message}`);
+      this.logger.error(
+        `Error obteniendo usuario desde token: ${error.message}`,
+      );
       throw new UnauthorizedException('Token inválido');
     }
   }
@@ -215,12 +247,15 @@ export class CognitoService {
    */
   async resendConfirmationCode(email: string): Promise<void> {
     try {
-      const params: AWS.CognitoIdentityServiceProvider.ResendConfirmationCodeRequest = {
-        ClientId: this.clientId,
-        Username: email,
-      };
+      const params: AWS.CognitoIdentityServiceProvider.ResendConfirmationCodeRequest =
+        {
+          ClientId: this.clientId,
+          Username: email,
+        };
 
-      await this.cognitoIdentityServiceProvider.resendConfirmationCode(params).promise();
+      await this.cognitoIdentityServiceProvider
+        .resendConfirmationCode(params)
+        .promise();
       this.logger.log(`Código de confirmación reenviado: ${email}`);
     } catch (error) {
       this.logger.error(`Error reenviando código: ${error.message}`);
@@ -238,7 +273,9 @@ export class CognitoService {
         Username: email,
       };
 
-      await this.cognitoIdentityServiceProvider.forgotPassword(params).promise();
+      await this.cognitoIdentityServiceProvider
+        .forgotPassword(params)
+        .promise();
       this.logger.log(`Proceso de recuperación iniciado: ${email}`);
     } catch (error) {
       this.logger.error(`Error en forgot password: ${error.message}`);
@@ -249,16 +286,23 @@ export class CognitoService {
   /**
    * Confirmar nueva contraseña
    */
-  async confirmForgotPassword(email: string, confirmationCode: string, newPassword: string): Promise<void> {
+  async confirmForgotPassword(
+    email: string,
+    confirmationCode: string,
+    newPassword: string,
+  ): Promise<void> {
     try {
-      const params: AWS.CognitoIdentityServiceProvider.ConfirmForgotPasswordRequest = {
-        ClientId: this.clientId,
-        Username: email,
-        ConfirmationCode: confirmationCode,
-        Password: newPassword,
-      };
+      const params: AWS.CognitoIdentityServiceProvider.ConfirmForgotPasswordRequest =
+        {
+          ClientId: this.clientId,
+          Username: email,
+          ConfirmationCode: confirmationCode,
+          Password: newPassword,
+        };
 
-      await this.cognitoIdentityServiceProvider.confirmForgotPassword(params).promise();
+      await this.cognitoIdentityServiceProvider
+        .confirmForgotPassword(params)
+        .promise();
       this.logger.log(`Contraseña restablecida: ${email}`);
     } catch (error) {
       this.logger.error(`Error restableciendo contraseña: ${error.message}`);
@@ -271,12 +315,15 @@ export class CognitoService {
    */
   async deleteUser(email: string): Promise<void> {
     try {
-      const params: AWS.CognitoIdentityServiceProvider.AdminDeleteUserRequest = {
-        UserPoolId: this.userPoolId,
-        Username: email,
-      };
+      const params: AWS.CognitoIdentityServiceProvider.AdminDeleteUserRequest =
+        {
+          UserPoolId: this.userPoolId,
+          Username: email,
+        };
 
-      await this.cognitoIdentityServiceProvider.adminDeleteUser(params).promise();
+      await this.cognitoIdentityServiceProvider
+        .adminDeleteUser(params)
+        .promise();
       this.logger.log(`Usuario eliminado: ${email}`);
     } catch (error) {
       this.logger.error(`Error eliminando usuario: ${error.message}`);

@@ -1,14 +1,26 @@
-import { IsString, IsOptional, IsDateString, IsEnum, IsBoolean, IsNumber, IsArray, ValidateNested, Min, Max, IsObject } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsDateString,
+  IsEnum,
+  IsBoolean,
+  IsNumber,
+  IsArray,
+  ValidateNested,
+  Min,
+  Max,
+  IsObject,
+} from 'class-validator';
 import { Type, Transform } from 'class-transformer';
-import { 
-  RecurrenceType, 
-  ScheduleStatus, 
-  AttendanceStatus, 
-  NotificationType, 
+import {
+  RecurrenceType,
+  ScheduleStatus,
+  AttendanceStatus,
+  NotificationType,
   ReminderTiming,
   RecurrencePattern,
   ReminderConfig,
-  ScheduleFilters
+  ScheduleFilters,
 } from '../../../domain/entities/room-schedule.entity';
 
 /**

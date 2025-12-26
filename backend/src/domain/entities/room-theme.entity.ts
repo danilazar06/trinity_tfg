@@ -46,12 +46,12 @@ export interface ThemeCustomizations {
     background: string;
     text: string;
   }>;
-  
+
   // Assets personalizados
   customBackgroundImage?: string;
   customIcon?: string;
   customBanner?: string;
-  
+
   // Configuraciones adicionales
   opacity?: number; // 0-100
   borderRadius?: number; // 0-20
@@ -96,7 +96,7 @@ export enum ThemeSortBy {
   USAGE_COUNT = 'usageCount',
   RATING = 'rating',
   POPULARITY = 'popularity',
-  NAME = 'name'
+  NAME = 'name',
 }
 
 /**
@@ -182,7 +182,11 @@ export interface ThemeRecommendation {
   themeId: string;
   score: number; // 0-100
   reason: string;
-  basedOn: 'usage_history' | 'room_content' | 'user_preferences' | 'similar_users';
+  basedOn:
+    | 'usage_history'
+    | 'room_content'
+    | 'user_preferences'
+    | 'similar_users';
   metadata?: Record<string, any>;
 }
 
@@ -192,7 +196,7 @@ export interface ThemeRecommendation {
 export interface AutoThemeConfig {
   roomId: string;
   enabled: boolean;
-  
+
   // Reglas de aplicación automática
   rules: {
     // Cambiar tema basado en contenido
@@ -200,26 +204,26 @@ export interface AutoThemeConfig {
       genreThemeMapping: Record<string, string>; // género -> themeId
       moodThemeMapping: Record<string, string>; // mood -> themeId
     };
-    
+
     // Cambiar tema basado en tiempo
     timeBasedThemes?: {
       seasonalThemes: boolean;
       holidayThemes: boolean;
       timeOfDayThemes: boolean;
     };
-    
+
     // Cambiar tema basado en eventos
     eventBasedThemes?: {
       memberMilestones: boolean; // cumpleaños, aniversarios
       roomMilestones: boolean; // número de matches, etc.
     };
   };
-  
+
   // Configuración de cambios
   changeFrequency: 'never' | 'daily' | 'weekly' | 'monthly' | 'event_based';
   requireApproval: boolean;
   notifyMembers: boolean;
-  
+
   updatedBy: string;
   updatedAt: Date;
 }

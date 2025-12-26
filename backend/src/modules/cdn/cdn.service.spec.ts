@@ -1,7 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import * as fc from 'fast-check';
-import { CDNService, ImageOptimizationOptions, CDNImageResponse, ProgressiveLoadingConfig } from './cdn.service';
+import {
+  CDNService,
+  ImageOptimizationOptions,
+  CDNImageResponse,
+  ProgressiveLoadingConfig,
+} from './cdn.service';
 
 // Mock ConfigService
 const mockConfigService = {
@@ -36,28 +41,41 @@ describe('CDNService Property Tests', () => {
   /**
    * **Feature: trinity-mvp, Propiedad 9: Entrega de contenido CDN**
    * **Valida: Requisitos 6.2, 6.4**
-   * 
+   *
    * Para cualquier imagen, el sistema debe generar URLs optimizadas,
    * implementar carga progresiva y mantener estadísticas de caché consistentes
    */
   describe('Propiedad 9: Entrega de contenido CDN', () => {
-    
     it('should generate consistent optimized URLs for any image path and options', async () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            imagePath: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.startsWith('/')),
+            imagePath: fc
+              .string({ minLength: 1, maxLength: 100 })
+              .filter((s) => s.startsWith('/')),
             options: fc.record({
-              width: fc.option(fc.integer({ min: 50, max: 2000 }), { nil: undefined }),
-              height: fc.option(fc.integer({ min: 50, max: 2000 }), { nil: undefined }),
-              quality: fc.option(fc.integer({ min: 10, max: 100 }), { nil: undefined }),
-              format: fc.option(fc.constantFrom('webp', 'jpeg', 'png', 'auto'), { nil: undefined }),
+              width: fc.option(fc.integer({ min: 50, max: 2000 }), {
+                nil: undefined,
+              }),
+              height: fc.option(fc.integer({ min: 50, max: 2000 }), {
+                nil: undefined,
+              }),
+              quality: fc.option(fc.integer({ min: 10, max: 100 }), {
+                nil: undefined,
+              }),
+              format: fc.option(
+                fc.constantFrom('webp', 'jpeg', 'png', 'auto'),
+                { nil: undefined },
+              ),
               progressive: fc.option(fc.boolean(), { nil: undefined }),
             }),
           }),
           async (testData) => {
             // Execute image optimization
-            const result = await service.optimizeImage(testData.imagePath, testData.options as ImageOptimizationOptions);
+            const result = await service.optimizeImage(
+              testData.imagePath,
+              testData.options as ImageOptimizationOptions,
+            );
 
             // Verify result structure is always consistent
             expect(result).toBeDefined();
@@ -65,27 +83,29 @@ describe('CDNService Property Tests', () => {
             expect(typeof result.optimizedUrl).toBe('string');
             expect(typeof result.thumbnailUrl).toBe('string');
             expect(typeof result.placeholderUrl).toBe('string');
-            
+
             // Verify sizes object structure
             expect(result.sizes).toBeDefined();
             expect(typeof result.sizes.small).toBe('string');
             expect(typeof result.sizes.medium).toBe('string');
             expect(typeof result.sizes.large).toBe('string');
             expect(typeof result.sizes.original).toBe('string');
-            
+
             // Verify metadata structure
             expect(result.metadata).toBeDefined();
             expect(typeof result.metadata.format).toBe('string');
             expect(typeof result.metadata.estimatedSize).toBe('number');
-            expect(['hit', 'miss', 'stale']).toContain(result.metadata.cacheStatus);
-            
+            expect(['hit', 'miss', 'stale']).toContain(
+              result.metadata.cacheStatus,
+            );
+
             // Verify all URLs are valid
             expect(() => new URL(result.originalUrl)).not.toThrow();
             expect(() => new URL(result.optimizedUrl)).not.toThrow();
             expect(() => new URL(result.thumbnailUrl)).not.toThrow();
             expect(() => new URL(result.placeholderUrl)).not.toThrow();
-            
-            Object.values(result.sizes).forEach(url => {
+
+            Object.values(result.sizes).forEach((url) => {
               expect(() => new URL(url)).not.toThrow();
             });
 
@@ -99,11 +119,14 @@ describe('CDNService Property Tests', () => {
             expect(result.metadata.estimatedSize).toBeGreaterThan(0);
 
             // Verify consistency - same inputs should produce same outputs
-            const result2 = await service.optimizeImage(testData.imagePath, testData.options as ImageOptimizationOptions);
+            const result2 = await service.optimizeImage(
+              testData.imagePath,
+              testData.options as ImageOptimizationOptions,
+            );
             expect(result).toEqual(result2);
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -111,20 +134,27 @@ describe('CDNService Property Tests', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            imagePath: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.startsWith('/')),
+            imagePath: fc
+              .string({ minLength: 1, maxLength: 100 })
+              .filter((s) => s.startsWith('/')),
             config: fc.record({
               enablePlaceholder: fc.boolean(),
               enableThumbnail: fc.boolean(),
               enableLazyLoading: fc.boolean(),
-              qualitySteps: fc.array(
-                fc.integer({ min: 10, max: 100 }),
-                { minLength: 2, maxLength: 5 }
-              ).map(arr => arr.sort((a, b) => a - b)), // Ensure ascending order
+              qualitySteps: fc
+                .array(fc.integer({ min: 10, max: 100 }), {
+                  minLength: 2,
+                  maxLength: 5,
+                })
+                .map((arr) => arr.sort((a, b) => a - b)), // Ensure ascending order
             }),
           }),
           async (testData) => {
             // Execute progressive loading setup
-            const result = await service.setupProgressiveLoading(testData.imagePath, testData.config);
+            const result = await service.setupProgressiveLoading(
+              testData.imagePath,
+              testData.config,
+            );
 
             // Verify result structure
             expect(result).toBeDefined();
@@ -136,7 +166,7 @@ describe('CDNService Property Tests', () => {
             expect(result.imageSequence.length).toBeGreaterThan(0);
 
             // Verify all URLs in sequence are valid
-            result.imageSequence.forEach(url => {
+            result.imageSequence.forEach((url) => {
               expect(typeof url).toBe('string');
               expect(url.length).toBeGreaterThan(0);
               expect(() => new URL(url)).not.toThrow();
@@ -153,17 +183,21 @@ describe('CDNService Property Tests', () => {
             if (testData.config.enableThumbnail) expectedMinLength++;
             expectedMinLength += testData.config.qualitySteps.length - 1; // Progressive steps
 
-            expect(result.imageSequence.length).toBeGreaterThanOrEqual(expectedMinLength - 2); // Allow some flexibility
+            expect(result.imageSequence.length).toBeGreaterThanOrEqual(
+              expectedMinLength - 2,
+            ); // Allow some flexibility
 
             // Verify no duplicate URLs in sequence
             const uniqueUrls = new Set(result.imageSequence);
             expect(uniqueUrls.size).toBe(result.imageSequence.length);
 
             // Verify loading strategy is valid
-            expect(['progressive-quality', 'simple']).toContain(result.loadingStrategy);
-          }
+            expect(['progressive-quality', 'simple']).toContain(
+              result.loadingStrategy,
+            );
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -171,7 +205,9 @@ describe('CDNService Property Tests', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            imagePath: fc.option(fc.string({ minLength: 1, maxLength: 100 }), { nil: undefined }),
+            imagePath: fc.option(fc.string({ minLength: 1, maxLength: 100 }), {
+              nil: undefined,
+            }),
           }),
           async (testData) => {
             // Execute cache stats retrieval
@@ -193,7 +229,7 @@ describe('CDNService Property Tests', () => {
             expect(stats.averageLoadTime).toBeGreaterThanOrEqual(0);
 
             // Verify top images are strings
-            stats.topImages.forEach(image => {
+            stats.topImages.forEach((image) => {
               expect(typeof image).toBe('string');
               expect(image.length).toBeGreaterThan(0);
             });
@@ -201,13 +237,21 @@ describe('CDNService Property Tests', () => {
             // Verify consistency - multiple calls should return same structure
             const stats2 = await service.getCacheStats(testData.imagePath);
             expect(typeof stats2.hitRate).toBe(typeof stats.hitRate);
-            expect(typeof stats2.totalRequests).toBe(typeof stats.totalRequests);
-            expect(typeof stats2.bandwidthSaved).toBe(typeof stats.bandwidthSaved);
-            expect(typeof stats2.averageLoadTime).toBe(typeof stats.averageLoadTime);
-            expect(Array.isArray(stats2.topImages)).toBe(Array.isArray(stats.topImages));
-          }
+            expect(typeof stats2.totalRequests).toBe(
+              typeof stats.totalRequests,
+            );
+            expect(typeof stats2.bandwidthSaved).toBe(
+              typeof stats.bandwidthSaved,
+            );
+            expect(typeof stats2.averageLoadTime).toBe(
+              typeof stats.averageLoadTime,
+            );
+            expect(Array.isArray(stats2.topImages)).toBe(
+              Array.isArray(stats.topImages),
+            );
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -216,8 +260,10 @@ describe('CDNService Property Tests', () => {
         fc.asyncProperty(
           fc.record({
             imagePaths: fc.array(
-              fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.startsWith('/')),
-              { minLength: 1, maxLength: 10 }
+              fc
+                .string({ minLength: 1, maxLength: 100 })
+                .filter((s) => s.startsWith('/')),
+              { minLength: 1, maxLength: 10 },
             ),
           }),
           async (testData) => {
@@ -241,12 +287,16 @@ describe('CDNService Property Tests', () => {
 
             // Verify consistency - same inputs should produce similar structure
             const result2 = await service.invalidateCache(testData.imagePaths);
-            expect(typeof result2.invalidationId).toBe(typeof result.invalidationId);
+            expect(typeof result2.invalidationId).toBe(
+              typeof result.invalidationId,
+            );
             expect(typeof result2.status).toBe(typeof result.status);
-            expect(typeof result2.estimatedTime).toBe(typeof result.estimatedTime);
-          }
+            expect(typeof result2.estimatedTime).toBe(
+              typeof result.estimatedTime,
+            );
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -254,7 +304,9 @@ describe('CDNService Property Tests', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            imagePath: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.startsWith('/')),
+            imagePath: fc
+              .string({ minLength: 1, maxLength: 100 })
+              .filter((s) => s.startsWith('/')),
             baseWidth: fc.integer({ min: 100, max: 1000 }),
             baseHeight: fc.integer({ min: 100, max: 1500 }),
             quality: fc.integer({ min: 50, max: 100 }),
@@ -268,7 +320,10 @@ describe('CDNService Property Tests', () => {
               format: 'webp',
             };
 
-            const result = await service.optimizeImage(testData.imagePath, options);
+            const result = await service.optimizeImage(
+              testData.imagePath,
+              options,
+            );
 
             // Verify responsive sizes are generated
             expect(result.sizes).toBeDefined();
@@ -276,7 +331,7 @@ describe('CDNService Property Tests', () => {
 
             // Verify all size URLs are valid and different
             const sizeUrls = [small, medium, large, original];
-            sizeUrls.forEach(url => {
+            sizeUrls.forEach((url) => {
               expect(typeof url).toBe('string');
               expect(url.length).toBeGreaterThan(0);
               expect(() => new URL(url)).not.toThrow();
@@ -288,10 +343,14 @@ describe('CDNService Property Tests', () => {
             expect(uniqueUrls.size).toBeGreaterThan(1); // At least some should be different
 
             // Verify estimated size is reasonable for given dimensions
-            const expectedMinSize = (testData.baseWidth * testData.baseHeight * 0.01); // Very conservative estimate
-            const expectedMaxSize = (testData.baseWidth * testData.baseHeight * 3); // Liberal estimate
-            
-            expect(result.metadata.estimatedSize).toBeGreaterThan(expectedMinSize);
+            const expectedMinSize =
+              testData.baseWidth * testData.baseHeight * 0.01; // Very conservative estimate
+            const expectedMaxSize =
+              testData.baseWidth * testData.baseHeight * 3; // Liberal estimate
+
+            expect(result.metadata.estimatedSize).toBeGreaterThan(
+              expectedMinSize,
+            );
             expect(result.metadata.estimatedSize).toBeLessThan(expectedMaxSize);
 
             // Verify format is preserved or auto-selected
@@ -300,9 +359,9 @@ describe('CDNService Property Tests', () => {
             } else {
               expect(['webp', 'jpeg', 'png']).toContain(result.metadata.format);
             }
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -314,36 +373,50 @@ describe('CDNService Property Tests', () => {
               fc.string({ minLength: 1, maxLength: 100 }),
               fc.constant(''),
               fc.constant('/'),
-              fc.string({ minLength: 1, maxLength: 5 }).map(s => '/' + s)
+              fc.string({ minLength: 1, maxLength: 5 }).map((s) => '/' + s),
             ),
             options: fc.record({
-              width: fc.option(fc.oneof(
-                fc.integer({ min: 1, max: 5000 }),
-                fc.constant(0),
-                fc.constant(-1)
-              ), { nil: undefined }),
-              height: fc.option(fc.oneof(
-                fc.integer({ min: 1, max: 5000 }),
-                fc.constant(0),
-                fc.constant(-1)
-              ), { nil: undefined }),
-              quality: fc.option(fc.oneof(
-                fc.integer({ min: 1, max: 100 }),
-                fc.constant(0),
-                fc.constant(101),
-                fc.constant(-1)
-              ), { nil: undefined }),
+              width: fc.option(
+                fc.oneof(
+                  fc.integer({ min: 1, max: 5000 }),
+                  fc.constant(0),
+                  fc.constant(-1),
+                ),
+                { nil: undefined },
+              ),
+              height: fc.option(
+                fc.oneof(
+                  fc.integer({ min: 1, max: 5000 }),
+                  fc.constant(0),
+                  fc.constant(-1),
+                ),
+                { nil: undefined },
+              ),
+              quality: fc.option(
+                fc.oneof(
+                  fc.integer({ min: 1, max: 100 }),
+                  fc.constant(0),
+                  fc.constant(101),
+                  fc.constant(-1),
+                ),
+                { nil: undefined },
+              ),
             }),
           }),
           async (testData) => {
             // Execute optimization - should never throw
             let result: CDNImageResponse;
-            
+
             try {
-              result = await service.optimizeImage(testData.imagePath, testData.options);
+              result = await service.optimizeImage(
+                testData.imagePath,
+                testData.options,
+              );
             } catch (error) {
               // If it throws, it should still provide a fallback
-              fail(`Service should not throw errors, but got: ${error.message}`);
+              fail(
+                `Service should not throw errors, but got: ${error.message}`,
+              );
             }
 
             // Verify result is always provided (fallback if needed)
@@ -359,16 +432,18 @@ describe('CDNService Property Tests', () => {
             expect(typeof result.metadata.format).toBe('string');
             expect(typeof result.metadata.estimatedSize).toBe('number');
             expect(result.metadata.estimatedSize).toBeGreaterThanOrEqual(0);
-            expect(['hit', 'miss', 'stale']).toContain(result.metadata.cacheStatus);
+            expect(['hit', 'miss', 'stale']).toContain(
+              result.metadata.cacheStatus,
+            );
 
             // For empty or invalid paths, should still provide valid URLs (fallback)
             if (!testData.imagePath || testData.imagePath.length === 0) {
               // Should handle gracefully with fallback
               expect(result.originalUrl.length).toBeGreaterThan(0);
             }
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
   });

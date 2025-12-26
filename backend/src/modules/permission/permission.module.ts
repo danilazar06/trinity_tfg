@@ -5,10 +5,7 @@ import { RoomModerationModule } from '../room-moderation/room-moderation.module'
 import { DatabaseModule } from '../../infrastructure/database/database.module';
 
 @Module({
-  imports: [
-    DatabaseModule,
-    forwardRef(() => RoomModerationModule),
-  ],
+  imports: [DatabaseModule, forwardRef(() => RoomModerationModule)],
   controllers: [PermissionController],
   providers: [PermissionService],
   exports: [PermissionService],

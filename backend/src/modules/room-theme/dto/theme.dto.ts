@@ -1,6 +1,20 @@
-import { IsString, IsEnum, IsOptional, IsNumber, IsBoolean, IsArray, IsObject, ValidateNested, Min, Max, IsUrl, IsHexColor } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsNumber,
+  IsBoolean,
+  IsArray,
+  IsObject,
+  ValidateNested,
+  Min,
+  Max,
+  IsUrl,
+  IsHexColor,
+} from 'class-validator';
 import { Type } from 'class-transformer';
-import { ThemeCategory, ThemeSortBy } from '../../../domain/entities/room-theme.entity';
+import { ThemeCategory } from '../../../domain/entities/room-template.entity';
+import { ThemeSortBy } from '../../../domain/entities/room-theme.entity';
 
 /**
  * DTO para colores de tema
@@ -243,7 +257,7 @@ export class ThemeResponseDto {
   tags: string[];
   createdAt: Date;
   updatedAt: Date;
-  
+
   // Estadísticas opcionales
   usageCount?: number;
   rating?: number;
@@ -274,7 +288,7 @@ export class ThemeStatsResponseDto {
   ratingCount: number;
   activeRooms: number;
   popularityScore: number;
-  
+
   // Métricas adicionales
   averageLoadTime?: number;
   errorRate?: number;
@@ -332,7 +346,8 @@ export class AutoThemeConfigDto {
 
   @IsEnum(['never', 'daily', 'weekly', 'monthly', 'event_based'])
   @IsOptional()
-  changeFrequency?: 'never' | 'daily' | 'weekly' | 'monthly' | 'event_based' = 'never';
+  changeFrequency?: 'never' | 'daily' | 'weekly' | 'monthly' | 'event_based' =
+    'never';
 
   @IsBoolean()
   @IsOptional()

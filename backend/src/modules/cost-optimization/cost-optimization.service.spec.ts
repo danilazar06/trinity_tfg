@@ -32,7 +32,7 @@ describe('CostOptimizationService', () => {
       expect(metrics).toHaveProperty('dynamoReadUnits');
       expect(metrics).toHaveProperty('dynamoWriteUnits');
       expect(metrics).toHaveProperty('lastUpdated');
-      
+
       expect(typeof metrics.estimatedMonthlyCost).toBe('number');
       expect(typeof metrics.lambdaInvocations).toBe('number');
       expect(typeof metrics.dynamoReadUnits).toBe('number');
@@ -52,10 +52,11 @@ describe('CostOptimizationService', () => {
 
   describe('generateOptimizationRecommendations', () => {
     it('should return array of recommendations', async () => {
-      const recommendations = await service.generateOptimizationRecommendations();
+      const recommendations =
+        await service.generateOptimizationRecommendations();
 
       expect(Array.isArray(recommendations)).toBe(true);
-      
+
       if (recommendations.length > 0) {
         const recommendation = recommendations[0];
         expect(recommendation).toHaveProperty('type');
@@ -64,8 +65,10 @@ describe('CostOptimizationService', () => {
         expect(recommendation).toHaveProperty('description');
         expect(recommendation).toHaveProperty('potentialSavings');
         expect(recommendation).toHaveProperty('actionRequired');
-        
-        expect(['lambda', 'dynamodb', 'general']).toContain(recommendation.type);
+
+        expect(['lambda', 'dynamodb', 'general']).toContain(
+          recommendation.type,
+        );
         expect(['low', 'medium', 'high']).toContain(recommendation.severity);
         expect(typeof recommendation.potentialSavings).toBe('number');
         expect(recommendation.potentialSavings).toBeGreaterThanOrEqual(0);
@@ -73,12 +76,13 @@ describe('CostOptimizationService', () => {
     });
 
     it('should sort recommendations by potential savings', async () => {
-      const recommendations = await service.generateOptimizationRecommendations();
+      const recommendations =
+        await service.generateOptimizationRecommendations();
 
       if (recommendations.length > 1) {
         for (let i = 0; i < recommendations.length - 1; i++) {
           expect(recommendations[i].potentialSavings).toBeGreaterThanOrEqual(
-            recommendations[i + 1].potentialSavings
+            recommendations[i + 1].potentialSavings,
           );
         }
       }
@@ -90,7 +94,7 @@ describe('CostOptimizationService', () => {
       const optimizations = await service.applyAutomaticOptimizations();
 
       expect(Array.isArray(optimizations)).toBe(true);
-      optimizations.forEach(optimization => {
+      optimizations.forEach((optimization) => {
         expect(typeof optimization).toBe('string');
         expect(optimization.length).toBeGreaterThan(0);
       });
@@ -108,13 +112,13 @@ describe('CostOptimizationService', () => {
         expect(budgetStatus).toHaveProperty('forecastedSpend');
         expect(budgetStatus).toHaveProperty('percentageUsed');
         expect(budgetStatus).toHaveProperty('daysRemaining');
-        
+
         expect(typeof budgetStatus.budgetLimit).toBe('number');
         expect(typeof budgetStatus.actualSpend).toBe('number');
         expect(typeof budgetStatus.forecastedSpend).toBe('number');
         expect(typeof budgetStatus.percentageUsed).toBe('number');
         expect(typeof budgetStatus.daysRemaining).toBe('number');
-        
+
         expect(budgetStatus.budgetLimit).toBeGreaterThan(0);
         expect(budgetStatus.actualSpend).toBeGreaterThanOrEqual(0);
         expect(budgetStatus.forecastedSpend).toBeGreaterThanOrEqual(0);
@@ -142,12 +146,13 @@ describe('CostOptimizationService', () => {
               lastUpdated: new Date(),
             });
 
-            const recommendations = await service.generateOptimizationRecommendations();
+            const recommendations =
+              await service.generateOptimizationRecommendations();
 
             // Verify recommendations are valid
             expect(Array.isArray(recommendations)).toBe(true);
-            
-            recommendations.forEach(rec => {
+
+            recommendations.forEach((rec) => {
               expect(['lambda', 'dynamodb', 'general']).toContain(rec.type);
               expect(['low', 'medium', 'high']).toContain(rec.severity);
               expect(rec.potentialSavings).toBeGreaterThanOrEqual(0);
@@ -157,17 +162,18 @@ describe('CostOptimizationService', () => {
             });
 
             // High usage should generate more recommendations
-            const highUsage = mockMetrics.lambdaInvocations > 10000 || 
-                             mockMetrics.dynamoReadUnits > 1000 || 
-                             mockMetrics.dynamoWriteUnits > 500 ||
-                             mockMetrics.estimatedMonthlyCost > 100;
+            const highUsage =
+              mockMetrics.lambdaInvocations > 10000 ||
+              mockMetrics.dynamoReadUnits > 1000 ||
+              mockMetrics.dynamoWriteUnits > 500 ||
+              mockMetrics.estimatedMonthlyCost > 100;
 
             if (highUsage) {
               expect(recommendations.length).toBeGreaterThan(0);
             }
-          }
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -188,20 +194,26 @@ describe('CostOptimizationService', () => {
             });
 
             // Generate recommendations twice
-            const recommendations1 = await service.generateOptimizationRecommendations();
-            const recommendations2 = await service.generateOptimizationRecommendations();
+            const recommendations1 =
+              await service.generateOptimizationRecommendations();
+            const recommendations2 =
+              await service.generateOptimizationRecommendations();
 
             // Should be identical (deterministic)
             expect(recommendations1.length).toBe(recommendations2.length);
-            
+
             for (let i = 0; i < recommendations1.length; i++) {
               expect(recommendations1[i].type).toBe(recommendations2[i].type);
-              expect(recommendations1[i].severity).toBe(recommendations2[i].severity);
-              expect(recommendations1[i].potentialSavings).toBe(recommendations2[i].potentialSavings);
+              expect(recommendations1[i].severity).toBe(
+                recommendations2[i].severity,
+              );
+              expect(recommendations1[i].potentialSavings).toBe(
+                recommendations2[i].potentialSavings,
+              );
             }
-          }
+          },
         ),
-        { numRuns: 30 }
+        { numRuns: 30 },
       );
     });
 
@@ -215,9 +227,12 @@ describe('CostOptimizationService', () => {
           }),
           async (mockBudget) => {
             // Ensure valid numbers
-            const actualSpend = Math.min(mockBudget.actualSpend, mockBudget.budgetLimit * 2);
+            const actualSpend = Math.min(
+              mockBudget.actualSpend,
+              mockBudget.budgetLimit * 2,
+            );
             const forecastedSpend = mockBudget.forecastedSpend;
-            
+
             // Mock budget status
             const mockBudgetStatus = {
               budgetName: 'test-budget',
@@ -228,14 +243,19 @@ describe('CostOptimizationService', () => {
               daysRemaining: Math.floor(Math.random() * 31) + 1, // 1-31 days
             };
 
-            jest.spyOn(service, 'getBudgetStatus').mockResolvedValue(mockBudgetStatus);
+            jest
+              .spyOn(service, 'getBudgetStatus')
+              .mockResolvedValue(mockBudgetStatus);
 
             const budgetStatus = await service.getBudgetStatus();
 
             if (budgetStatus) {
               // Percentage should be calculated correctly
-              const expectedPercentage = (budgetStatus.actualSpend / budgetStatus.budgetLimit) * 100;
-              expect(Math.abs(budgetStatus.percentageUsed - expectedPercentage)).toBeLessThan(0.01);
+              const expectedPercentage =
+                (budgetStatus.actualSpend / budgetStatus.budgetLimit) * 100;
+              expect(
+                Math.abs(budgetStatus.percentageUsed - expectedPercentage),
+              ).toBeLessThan(0.01);
 
               // Values should be non-negative and finite
               expect(budgetStatus.budgetLimit).toBeGreaterThan(0);
@@ -243,16 +263,16 @@ describe('CostOptimizationService', () => {
               expect(budgetStatus.forecastedSpend).toBeGreaterThanOrEqual(0);
               expect(budgetStatus.percentageUsed).toBeGreaterThanOrEqual(0);
               expect(budgetStatus.daysRemaining).toBeGreaterThan(0);
-              
+
               // Ensure no NaN values
               expect(isFinite(budgetStatus.budgetLimit)).toBe(true);
               expect(isFinite(budgetStatus.actualSpend)).toBe(true);
               expect(isFinite(budgetStatus.forecastedSpend)).toBe(true);
               expect(isFinite(budgetStatus.percentageUsed)).toBe(true);
             }
-          }
+          },
         ),
-        { numRuns: 40 }
+        { numRuns: 40 },
       );
     });
   });

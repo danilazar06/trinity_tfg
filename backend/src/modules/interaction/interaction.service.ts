@@ -1,4 +1,9 @@
-import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
 import { DynamoDBKeys } from '../../infrastructure/database/dynamodb.constants';
@@ -47,17 +52,28 @@ export class InteractionService {
       }
 
       // 2. Verificar que el mediaId está en la lista del usuario y es el siguiente
-      const currentMediaId = await this.memberService.getNextMediaForMember(roomId, userId);
+      const currentMediaId = await this.memberService.getNextMediaForMember(
+        roomId,
+        userId,
+      );
       if (!currentMediaId) {
-        throw new BadRequestException('No hay más contenido disponible en tu cola');
+        throw new BadRequestException(
+          'No hay más contenido disponible en tu cola',
+        );
       }
 
       if (currentMediaId !== createVoteDto.mediaId) {
-        throw new BadRequestException('El contenido no corresponde al siguiente en tu cola');
+        throw new BadRequestException(
+          'El contenido no corresponde al siguiente en tu cola',
+        );
       }
 
       // 3. Verificar que no existe un voto previo para este contenido
-      const existingVote = await this.getVote(userId, roomId, createVoteDto.mediaId);
+      const existingVote = await this.getVote(
+        userId,
+        roomId,
+        createVoteDto.mediaId,
+      );
       if (existingVote) {
         throw new BadRequestException('Ya has votado por este contenido');
       }
@@ -87,20 +103,29 @@ export class InteractionService {
         {
           source: 'interaction_service',
           userAgent: 'backend',
-        }
+        },
       );
 
       // 5. Avanzar el índice del miembro
-      const newIndex = await this.memberService.advanceMemberIndex(roomId, userId);
+      const newIndex = await this.memberService.advanceMemberIndex(
+        roomId,
+        userId,
+      );
 
       // 6. Actualizar actividad del miembro
       await this.memberService.updateMemberActivity(roomId, userId);
 
       // 7. Obtener el siguiente elemento multimedia
-      const nextMediaId = await this.memberService.getNextMediaForMember(roomId, userId);
+      const nextMediaId = await this.memberService.getNextMediaForMember(
+        roomId,
+        userId,
+      );
 
       // 8. Calcular progreso
-      const progress = await this.memberService.getMemberProgress(roomId, userId);
+      const progress = await this.memberService.getMemberProgress(
+        roomId,
+        userId,
+      );
 
       // 9. Notificar voto en tiempo real
       await this.realtimeService.notifyVote(roomId, {
@@ -115,7 +140,7 @@ export class InteractionService {
       });
 
       this.logger.log(
-        `Voto registrado: ${userId} votó ${createVoteDto.voteType} por ${createVoteDto.mediaId} en sala ${roomId}`
+        `Voto registrado: ${userId} votó ${createVoteDto.voteType} por ${createVoteDto.mediaId} en sala ${roomId}`,
       );
 
       return {
@@ -142,10 +167,16 @@ export class InteractionService {
       }
 
       // Obtener elemento actual
-      const currentMediaId = await this.memberService.getNextMediaForMember(roomId, userId);
-      
+      const currentMediaId = await this.memberService.getNextMediaForMember(
+        roomId,
+        userId,
+      );
+
       // Obtener progreso
-      const progress = await this.memberService.getMemberProgress(roomId, userId);
+      const progress = await this.memberService.getMemberProgress(
+        roomId,
+        userId,
+      );
 
       return {
         userId,
@@ -166,14 +197,16 @@ export class InteractionService {
    */
   async getCurrentMediaDetails(userId: string, roomId: string) {
     const queueStatus = await this.getQueueStatus(userId, roomId);
-    
+
     if (!queueStatus.currentMediaId) {
       return null;
     }
 
     // Obtener detalles del contenido desde el servicio de media
-    const mediaDetails = await this.mediaService.getMovieDetails(queueStatus.currentMediaId);
-    
+    const mediaDetails = await this.mediaService.getMovieDetails(
+      queueStatus.currentMediaId,
+    );
+
     return {
       ...mediaDetails,
       queueInfo: queueStatus.progress,
@@ -201,7 +234,9 @@ export class InteractionService {
 
       return votes as Vote[];
     } catch (error) {
-      this.logger.error(`Error obteniendo historial de votos: ${error.message}`);
+      this.logger.error(
+        `Error obteniendo historial de votos: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -230,7 +265,10 @@ export class InteractionService {
   /**
    * Verificar si todos los miembros activos han votado por un contenido
    */
-  async checkUnanimousVote(roomId: string, mediaId: string): Promise<{
+  async checkUnanimousVote(
+    roomId: string,
+    mediaId: string,
+  ): Promise<{
     isUnanimous: boolean;
     voteType: VoteType | null;
     totalVotes: number;
@@ -239,19 +277,26 @@ export class InteractionService {
     try {
       // Obtener miembros activos
       const activeMembers = await this.memberService.getActiveMembers(roomId);
-      
+
       // Obtener votos para este contenido
       const votes = await this.getMediaVotes(roomId, mediaId);
-      
+
       // Filtrar solo votos de miembros activos
-      const activeMemberIds = new Set(activeMembers.map(m => m.userId));
-      const activeVotes = votes.filter(vote => activeMemberIds.has(vote.userId));
+      const activeMemberIds = new Set(activeMembers.map((m) => m.userId));
+      const activeVotes = votes.filter((vote) =>
+        activeMemberIds.has(vote.userId),
+      );
 
       // Verificar unanimidad
-      if (activeVotes.length === activeMembers.length && activeVotes.length > 0) {
+      if (
+        activeVotes.length === activeMembers.length &&
+        activeVotes.length > 0
+      ) {
         const firstVoteType = activeVotes[0].voteType;
-        const isUnanimous = activeVotes.every(vote => vote.voteType === firstVoteType);
-        
+        const isUnanimous = activeVotes.every(
+          (vote) => vote.voteType === firstVoteType,
+        );
+
         return {
           isUnanimous,
           voteType: isUnanimous ? firstVoteType : null,
@@ -291,25 +336,34 @@ export class InteractionService {
 
       // Calcular estadísticas
       const totalVotes = votes.length;
-      const likesCount = votes.filter(vote => vote.voteType === VoteType.LIKE).length;
-      const dislikesCount = votes.filter(vote => vote.voteType === VoteType.DISLIKE).length;
-      const uniqueVoters = new Set(votes.map(vote => vote.userId)).size;
+      const likesCount = votes.filter(
+        (vote) => vote.voteType === VoteType.LIKE,
+      ).length;
+      const dislikesCount = votes.filter(
+        (vote) => vote.voteType === VoteType.DISLIKE,
+      ).length;
+      const uniqueVoters = new Set(votes.map((vote) => vote.userId)).size;
 
       // Calcular tasa de completitud y progreso promedio
       let totalProgress = 0;
       let completedMembers = 0;
 
       for (const member of members) {
-        const progress = await this.memberService.getMemberProgress(roomId, member.userId);
+        const progress = await this.memberService.getMemberProgress(
+          roomId,
+          member.userId,
+        );
         totalProgress += progress.progressPercentage;
-        
+
         if (progress.progressPercentage === 100) {
           completedMembers++;
         }
       }
 
-      const completionRate = members.length > 0 ? (completedMembers / members.length) * 100 : 0;
-      const averageProgress = members.length > 0 ? totalProgress / members.length : 0;
+      const completionRate =
+        members.length > 0 ? (completedMembers / members.length) * 100 : 0;
+      const averageProgress =
+        members.length > 0 ? totalProgress / members.length : 0;
 
       return {
         roomId,
@@ -321,7 +375,9 @@ export class InteractionService {
         averageProgress: Math.round(averageProgress),
       };
     } catch (error) {
-      this.logger.error(`Error obteniendo estadísticas de sala: ${error.message}`);
+      this.logger.error(
+        `Error obteniendo estadísticas de sala: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -329,10 +385,13 @@ export class InteractionService {
   /**
    * Iniciar una sesión de swipe
    */
-  async startSwipeSession(userId: string, roomId: string): Promise<SwipeSession> {
+  async startSwipeSession(
+    userId: string,
+    roomId: string,
+  ): Promise<SwipeSession> {
     const sessionId = uuidv4();
     const member = await this.memberService.getMember(roomId, userId);
-    
+
     if (!member) {
       throw new NotFoundException('No eres miembro de esta sala');
     }
@@ -372,7 +431,9 @@ export class InteractionService {
         );
       }
 
-      this.logger.log(`Eliminados ${votes.length} votos del usuario ${userId} en sala ${roomId}`);
+      this.logger.log(
+        `Eliminados ${votes.length} votos del usuario ${userId} en sala ${roomId}`,
+      );
     } catch (error) {
       this.logger.error(`Error eliminando votos de usuario: ${error.message}`);
       throw error;
@@ -405,14 +466,14 @@ export class InteractionService {
 
       // Obtener miembros actuales
       const members = await this.memberService.getRoomMembers(roomId);
-      const memberIds = new Set(members.map(m => m.userId));
+      const memberIds = new Set(members.map((m) => m.userId));
 
       // Verificar duplicados y votos huérfanos
       const voteKeys = new Set();
-      
+
       for (const vote of votes) {
         const voteKey = `${vote.userId}#${vote.mediaId}`;
-        
+
         // Verificar duplicados
         if (voteKeys.has(voteKey)) {
           duplicateVotes++;
@@ -438,7 +499,9 @@ export class InteractionService {
         orphanedVotes,
       };
     } catch (error) {
-      this.logger.error(`Error validando integridad de votos: ${error.message}`);
+      this.logger.error(
+        `Error validando integridad de votos: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -456,7 +519,11 @@ export class InteractionService {
     });
   }
 
-  private async getVote(userId: string, roomId: string, mediaId: string): Promise<Vote | null> {
+  private async getVote(
+    userId: string,
+    roomId: string,
+    mediaId: string,
+  ): Promise<Vote | null> {
     try {
       const item = await this.dynamoDBService.getItem(
         DynamoDBKeys.roomPK(roomId),
@@ -472,6 +539,8 @@ export class InteractionService {
   private async saveSwipeSession(session: SwipeSession): Promise<void> {
     // En una implementación real, esto podría ir a Redis o DynamoDB con TTL
     // Por ahora, simplemente logueamos la sesión
-    this.logger.debug(`Sesión de swipe iniciada: ${session.sessionId} para usuario ${session.userId}`);
+    this.logger.debug(
+      `Sesión de swipe iniciada: ${session.sessionId} para usuario ${session.userId}`,
+    );
   }
 }

@@ -1,36 +1,43 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  Logger,
+  ConflictException,
+} from '@nestjs/common';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
 import { DynamoDBKeys } from '../../infrastructure/database/dynamodb.constants';
 import { RealtimeCompatibilityService } from '../realtime/realtime-compatibility.service';
 import { PermissionService } from '../permission/permission.service';
-import { 
-  ContentSuggestion, 
-  ContentSuggestionStatus, 
-  ContentSuggestionType, 
-  ContentSuggestionVote, 
-  ContentSuggestionComment, 
-  RoomSuggestionConfig, 
-  RoomSuggestionStats, 
-  ContentSuggestionFilters, 
-  SuggestionSearchResult, 
-  SuggestionEvent, 
-  SuggestionTemplate, 
-  SuggestionNotificationConfig, 
-  SuggestionApprovalWorkflow, 
-  SuggestionChangeHistory 
+import {
+  ContentSuggestion,
+  ContentSuggestionStatus,
+  ContentSuggestionType,
+  ContentSuggestionVote,
+  ContentSuggestionComment,
+  RoomSuggestionConfig,
+  RoomSuggestionStats,
+  ContentSuggestionFilters,
+  SuggestionSearchResult,
+  SuggestionEvent,
+  SuggestionTemplate,
+  SuggestionNotificationConfig,
+  SuggestionApprovalWorkflow,
+  SuggestionChangeHistory,
 } from '../../domain/entities/content-suggestion.entity';
 import { RoomPermission } from '../../domain/entities/room-moderation.entity';
-import { 
-  CreateSuggestionDto, 
-  UpdateSuggestionDto, 
-  VoteSuggestionDto, 
-  CommentSuggestionDto, 
-  CreateSuggestionConfigDto, 
-  UpdateSuggestionConfigDto, 
-  SuggestionFiltersDto, 
-  ReviewSuggestionDto, 
-  CreateSuggestionTemplateDto, 
-  UpdateNotificationConfigDto 
+import {
+  CreateSuggestionDto,
+  UpdateSuggestionDto,
+  VoteSuggestionDto,
+  CommentSuggestionDto,
+  CreateSuggestionConfigDto,
+  UpdateSuggestionConfigDto,
+  SuggestionFiltersDto,
+  ReviewSuggestionDto,
+  CreateSuggestionTemplateDto,
+  UpdateNotificationConfigDto,
 } from './dto/content-suggestion.dto';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -51,15 +58,21 @@ export class ContentSuggestionService {
     roomId: string,
     userId: string,
     username: string,
-    createSuggestionDto: CreateSuggestionDto
+    createSuggestionDto: CreateSuggestionDto,
   ): Promise<ContentSuggestion> {
     // Verificar permisos
-    await this.permissionService.checkPermission(roomId, userId, RoomPermission.SUGGEST_CONTENT);
+    await this.permissionService.checkPermission(
+      roomId,
+      userId,
+      RoomPermission.SUGGEST_CONTENT,
+    );
 
     // Verificar configuración de sugerencias
     const config = await this.getSuggestionConfig(roomId);
     if (!config.isEnabled) {
-      throw new ForbiddenException('Las sugerencias están deshabilitadas en esta sala');
+      throw new ForbiddenException(
+        'Las sugerencias están deshabilitadas en esta sala',
+      );
     }
 
     // Verificar límites de usuario
@@ -67,7 +80,9 @@ export class ContentSuggestionService {
 
     // Verificar tipos permitidos
     if (!config.allowedTypes.includes(createSuggestionDto.type)) {
-      throw new BadRequestException(`Tipo de sugerencia no permitido: ${createSuggestionDto.type}`);
+      throw new BadRequestException(
+        `Tipo de sugerencia no permitido: ${createSuggestionDto.type}`,
+      );
     }
 
     // Verificar si se requiere razón
@@ -84,7 +99,9 @@ export class ContentSuggestionService {
       suggestedBy: userId,
       suggestedByUsername: username,
       type: createSuggestionDto.type,
-      status: config.requireApproval ? ContentSuggestionStatus.PENDING : ContentSuggestionStatus.APPROVED,
+      status: config.requireApproval
+        ? ContentSuggestionStatus.PENDING
+        : ContentSuggestionStatus.APPROVED,
       title: createSuggestionDto.title,
       description: createSuggestionDto.description,
       tmdbId: createSuggestionDto.tmdbId,
@@ -135,7 +152,9 @@ export class ContentSuggestionService {
         timestamp: now,
       });
 
-      this.logger.log(`Sugerencia creada: ${suggestionId} en sala ${roomId} por usuario ${userId}`);
+      this.logger.log(
+        `Sugerencia creada: ${suggestionId} en sala ${roomId} por usuario ${userId}`,
+      );
       return suggestion;
     } catch (error) {
       this.logger.error(`Error creando sugerencia: ${error.message}`);
@@ -151,28 +170,38 @@ export class ContentSuggestionService {
     suggestionId: string,
     userId: string,
     username: string,
-    voteDto: VoteSuggestionDto
+    voteDto: VoteSuggestionDto,
   ): Promise<ContentSuggestion> {
     // Verificar permisos
-    await this.permissionService.checkPermission(roomId, userId, RoomPermission.VOTE);
+    await this.permissionService.checkPermission(
+      roomId,
+      userId,
+      RoomPermission.VOTE,
+    );
 
     // Verificar configuración
     const config = await this.getSuggestionConfig(roomId);
     if (!config.allowVoting) {
-      throw new ForbiddenException('La votación está deshabilitada en esta sala');
+      throw new ForbiddenException(
+        'La votación está deshabilitada en esta sala',
+      );
     }
 
     const suggestion = await this.getSuggestion(roomId, suggestionId);
 
     // Verificar que la sugerencia esté en estado votable
-    if (suggestion.status !== ContentSuggestionStatus.PENDING && 
-        suggestion.status !== ContentSuggestionStatus.UNDER_REVIEW) {
+    if (
+      suggestion.status !== ContentSuggestionStatus.PENDING &&
+      suggestion.status !== ContentSuggestionStatus.UNDER_REVIEW
+    ) {
       throw new BadRequestException('No se puede votar en esta sugerencia');
     }
 
     // Verificar que el usuario no haya votado ya
-    const existingVoteIndex = suggestion.votes.findIndex(vote => vote.userId === userId);
-    
+    const existingVoteIndex = suggestion.votes.findIndex(
+      (vote) => vote.userId === userId,
+    );
+
     const vote: ContentSuggestionVote = {
       userId,
       username,
@@ -181,8 +210,8 @@ export class ContentSuggestionService {
       createdAt: new Date(),
     };
 
-    let votes = [...suggestion.votes];
-    
+    const votes = [...suggestion.votes];
+
     if (existingVoteIndex >= 0) {
       // Actualizar voto existente
       votes[existingVoteIndex] = vote;
@@ -192,8 +221,8 @@ export class ContentSuggestionService {
     }
 
     // Recalcular estadísticas de votación
-    const positiveVotes = votes.filter(v => v.vote === 'up').length;
-    const negativeVotes = votes.filter(v => v.vote === 'down').length;
+    const positiveVotes = votes.filter((v) => v.vote === 'up').length;
+    const negativeVotes = votes.filter((v) => v.vote === 'down').length;
     const totalVotes = votes.length;
     const voteScore = positiveVotes - negativeVotes;
 
@@ -208,9 +237,11 @@ export class ContentSuggestionService {
     };
 
     // Verificar aprobación automática
-    if (config.autoImplementHighScored && 
-        voteScore >= config.autoImplementThreshold &&
-        totalVotes >= config.minVotesToApprove) {
+    if (
+      config.autoImplementHighScored &&
+      voteScore >= config.autoImplementThreshold &&
+      totalVotes >= config.minVotesToApprove
+    ) {
       updatedSuggestion.status = ContentSuggestionStatus.APPROVED;
     }
 
@@ -226,7 +257,13 @@ export class ContentSuggestionService {
       });
 
       // Registrar cambio en historial
-      await this.recordSuggestionChange(suggestionId, userId, 'vote', voteDto.vote, vote);
+      await this.recordSuggestionChange(
+        suggestionId,
+        userId,
+        'vote',
+        voteDto.vote,
+        vote,
+      );
 
       // Notificar en tiempo real
       await this.realtimeService.notifyContentSuggestion(roomId, {
@@ -239,7 +276,9 @@ export class ContentSuggestionService {
         timestamp: new Date(),
       });
 
-      this.logger.log(`Voto registrado en sugerencia ${suggestionId}: ${voteDto.vote} por usuario ${userId}`);
+      this.logger.log(
+        `Voto registrado en sugerencia ${suggestionId}: ${voteDto.vote} por usuario ${userId}`,
+      );
       return updatedSuggestion;
     } catch (error) {
       this.logger.error(`Error votando sugerencia: ${error.message}`);
@@ -255,15 +294,21 @@ export class ContentSuggestionService {
     suggestionId: string,
     userId: string,
     username: string,
-    commentDto: CommentSuggestionDto
+    commentDto: CommentSuggestionDto,
   ): Promise<ContentSuggestion> {
     // Verificar permisos
-    await this.permissionService.checkPermission(roomId, userId, RoomPermission.CHAT);
+    await this.permissionService.checkPermission(
+      roomId,
+      userId,
+      RoomPermission.CHAT,
+    );
 
     // Verificar configuración
     const config = await this.getSuggestionConfig(roomId);
     if (!config.allowComments) {
-      throw new ForbiddenException('Los comentarios están deshabilitados en esta sala');
+      throw new ForbiddenException(
+        'Los comentarios están deshabilitados en esta sala',
+      );
     }
 
     const suggestion = await this.getSuggestion(roomId, suggestionId);
@@ -300,7 +345,13 @@ export class ContentSuggestionService {
       });
 
       // Registrar cambio en historial
-      await this.recordSuggestionChange(suggestionId, userId, 'comment', null, comment);
+      await this.recordSuggestionChange(
+        suggestionId,
+        userId,
+        'comment',
+        null,
+        comment,
+      );
 
       // Notificar en tiempo real
       await this.realtimeService.notifyContentSuggestion(roomId, {
@@ -313,7 +364,9 @@ export class ContentSuggestionService {
         timestamp: new Date(),
       });
 
-      this.logger.log(`Comentario agregado a sugerencia ${suggestionId} por usuario ${userId}`);
+      this.logger.log(
+        `Comentario agregado a sugerencia ${suggestionId} por usuario ${userId}`,
+      );
       return updatedSuggestion;
     } catch (error) {
       this.logger.error(`Error comentando sugerencia: ${error.message}`);
@@ -328,16 +381,22 @@ export class ContentSuggestionService {
     roomId: string,
     suggestionId: string,
     userId: string,
-    reviewDto: ReviewSuggestionDto
+    reviewDto: ReviewSuggestionDto,
   ): Promise<ContentSuggestion> {
     // Verificar permisos de moderación
-    await this.permissionService.checkPermission(roomId, userId, RoomPermission.MANAGE_ROLES);
+    await this.permissionService.checkPermission(
+      roomId,
+      userId,
+      RoomPermission.MANAGE_ROLES,
+    );
 
     const suggestion = await this.getSuggestion(roomId, suggestionId);
 
     // Verificar que la sugerencia esté en estado revisable
-    if (suggestion.status !== ContentSuggestionStatus.PENDING && 
-        suggestion.status !== ContentSuggestionStatus.UNDER_REVIEW) {
+    if (
+      suggestion.status !== ContentSuggestionStatus.PENDING &&
+      suggestion.status !== ContentSuggestionStatus.UNDER_REVIEW
+    ) {
       throw new BadRequestException('Esta sugerencia no puede ser revisada');
     }
 
@@ -371,14 +430,28 @@ export class ContentSuggestionService {
       });
 
       // Actualizar estadísticas
-      await this.updateSuggestionStats(roomId, reviewDto.status === ContentSuggestionStatus.APPROVED ? 'approved' : 'rejected');
+      await this.updateSuggestionStats(
+        roomId,
+        reviewDto.status === ContentSuggestionStatus.APPROVED
+          ? 'approved'
+          : 'rejected',
+      );
 
       // Registrar cambio en historial
-      await this.recordSuggestionChange(suggestionId, userId, 'status', suggestion.status, reviewDto.status);
+      await this.recordSuggestionChange(
+        suggestionId,
+        userId,
+        'status',
+        suggestion.status,
+        reviewDto.status,
+      );
 
       // Notificar en tiempo real
       await this.realtimeService.notifyContentSuggestion(roomId, {
-        type: reviewDto.status === ContentSuggestionStatus.APPROVED ? 'approved' : 'rejected',
+        type:
+          reviewDto.status === ContentSuggestionStatus.APPROVED
+            ? 'approved'
+            : 'rejected',
         roomId,
         suggestionId,
         userId,
@@ -386,7 +459,9 @@ export class ContentSuggestionService {
         timestamp: now,
       });
 
-      this.logger.log(`Sugerencia ${suggestionId} revisada: ${reviewDto.status} por usuario ${userId}`);
+      this.logger.log(
+        `Sugerencia ${suggestionId} revisada: ${reviewDto.status} por usuario ${userId}`,
+      );
       return updatedSuggestion;
     } catch (error) {
       this.logger.error(`Error revisando sugerencia: ${error.message}`);
@@ -400,16 +475,22 @@ export class ContentSuggestionService {
   async implementSuggestion(
     roomId: string,
     suggestionId: string,
-    userId: string
+    userId: string,
   ): Promise<ContentSuggestion> {
     // Verificar permisos
-    await this.permissionService.checkPermission(roomId, userId, RoomPermission.INJECT_CONTENT);
+    await this.permissionService.checkPermission(
+      roomId,
+      userId,
+      RoomPermission.INJECT_CONTENT,
+    );
 
     const suggestion = await this.getSuggestion(roomId, suggestionId);
 
     // Verificar que la sugerencia esté aprobada
     if (suggestion.status !== ContentSuggestionStatus.APPROVED) {
-      throw new BadRequestException('Solo se pueden implementar sugerencias aprobadas');
+      throw new BadRequestException(
+        'Solo se pueden implementar sugerencias aprobadas',
+      );
     }
 
     const now = new Date();
@@ -436,7 +517,13 @@ export class ContentSuggestionService {
       await this.updateSuggestionStats(roomId, 'implemented');
 
       // Registrar cambio en historial
-      await this.recordSuggestionChange(suggestionId, userId, 'status', suggestion.status, ContentSuggestionStatus.IMPLEMENTED);
+      await this.recordSuggestionChange(
+        suggestionId,
+        userId,
+        'status',
+        suggestion.status,
+        ContentSuggestionStatus.IMPLEMENTED,
+      );
 
       // Notificar en tiempo real
       await this.realtimeService.notifyContentSuggestion(roomId, {
@@ -448,7 +535,9 @@ export class ContentSuggestionService {
         timestamp: now,
       });
 
-      this.logger.log(`Sugerencia ${suggestionId} implementada por usuario ${userId}`);
+      this.logger.log(
+        `Sugerencia ${suggestionId} implementada por usuario ${userId}`,
+      );
       return updatedSuggestion;
     } catch (error) {
       this.logger.error(`Error implementando sugerencia: ${error.message}`);
@@ -462,10 +551,14 @@ export class ContentSuggestionService {
   async getSuggestions(
     roomId: string,
     userId: string,
-    filters: SuggestionFiltersDto
+    filters: SuggestionFiltersDto,
   ): Promise<SuggestionSearchResult> {
     // Verificar permisos
-    await this.permissionService.checkPermission(roomId, userId, RoomPermission.VIEW_ROOM);
+    await this.permissionService.checkPermission(
+      roomId,
+      userId,
+      RoomPermission.VIEW_ROOM,
+    );
 
     try {
       const limit = Math.min(filters.limit || 20, 100);
@@ -481,9 +574,10 @@ export class ContentSuggestionService {
 
       // Aplicar filtros
       const filterExpressions: string[] = [];
-      
+
       if (filters.suggestedBy) {
-        queryParams.ExpressionAttributeValues[':suggestedBy'] = filters.suggestedBy;
+        queryParams.ExpressionAttributeValues[':suggestedBy'] =
+          filters.suggestedBy;
         filterExpressions.push('suggestedBy = :suggestedBy');
       }
 
@@ -496,9 +590,9 @@ export class ContentSuggestionService {
       if (filters.status) {
         queryParams.ExpressionAttributeValues[':status'] = filters.status;
         filterExpressions.push('#status = :status');
-        queryParams.ExpressionAttributeNames = { 
+        queryParams.ExpressionAttributeNames = {
           ...queryParams.ExpressionAttributeNames,
-          '#status': 'status' 
+          '#status': 'status',
         };
       }
 
@@ -518,18 +612,23 @@ export class ContentSuggestionService {
       }
 
       if (filters.dateFrom) {
-        queryParams.ExpressionAttributeValues[':dateFrom'] = filters.dateFrom.toISOString();
+        queryParams.ExpressionAttributeValues[':dateFrom'] =
+          filters.dateFrom.toISOString();
         filterExpressions.push('createdAt >= :dateFrom');
       }
 
       if (filters.dateTo) {
-        queryParams.ExpressionAttributeValues[':dateTo'] = filters.dateTo.toISOString();
+        queryParams.ExpressionAttributeValues[':dateTo'] =
+          filters.dateTo.toISOString();
         filterExpressions.push('createdAt <= :dateTo');
       }
 
       if (filters.searchText) {
-        queryParams.ExpressionAttributeValues[':searchText'] = filters.searchText;
-        filterExpressions.push('(contains(title, :searchText) OR contains(description, :searchText))');
+        queryParams.ExpressionAttributeValues[':searchText'] =
+          filters.searchText;
+        filterExpressions.push(
+          '(contains(title, :searchText) OR contains(description, :searchText))',
+        );
       }
 
       if (filters.hasComments !== undefined) {
@@ -559,7 +658,8 @@ export class ContentSuggestionService {
       }
 
       const result = await this.dynamoDBService.query(queryParams);
-      const suggestions = result.Items?.map(item => item as ContentSuggestion) || [];
+      const suggestions =
+        result.Items?.map((item) => item as ContentSuggestion) || [];
 
       return {
         suggestions,
@@ -579,10 +679,14 @@ export class ContentSuggestionService {
   async configureSuggestionConfig(
     roomId: string,
     userId: string,
-    configDto: CreateSuggestionConfigDto | UpdateSuggestionConfigDto
+    configDto: CreateSuggestionConfigDto | UpdateSuggestionConfigDto,
   ): Promise<RoomSuggestionConfig> {
     // Verificar permisos
-    await this.permissionService.checkPermission(roomId, userId, RoomPermission.MODIFY_SETTINGS);
+    await this.permissionService.checkPermission(
+      roomId,
+      userId,
+      RoomPermission.MODIFY_SETTINGS,
+    );
 
     const now = new Date();
     const config: RoomSuggestionConfig = {
@@ -597,7 +701,8 @@ export class ContentSuggestionService {
       maxPendingSuggestions: configDto.maxPendingSuggestions ?? 20,
       autoImplementHighScored: configDto.autoImplementHighScored ?? false,
       autoImplementThreshold: configDto.autoImplementThreshold ?? 5,
-      allowedTypes: configDto.allowedTypes || Object.values(ContentSuggestionType),
+      allowedTypes:
+        configDto.allowedTypes || Object.values(ContentSuggestionType),
       requireReason: configDto.requireReason ?? false,
       moderationEnabled: configDto.moderationEnabled ?? true,
       createdBy: userId,
@@ -612,7 +717,9 @@ export class ContentSuggestionService {
         ...config,
       });
 
-      this.logger.log(`Configuración de sugerencias actualizada para sala ${roomId}`);
+      this.logger.log(
+        `Configuración de sugerencias actualizada para sala ${roomId}`,
+      );
       return config;
     } catch (error) {
       this.logger.error(`Error configurando sugerencias: ${error.message}`);
@@ -627,7 +734,7 @@ export class ContentSuggestionService {
     try {
       const result = await this.dynamoDBService.getItem(
         DynamoDBKeys.roomPK(roomId),
-        'SUGGESTION_CONFIG'
+        'SUGGESTION_CONFIG',
       );
 
       if (!result) {
@@ -655,7 +762,9 @@ export class ContentSuggestionService {
 
       return result as RoomSuggestionConfig;
     } catch (error) {
-      this.logger.error(`Error obteniendo configuración de sugerencias: ${error.message}`);
+      this.logger.error(
+        `Error obteniendo configuración de sugerencias: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -663,14 +772,21 @@ export class ContentSuggestionService {
   /**
    * Obtener estadísticas de sugerencias
    */
-  async getSuggestionStats(roomId: string, userId: string): Promise<RoomSuggestionStats> {
+  async getSuggestionStats(
+    roomId: string,
+    userId: string,
+  ): Promise<RoomSuggestionStats> {
     // Verificar permisos
-    await this.permissionService.checkPermission(roomId, userId, RoomPermission.VIEW_ROOM);
+    await this.permissionService.checkPermission(
+      roomId,
+      userId,
+      RoomPermission.VIEW_ROOM,
+    );
 
     try {
       const result = await this.dynamoDBService.getItem(
         DynamoDBKeys.roomPK(roomId),
-        'SUGGESTION_STATS'
+        'SUGGESTION_STATS',
       );
 
       if (!result) {
@@ -680,17 +796,22 @@ export class ContentSuggestionService {
 
       return result as RoomSuggestionStats;
     } catch (error) {
-      this.logger.error(`Error obteniendo estadísticas de sugerencias: ${error.message}`);
+      this.logger.error(
+        `Error obteniendo estadísticas de sugerencias: ${error.message}`,
+      );
       throw error;
     }
   }
 
   // Métodos auxiliares privados
 
-  private async getSuggestion(roomId: string, suggestionId: string): Promise<ContentSuggestion> {
+  private async getSuggestion(
+    roomId: string,
+    suggestionId: string,
+  ): Promise<ContentSuggestion> {
     const result = await this.dynamoDBService.getItem(
       DynamoDBKeys.roomPK(roomId),
-      `SUGGESTION#${suggestionId}`
+      `SUGGESTION#${suggestionId}`,
     );
 
     if (!result) {
@@ -700,11 +821,15 @@ export class ContentSuggestionService {
     return result as ContentSuggestion;
   }
 
-  private async checkUserLimits(roomId: string, userId: string, config: RoomSuggestionConfig): Promise<void> {
+  private async checkUserLimits(
+    roomId: string,
+    userId: string,
+    config: RoomSuggestionConfig,
+  ): Promise<void> {
     // Verificar límite de sugerencias por usuario por día
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const result = await this.dynamoDBService.query({
       IndexName: 'GSI2',
       KeyConditionExpression: 'GSI2PK = :pk AND GSI2SK >= :today',
@@ -716,7 +841,9 @@ export class ContentSuggestionService {
 
     const todaySuggestions = result.Items?.length || 0;
     if (todaySuggestions >= config.maxSuggestionsPerUser) {
-      throw new BadRequestException(`Has alcanzado el límite de ${config.maxSuggestionsPerUser} sugerencias por día`);
+      throw new BadRequestException(
+        `Has alcanzado el límite de ${config.maxSuggestionsPerUser} sugerencias por día`,
+      );
     }
 
     // Verificar límite de sugerencias pendientes en la sala
@@ -739,16 +866,21 @@ export class ContentSuggestionService {
 
     const pendingSuggestions = pendingResult.Items?.length || 0;
     if (pendingSuggestions >= config.maxPendingSuggestions) {
-      throw new BadRequestException(`La sala ha alcanzado el límite de ${config.maxPendingSuggestions} sugerencias pendientes`);
+      throw new BadRequestException(
+        `La sala ha alcanzado el límite de ${config.maxPendingSuggestions} sugerencias pendientes`,
+      );
     }
   }
 
-  private async updateSuggestionStats(roomId: string, action: string): Promise<void> {
+  private async updateSuggestionStats(
+    roomId: string,
+    action: string,
+  ): Promise<void> {
     try {
       // Esta es una implementación simplificada
       // En producción, se podría usar un sistema más sofisticado de agregación
       const now = new Date();
-      
+
       await this.dynamoDBService.putItem({
         PK: DynamoDBKeys.roomPK(roomId),
         SK: 'SUGGESTION_STATS',
@@ -758,7 +890,9 @@ export class ContentSuggestionService {
         updatedAt: now,
       });
     } catch (error) {
-      this.logger.warn(`Error actualizando estadísticas de sugerencias: ${error.message}`);
+      this.logger.warn(
+        `Error actualizando estadísticas de sugerencias: ${error.message}`,
+      );
       // No lanzar error para no afectar la operación principal
     }
   }
@@ -768,7 +902,7 @@ export class ContentSuggestionService {
     changedBy: string,
     changeType: string,
     oldValue: any,
-    newValue: any
+    newValue: any,
   ): Promise<void> {
     try {
       const changeId = uuidv4();
@@ -788,12 +922,16 @@ export class ContentSuggestionService {
         ...change,
       });
     } catch (error) {
-      this.logger.warn(`Error registrando cambio de sugerencia: ${error.message}`);
+      this.logger.warn(
+        `Error registrando cambio de sugerencia: ${error.message}`,
+      );
       // No lanzar error para no afectar la operación principal
     }
   }
 
-  private async calculateSuggestionStats(roomId: string): Promise<RoomSuggestionStats> {
+  private async calculateSuggestionStats(
+    roomId: string,
+  ): Promise<RoomSuggestionStats> {
     // Implementación simplificada para calcular estadísticas
     // En producción, esto se haría de forma más eficiente
     return {

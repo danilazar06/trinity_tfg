@@ -4,7 +4,8 @@ import * as fc from 'fast-check';
 import { RoomService } from './room.service';
 import { MemberService } from './member.service';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
-import { RealtimeService } from '../realtime/realtime.service';
+import { RealtimeCompatibilityService } from '../realtime/realtime-compatibility.service';
+import { EventTracker } from '../analytics/event-tracker.service';
 
 // Mock services
 const mockDynamoDBService = {
@@ -31,11 +32,18 @@ describe('RoomService Property Tests', () => {
   let service: RoomService;
 
   beforeEach(async () => {
-    const mockRealtimeService = {
-      notifyVote: jest.fn(),
-      notifyMatch: jest.fn(),
-      notifyRoomStateChange: jest.fn(),
-      notifyMemberStatusChange: jest.fn(),
+    const mockRealtimeCompatibilityService = {
+      notifyRoomStateChange: jest.fn().mockResolvedValue(undefined),
+      notifyMemberStatusChange: jest.fn().mockResolvedValue(undefined),
+      notifyConfigurationChange: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const mockEventTracker = {
+      trackEvent: jest.fn().mockResolvedValue(undefined),
+      trackUserEvent: jest.fn().mockResolvedValue(undefined),
+      trackRoomEvent: jest.fn().mockResolvedValue(undefined),
+      trackContentEvent: jest.fn().mockResolvedValue(undefined),
+      trackSystemEvent: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -50,8 +58,12 @@ describe('RoomService Property Tests', () => {
           useValue: mockMemberService,
         },
         {
-          provide: RealtimeService,
-          useValue: mockRealtimeService,
+          provide: RealtimeCompatibilityService,
+          useValue: mockRealtimeCompatibilityService,
+        },
+        {
+          provide: EventTracker,
+          useValue: mockEventTracker,
         },
       ],
     }).compile();
@@ -62,12 +74,11 @@ describe('RoomService Property Tests', () => {
   /**
    * **Feature: trinity-mvp, Property 1: Integridad del ciclo de vida de salas**
    * **Valida: Requisitos 1.1, 1.2, 1.3, 1.4**
-   * 
-   * Para cualquier operación de creación, unión o abandono de sala, el sistema debe mantener 
+   *
+   * Para cualquier operación de creación, unión o abandono de sala, el sistema debe mantener
    * identificadores apropiados, roles, listas de miembros y permisos de acceso mientras asegura consistencia de datos
    */
   describe('Property 1: Room lifecycle integrity', () => {
-    
     it('should maintain proper identifiers and roles during room creation', async () => {
       await fc.assert(
         fc.asyncProperty(
@@ -75,11 +86,17 @@ describe('RoomService Property Tests', () => {
             creatorId: fc.uuid(),
             roomName: fc.string({ minLength: 1, maxLength: 100 }),
             filters: fc.record({
-              genres: fc.option(fc.array(fc.string({ minLength: 1, maxLength: 20 }), { maxLength: 5 })),
+              genres: fc.option(
+                fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+                  maxLength: 5,
+                }),
+              ),
               releaseYearFrom: fc.option(fc.integer({ min: 1900, max: 2030 })),
               releaseYearTo: fc.option(fc.integer({ min: 1900, max: 2030 })),
               minRating: fc.option(fc.float({ min: 0, max: 10 })),
-              contentTypes: fc.option(fc.array(fc.constantFrom('movie', 'tv'), { maxLength: 2 })),
+              contentTypes: fc.option(
+                fc.array(fc.constantFrom('movie', 'tv'), { maxLength: 2 }),
+              ),
             }),
           }),
           async (roomData) => {
@@ -108,7 +125,7 @@ describe('RoomService Property Tests', () => {
                 masterList: expect.any(Array),
                 createdAt: expect.any(Date),
                 updatedAt: expect.any(Date),
-              })
+              }),
             );
 
             // Verify room is stored in DynamoDB with correct structure
@@ -121,18 +138,18 @@ describe('RoomService Property Tests', () => {
                 id: room.id,
                 creatorId: roomData.creatorId,
                 isActive: true,
-              })
+              }),
             );
 
             // Verify creator is added as member with correct role
             expect(mockMemberService.addMember).toHaveBeenCalledWith(
               room.id,
               roomData.creatorId,
-              'creator'
+              'creator',
             );
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -153,7 +170,9 @@ describe('RoomService Property Tests', () => {
           async (joinData) => {
             // Mock room lookup by invite code
             if (joinData.existingRoom.isActive) {
-              mockDynamoDBService.query.mockResolvedValue([joinData.existingRoom]);
+              mockDynamoDBService.query.mockResolvedValue([
+                joinData.existingRoom,
+              ]);
             } else {
               mockDynamoDBService.query.mockResolvedValue([]);
             }
@@ -176,7 +195,10 @@ describe('RoomService Property Tests', () => {
             });
 
             try {
-              const result = await service.joinRoom(joinData.userId, joinData.inviteCode);
+              const result = await service.joinRoom(
+                joinData.userId,
+                joinData.inviteCode,
+              );
 
               // Should only succeed if room is active and user is not already a member
               if (joinData.existingRoom.isActive && !joinData.isAlreadyMember) {
@@ -184,20 +206,22 @@ describe('RoomService Property Tests', () => {
                 expect(mockMemberService.addMember).toHaveBeenCalledWith(
                   joinData.existingRoom.id,
                   joinData.userId,
-                  'member'
+                  'member',
                 );
               }
             } catch (error) {
               // Should fail if room is inactive, doesn't exist, or user is already a member
               if (!joinData.existingRoom.isActive) {
-                expect(error.message).toContain('Código de invitación inválido');
+                expect(error.message).toContain(
+                  'Código de invitación inválido',
+                );
               } else if (joinData.isAlreadyMember) {
                 expect(error.message).toContain('Ya eres miembro de esta sala');
               }
             }
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -245,12 +269,14 @@ describe('RoomService Property Tests', () => {
                 // Verify member is removed
                 expect(mockMemberService.removeMember).toHaveBeenCalledWith(
                   leaveData.roomId,
-                  leaveData.userId
+                  leaveData.userId,
                 );
 
                 // If creator leaves, room should be deactivated
                 if (leaveData.memberRole === 'creator') {
-                  expect(mockDynamoDBService.conditionalUpdate).toHaveBeenCalledWith(
+                  expect(
+                    mockDynamoDBService.conditionalUpdate,
+                  ).toHaveBeenCalledWith(
                     expect.stringMatching(/^ROOM#/),
                     'METADATA',
                     'SET isActive = :isActive, updatedAt = :updatedAt',
@@ -258,7 +284,7 @@ describe('RoomService Property Tests', () => {
                     undefined,
                     expect.objectContaining({
                       ':isActive': false,
-                    })
+                    }),
                   );
                 }
               }
@@ -270,9 +296,9 @@ describe('RoomService Property Tests', () => {
                 expect(error.message).toContain('No eres miembro de esta sala');
               }
             }
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -283,11 +309,16 @@ describe('RoomService Property Tests', () => {
             userId: fc.uuid(),
             roomId: fc.uuid(),
             creatorId: fc.uuid(),
-            operation: fc.constantFrom('updateFilters', 'regenerateInvite', 'getRoomDetails'),
+            operation: fc.constantFrom(
+              'updateFilters',
+              'regenerateInvite',
+              'getRoomDetails',
+            ),
             userRole: fc.constantFrom('creator', 'member', 'non-member'),
           }),
           async (permissionData) => {
-            const isCreator = permissionData.userId === permissionData.creatorId;
+            const isCreator =
+              permissionData.userId === permissionData.creatorId;
             const isMember = permissionData.userRole !== 'non-member';
 
             // Mock room data
@@ -319,13 +350,13 @@ describe('RoomService Property Tests', () => {
 
             try {
               let result;
-              
+
               switch (permissionData.operation) {
                 case 'updateFilters':
                   result = await service.updateRoomFilters(
                     permissionData.userId,
                     permissionData.roomId,
-                    { genres: ['Action'] }
+                    { genres: ['Action'] },
                   );
                   // Should only succeed if user is creator
                   expect(isCreator).toBe(true);
@@ -334,7 +365,7 @@ describe('RoomService Property Tests', () => {
                 case 'regenerateInvite':
                   result = await service.regenerateInviteCode(
                     permissionData.userId,
-                    permissionData.roomId
+                    permissionData.roomId,
                   );
                   // Should only succeed if user is creator
                   expect(isCreator).toBe(true);
@@ -344,7 +375,7 @@ describe('RoomService Property Tests', () => {
                 case 'getRoomDetails':
                   result = await service.getRoomDetails(
                     permissionData.roomId,
-                    permissionData.userId
+                    permissionData.userId,
                   );
                   // Should only succeed if user is a member
                   expect(isMember).toBe(true);
@@ -354,7 +385,10 @@ describe('RoomService Property Tests', () => {
               }
             } catch (error) {
               // Verify proper error handling for unauthorized operations
-              if (permissionData.operation === 'updateFilters' || permissionData.operation === 'regenerateInvite') {
+              if (
+                permissionData.operation === 'updateFilters' ||
+                permissionData.operation === 'regenerateInvite'
+              ) {
                 if (!isCreator) {
                   expect(error.message).toContain('Solo el creador');
                 }
@@ -364,9 +398,9 @@ describe('RoomService Property Tests', () => {
                 }
               }
             }
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -388,7 +422,7 @@ describe('RoomService Property Tests', () => {
 
               // Verify invite code format
               expect(room.inviteCode).toMatch(/^[A-Z0-9]{6}$/);
-              
+
               // Verify uniqueness
               expect(generatedCodes.has(room.inviteCode)).toBe(false);
               generatedCodes.add(room.inviteCode);
@@ -396,9 +430,9 @@ describe('RoomService Property Tests', () => {
 
             // All codes should be unique
             expect(generatedCodes.size).toBe(creatorIds.length);
-          }
+          },
         ),
-        { numRuns: 50 } // Reduced runs due to complexity
+        { numRuns: 50 }, // Reduced runs due to complexity
       );
     });
   });

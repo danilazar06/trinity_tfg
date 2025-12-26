@@ -63,9 +63,11 @@ export class DatabaseOptimizerService {
     optimizations.push(themeOptimization);
 
     const afterMetrics = await this.collectDatabaseMetrics();
-    
-    this.logger.log(`✅ Database optimization completed. Average improvement: ${this.calculateAverageImprovement(optimizations)}%`);
-    
+
+    this.logger.log(
+      `✅ Database optimization completed. Average improvement: ${this.calculateAverageImprovement(optimizations)}%`,
+    );
+
     return optimizations;
   }
 
@@ -74,7 +76,7 @@ export class DatabaseOptimizerService {
    */
   private async optimizeRoomAutomationQueries(): Promise<DatabaseOptimizationResult> {
     const startTime = Date.now();
-    
+
     // Simulate optimization of automation config queries
     const beforeMetrics = {
       averageQueryTime: 45,
@@ -88,11 +90,11 @@ export class DatabaseOptimizerService {
     // 1. Add composite indexes for room automation queries
     // 2. Implement query result caching
     // 3. Optimize batch operations
-    
+
     await this.simulateQueryOptimization('RoomAutomation', [
       'PK-SK-isEnabled-index',
       'roomId-automationLevel-index',
-      'creatorId-updatedAt-index'
+      'creatorId-updatedAt-index',
     ]);
 
     const afterMetrics = {
@@ -103,7 +105,10 @@ export class DatabaseOptimizerService {
       connectionPoolUsage: 0.6,
     };
 
-    const improvement = ((beforeMetrics.averageQueryTime - afterMetrics.averageQueryTime) / beforeMetrics.averageQueryTime) * 100;
+    const improvement =
+      ((beforeMetrics.averageQueryTime - afterMetrics.averageQueryTime) /
+        beforeMetrics.averageQueryTime) *
+      100;
 
     return {
       optimizationType: 'Room Automation Queries',
@@ -130,11 +135,11 @@ export class DatabaseOptimizerService {
     // 1. Implement permission caching with TTL
     // 2. Batch permission checks
     // 3. Optimize role hierarchy queries
-    
+
     await this.simulateQueryOptimization('Permission', [
       'userId-roomId-permission-index',
       'roleId-permission-index',
-      'roomId-userId-role-index'
+      'roomId-userId-role-index',
     ]);
 
     const afterMetrics = {
@@ -145,7 +150,10 @@ export class DatabaseOptimizerService {
       connectionPoolUsage: 0.5,
     };
 
-    const improvement = ((beforeMetrics.averageQueryTime - afterMetrics.averageQueryTime) / beforeMetrics.averageQueryTime) * 100;
+    const improvement =
+      ((beforeMetrics.averageQueryTime - afterMetrics.averageQueryTime) /
+        beforeMetrics.averageQueryTime) *
+      100;
 
     return {
       optimizationType: 'Permission System Queries',
@@ -172,11 +180,11 @@ export class DatabaseOptimizerService {
     // 1. Pre-aggregate common analytics queries
     // 2. Implement time-based partitioning
     // 3. Use materialized views for complex analytics
-    
+
     await this.simulateQueryOptimization('Analytics', [
       'eventType-timestamp-index',
       'roomId-eventType-timestamp-index',
-      'userId-eventType-timestamp-index'
+      'userId-eventType-timestamp-index',
     ]);
 
     const afterMetrics = {
@@ -187,7 +195,10 @@ export class DatabaseOptimizerService {
       connectionPoolUsage: 0.6,
     };
 
-    const improvement = ((beforeMetrics.averageQueryTime - afterMetrics.averageQueryTime) / beforeMetrics.averageQueryTime) * 100;
+    const improvement =
+      ((beforeMetrics.averageQueryTime - afterMetrics.averageQueryTime) /
+        beforeMetrics.averageQueryTime) *
+      100;
 
     return {
       optimizationType: 'Analytics Queries',
@@ -214,11 +225,11 @@ export class DatabaseOptimizerService {
     // 1. Cache popular themes and templates
     // 2. Optimize theme discovery queries
     // 3. Implement lazy loading for theme assets
-    
+
     await this.simulateQueryOptimization('Theme', [
       'category-popularity-index',
       'isPublic-category-createdAt-index',
-      'creatorId-isPublic-index'
+      'creatorId-isPublic-index',
     ]);
 
     const afterMetrics = {
@@ -229,7 +240,10 @@ export class DatabaseOptimizerService {
       connectionPoolUsage: 0.4,
     };
 
-    const improvement = ((beforeMetrics.averageQueryTime - afterMetrics.averageQueryTime) / beforeMetrics.averageQueryTime) * 100;
+    const improvement =
+      ((beforeMetrics.averageQueryTime - afterMetrics.averageQueryTime) /
+        beforeMetrics.averageQueryTime) *
+      100;
 
     return {
       optimizationType: 'Theme and Template Queries',
@@ -243,7 +257,9 @@ export class DatabaseOptimizerService {
   /**
    * Generate optimization recommendations
    */
-  async generateOptimizationRecommendations(): Promise<OptimizationRecommendation[]> {
+  async generateOptimizationRecommendations(): Promise<
+    OptimizationRecommendation[]
+  > {
     const recommendations: OptimizationRecommendation[] = [];
 
     // Analyze current performance and suggest improvements
@@ -253,7 +269,8 @@ export class DatabaseOptimizerService {
       recommendations.push({
         type: 'index',
         priority: 'high',
-        description: 'Add composite indexes for frequently queried fields (roomId + timestamp, userId + eventType)',
+        description:
+          'Add composite indexes for frequently queried fields (roomId + timestamp, userId + eventType)',
         expectedImprovement: 40,
         implementationComplexity: 'medium',
       });
@@ -263,7 +280,8 @@ export class DatabaseOptimizerService {
       recommendations.push({
         type: 'cache',
         priority: 'high',
-        description: 'Implement Redis caching layer for permission checks and frequently accessed data',
+        description:
+          'Implement Redis caching layer for permission checks and frequently accessed data',
         expectedImprovement: 60,
         implementationComplexity: 'medium',
       });
@@ -273,7 +291,8 @@ export class DatabaseOptimizerService {
       recommendations.push({
         type: 'connection',
         priority: 'medium',
-        description: 'Optimize connection pool size and implement connection pooling strategies',
+        description:
+          'Optimize connection pool size and implement connection pooling strategies',
         expectedImprovement: 25,
         implementationComplexity: 'low',
       });
@@ -282,7 +301,8 @@ export class DatabaseOptimizerService {
     recommendations.push({
       type: 'query',
       priority: 'medium',
-      description: 'Implement query result pagination for large datasets to reduce memory usage',
+      description:
+        'Implement query result pagination for large datasets to reduce memory usage',
       expectedImprovement: 30,
       implementationComplexity: 'low',
     });
@@ -307,12 +327,17 @@ export class DatabaseOptimizerService {
   /**
    * Simulate query optimization implementation
    */
-  private async simulateQueryOptimization(tableName: string, indexes: string[]): Promise<void> {
-    this.logger.log(`🔍 Optimizing ${tableName} table with indexes: ${indexes.join(', ')}`);
-    
+  private async simulateQueryOptimization(
+    tableName: string,
+    indexes: string[],
+  ): Promise<void> {
+    this.logger.log(
+      `🔍 Optimizing ${tableName} table with indexes: ${indexes.join(', ')}`,
+    );
+
     // Simulate optimization work
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     // Update cache stats to reflect optimization
     this.cacheStats.hits += Math.floor(Math.random() * 50) + 20;
     this.cacheStats.totalRequests += Math.floor(Math.random() * 60) + 30;
@@ -324,8 +349,9 @@ export class DatabaseOptimizerService {
   private calculateAverageQueryTime(): number {
     const allTimes = Array.from(this.queryMetrics.values()).flat();
     if (allTimes.length === 0) return 35; // Default baseline
-    
-    const average = allTimes.reduce((sum, time) => sum + time, 0) / allTimes.length;
+
+    const average =
+      allTimes.reduce((sum, time) => sum + time, 0) / allTimes.length;
     // Apply optimization effect if we have recent data
     return allTimes.length > 10 ? Math.max(average * 0.6, 25) : average;
   }
@@ -334,7 +360,12 @@ export class DatabaseOptimizerService {
    * Get total number of queries tracked
    */
   private getTotalQueries(): number {
-    return Array.from(this.queryMetrics.values()).reduce((total, times) => total + times.length, 0) || 100;
+    return (
+      Array.from(this.queryMetrics.values()).reduce(
+        (total, times) => total + times.length,
+        0,
+      ) || 100
+    );
   }
 
   /**
@@ -348,10 +379,15 @@ export class DatabaseOptimizerService {
   /**
    * Calculate average improvement across optimizations
    */
-  private calculateAverageImprovement(optimizations: DatabaseOptimizationResult[]): number {
+  private calculateAverageImprovement(
+    optimizations: DatabaseOptimizationResult[],
+  ): number {
     if (optimizations.length === 0) return 0;
-    
-    const totalImprovement = optimizations.reduce((sum, opt) => sum + opt.improvement, 0);
+
+    const totalImprovement = optimizations.reduce(
+      (sum, opt) => sum + opt.improvement,
+      0,
+    );
     return Math.round(totalImprovement / optimizations.length);
   }
 
@@ -362,10 +398,10 @@ export class DatabaseOptimizerService {
     if (!this.queryMetrics.has(queryType)) {
       this.queryMetrics.set(queryType, []);
     }
-    
+
     const times = this.queryMetrics.get(queryType)!;
     times.push(executionTime);
-    
+
     // Keep only last 100 measurements per query type
     if (times.length > 100) {
       times.shift();
@@ -394,8 +430,12 @@ export class DatabaseOptimizerService {
   }> {
     const currentMetrics = await this.collectDatabaseMetrics();
     const recommendations = await this.generateOptimizationRecommendations();
-    
-    const potentialImprovement = recommendations.reduce((total, rec) => total + rec.expectedImprovement, 0) / recommendations.length;
+
+    const potentialImprovement =
+      recommendations.reduce(
+        (total, rec) => total + rec.expectedImprovement,
+        0,
+      ) / recommendations.length;
 
     return {
       currentMetrics,

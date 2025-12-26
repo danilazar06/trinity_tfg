@@ -36,7 +36,7 @@ export class PermissionAuditMiddleware implements NestMiddleware {
     const originalSend = res.send;
     let responseBody: any;
 
-    res.send = function(body) {
+    res.send = function (body) {
       responseBody = body;
       return originalSend.call(this, body);
     };
@@ -58,7 +58,10 @@ export class PermissionAuditMiddleware implements NestMiddleware {
           userAgent: req.get('User-Agent'),
           ipAddress: req.ip,
           success: res.statusCode < 400,
-          errorMessage: res.statusCode >= 400 ? this.extractErrorMessage(responseBody) : undefined,
+          errorMessage:
+            res.statusCode >= 400
+              ? this.extractErrorMessage(responseBody)
+              : undefined,
           responseTime,
         });
       }
@@ -76,10 +79,12 @@ export class PermissionAuditMiddleware implements NestMiddleware {
       '/room-templates',
     ];
 
-    return auditPaths.some(auditPath => path.includes(auditPath));
+    return auditPaths.some((auditPath) => path.includes(auditPath));
   }
 
-  private async logPermissionAccess(auditLog: PermissionAuditLog): Promise<void> {
+  private async logPermissionAccess(
+    auditLog: PermissionAuditLog,
+  ): Promise<void> {
     try {
       await this.dynamoDBService.putItem({
         PK: `AUDIT#${auditLog.userId}`,
@@ -90,10 +95,14 @@ export class PermissionAuditMiddleware implements NestMiddleware {
       });
 
       if (!auditLog.success) {
-        this.logger.warn(`Acceso denegado auditado: ${auditLog.userId} -> ${auditLog.endpoint} (${auditLog.errorMessage})`);
+        this.logger.warn(
+          `Acceso denegado auditado: ${auditLog.userId} -> ${auditLog.endpoint} (${auditLog.errorMessage})`,
+        );
       }
     } catch (error) {
-      this.logger.error(`Error registrando auditoría de permisos: ${error.message}`);
+      this.logger.error(
+        `Error registrando auditoría de permisos: ${error.message}`,
+      );
     }
   }
 

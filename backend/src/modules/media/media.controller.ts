@@ -1,12 +1,11 @@
+import { Controller, Get, Query, Param, UseGuards, Post } from '@nestjs/common';
 import {
-  Controller,
-  Get,
-  Query,
-  Param,
-  UseGuards,
-  Post,
-} from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { MediaService } from './media.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SearchContentDto } from './dto/search-content.dto';
@@ -22,11 +21,36 @@ export class MediaController {
   @Get('discover')
   @ApiOperation({ summary: 'Descubrir contenido con filtros' })
   @ApiResponse({ status: 200, description: 'Lista de contenido multimedia' })
-  @ApiQuery({ name: 'genres', required: false, type: [String], description: 'Géneros de contenido' })
-  @ApiQuery({ name: 'releaseYearFrom', required: false, type: Number, description: 'Año de lanzamiento desde' })
-  @ApiQuery({ name: 'releaseYearTo', required: false, type: Number, description: 'Año de lanzamiento hasta' })
-  @ApiQuery({ name: 'minRating', required: false, type: Number, description: 'Calificación mínima' })
-  @ApiQuery({ name: 'contentTypes', required: false, type: [String], description: 'Tipos de contenido (movie, tv)' })
+  @ApiQuery({
+    name: 'genres',
+    required: false,
+    type: [String],
+    description: 'Géneros de contenido',
+  })
+  @ApiQuery({
+    name: 'releaseYearFrom',
+    required: false,
+    type: Number,
+    description: 'Año de lanzamiento desde',
+  })
+  @ApiQuery({
+    name: 'releaseYearTo',
+    required: false,
+    type: Number,
+    description: 'Año de lanzamiento hasta',
+  })
+  @ApiQuery({
+    name: 'minRating',
+    required: false,
+    type: Number,
+    description: 'Calificación mínima',
+  })
+  @ApiQuery({
+    name: 'contentTypes',
+    required: false,
+    type: [String],
+    description: 'Tipos de contenido (movie, tv)',
+  })
   async discoverContent(@Query() filters: ContentFiltersDto) {
     return this.mediaService.fetchMovies(filters);
   }
@@ -34,7 +58,12 @@ export class MediaController {
   @Get('popular')
   @ApiOperation({ summary: 'Obtener contenido popular' })
   @ApiResponse({ status: 200, description: 'Lista de contenido popular' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Número de página' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Número de página',
+  })
   async getPopularContent(@Query('page') page?: number) {
     return this.mediaService.getPopularContent(page || 1);
   }
@@ -42,8 +71,18 @@ export class MediaController {
   @Get('search')
   @ApiOperation({ summary: 'Buscar contenido por texto' })
   @ApiResponse({ status: 200, description: 'Resultados de búsqueda' })
-  @ApiQuery({ name: 'q', required: true, type: String, description: 'Texto de búsqueda' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Número de página' })
+  @ApiQuery({
+    name: 'q',
+    required: true,
+    type: String,
+    description: 'Texto de búsqueda',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Número de página',
+  })
   async searchContent(@Query() searchDto: SearchContentDto) {
     return this.mediaService.searchContent(searchDto.q, searchDto.page || 1);
   }
@@ -54,11 +93,11 @@ export class MediaController {
   @ApiResponse({ status: 404, description: 'Elemento no encontrado' })
   async getMediaDetails(@Param('tmdbId') tmdbId: string) {
     const mediaItem = await this.mediaService.getMediaDetails(tmdbId);
-    
+
     if (!mediaItem) {
       return { error: 'Elemento multimedia no encontrado' };
     }
-    
+
     return mediaItem;
   }
 

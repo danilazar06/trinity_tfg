@@ -1,8 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { CloudWatchClient, GetMetricStatisticsCommand, Dimension } from '@aws-sdk/client-cloudwatch';
+import {
+  CloudWatchClient,
+  GetMetricStatisticsCommand,
+  Dimension,
+} from '@aws-sdk/client-cloudwatch';
 import { BudgetsClient, DescribeBudgetsCommand } from '@aws-sdk/client-budgets';
-import { LambdaClient, ListFunctionsCommand, GetFunctionCommand } from '@aws-sdk/client-lambda';
-import { DynamoDBClient, DescribeTableCommand, ListTablesCommand } from '@aws-sdk/client-dynamodb';
+import {
+  LambdaClient,
+  ListFunctionsCommand,
+  GetFunctionCommand,
+} from '@aws-sdk/client-lambda';
+import {
+  DynamoDBClient,
+  DescribeTableCommand,
+  ListTablesCommand,
+} from '@aws-sdk/client-dynamodb';
 
 export interface CostMetrics {
   estimatedMonthlyCost: number;
@@ -39,10 +51,18 @@ export class CostOptimizationService {
   private readonly dynamoClient: DynamoDBClient;
 
   constructor() {
-    this.cloudWatchClient = new CloudWatchClient({ region: process.env.AWS_REGION || 'us-east-1' });
-    this.budgetsClient = new BudgetsClient({ region: process.env.AWS_REGION || 'us-east-1' });
-    this.lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || 'us-east-1' });
-    this.dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-1' });
+    this.cloudWatchClient = new CloudWatchClient({
+      region: process.env.AWS_REGION || 'us-east-1',
+    });
+    this.budgetsClient = new BudgetsClient({
+      region: process.env.AWS_REGION || 'us-east-1',
+    });
+    this.lambdaClient = new LambdaClient({
+      region: process.env.AWS_REGION || 'us-east-1',
+    });
+    this.dynamoClient = new DynamoDBClient({
+      region: process.env.AWS_REGION || 'us-east-1',
+    });
   }
 
   /**
@@ -52,12 +72,13 @@ export class CostOptimizationService {
     try {
       this.logger.log('💰 Obteniendo métricas de costos actuales...');
 
-      const [estimatedCost, lambdaInvocations, dynamoReads, dynamoWrites] = await Promise.all([
-        this.getEstimatedMonthlyCost(),
-        this.getLambdaInvocations(),
-        this.getDynamoReadUnits(),
-        this.getDynamoWriteUnits(),
-      ]);
+      const [estimatedCost, lambdaInvocations, dynamoReads, dynamoWrites] =
+        await Promise.all([
+          this.getEstimatedMonthlyCost(),
+          this.getLambdaInvocations(),
+          this.getDynamoReadUnits(),
+          this.getDynamoWriteUnits(),
+        ]);
 
       const metrics: CostMetrics = {
         estimatedMonthlyCost: estimatedCost,
@@ -67,7 +88,9 @@ export class CostOptimizationService {
         lastUpdated: new Date(),
       };
 
-      this.logger.log(`💰 Métricas obtenidas: $${estimatedCost}/mes, ${lambdaInvocations} invocaciones Lambda`);
+      this.logger.log(
+        `💰 Métricas obtenidas: $${estimatedCost}/mes, ${lambdaInvocations} invocaciones Lambda`,
+      );
       return metrics;
     } catch (error) {
       this.logger.error('❌ Error obteniendo métricas de costos:', error);
@@ -78,7 +101,9 @@ export class CostOptimizationService {
   /**
    * 🎯 Genera recomendaciones de optimización
    */
-  async generateOptimizationRecommendations(): Promise<CostOptimizationRecommendation[]> {
+  async generateOptimizationRecommendations(): Promise<
+    CostOptimizationRecommendation[]
+  > {
     try {
       this.logger.log('🎯 Generando recomendaciones de optimización...');
 
@@ -86,11 +111,13 @@ export class CostOptimizationService {
       const metrics = await this.getCurrentCostMetrics();
 
       // Recomendaciones Lambda
-      const lambdaRecommendations = await this.analyzeLambdaOptimizations(metrics);
+      const lambdaRecommendations =
+        await this.analyzeLambdaOptimizations(metrics);
       recommendations.push(...lambdaRecommendations);
 
       // Recomendaciones DynamoDB
-      const dynamoRecommendations = await this.analyzeDynamoOptimizations(metrics);
+      const dynamoRecommendations =
+        await this.analyzeDynamoOptimizations(metrics);
       recommendations.push(...dynamoRecommendations);
 
       // Recomendaciones generales
@@ -132,12 +159,18 @@ export class CostOptimizationService {
       }
 
       const budgetLimit = parseFloat(budget.BudgetLimit?.Amount || '0');
-      const actualSpend = parseFloat(budget.CalculatedSpend?.ActualSpend?.Amount || '0');
-      const forecastedSpend = parseFloat(budget.CalculatedSpend?.ForecastedSpend?.Amount || '0');
+      const actualSpend = parseFloat(
+        budget.CalculatedSpend?.ActualSpend?.Amount || '0',
+      );
+      const forecastedSpend = parseFloat(
+        budget.CalculatedSpend?.ForecastedSpend?.Amount || '0',
+      );
 
       const now = new Date();
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      const daysRemaining = Math.ceil((endOfMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      const daysRemaining = Math.ceil(
+        (endOfMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+      );
 
       const status: BudgetStatus = {
         budgetName: budget.BudgetName || budgetName,
@@ -148,7 +181,9 @@ export class CostOptimizationService {
         daysRemaining,
       };
 
-      this.logger.log(`📈 Presupuesto: $${actualSpend}/$${budgetLimit} (${status.percentageUsed.toFixed(1)}%)`);
+      this.logger.log(
+        `📈 Presupuesto: $${actualSpend}/$${budgetLimit} (${status.percentageUsed.toFixed(1)}%)`,
+      );
       return status;
     } catch (error) {
       this.logger.error('❌ Error obteniendo estado del presupuesto:', error);
@@ -183,10 +218,15 @@ export class CostOptimizationService {
         appliedOptimizations.push(cacheOptimization);
       }
 
-      this.logger.log(`🔧 Aplicadas ${appliedOptimizations.length} optimizaciones automáticas`);
+      this.logger.log(
+        `🔧 Aplicadas ${appliedOptimizations.length} optimizaciones automáticas`,
+      );
       return appliedOptimizations;
     } catch (error) {
-      this.logger.error('❌ Error aplicando optimizaciones automáticas:', error);
+      this.logger.error(
+        '❌ Error aplicando optimizaciones automáticas:',
+        error,
+      );
       throw new Error('Failed to apply automatic optimizations');
     }
   }
@@ -212,7 +252,7 @@ export class CostOptimizationService {
 
       const response = await this.cloudWatchClient.send(command);
       const datapoints = response.Datapoints || [];
-      
+
       if (datapoints.length === 0) {
         return 0;
       }
@@ -237,10 +277,13 @@ export class CostOptimizationService {
 
       const response = await this.cloudWatchClient.send(command);
       const datapoints = response.Datapoints || [];
-      
+
       return datapoints.reduce((total, point) => total + (point.Sum || 0), 0);
     } catch (error) {
-      this.logger.warn('⚠️ No se pudo obtener invocaciones Lambda:', error.message);
+      this.logger.warn(
+        '⚠️ No se pudo obtener invocaciones Lambda:',
+        error.message,
+      );
       return 0;
     }
   }
@@ -258,7 +301,7 @@ export class CostOptimizationService {
 
       const response = await this.cloudWatchClient.send(command);
       const datapoints = response.Datapoints || [];
-      
+
       return datapoints.reduce((total, point) => total + (point.Sum || 0), 0);
     } catch (error) {
       this.logger.warn('⚠️ No se pudo obtener RCU de DynamoDB:', error.message);
@@ -279,7 +322,7 @@ export class CostOptimizationService {
 
       const response = await this.cloudWatchClient.send(command);
       const datapoints = response.Datapoints || [];
-      
+
       return datapoints.reduce((total, point) => total + (point.Sum || 0), 0);
     } catch (error) {
       this.logger.warn('⚠️ No se pudo obtener WCU de DynamoDB:', error.message);
@@ -289,7 +332,9 @@ export class CostOptimizationService {
 
   // Métodos de análisis de optimizaciones
 
-  private async analyzeLambdaOptimizations(metrics: CostMetrics): Promise<CostOptimizationRecommendation[]> {
+  private async analyzeLambdaOptimizations(
+    metrics: CostMetrics,
+  ): Promise<CostOptimizationRecommendation[]> {
     const recommendations: CostOptimizationRecommendation[] = [];
 
     // Analizar invocaciones excesivas
@@ -300,7 +345,8 @@ export class CostOptimizationService {
         title: 'Invocaciones Lambda excesivas',
         description: `Se detectaron ${metrics.lambdaInvocations} invocaciones en las últimas 24h. Considere implementar caché o optimizar la lógica.`,
         potentialSavings: (metrics.lambdaInvocations - 10000) * 0.0000002, // $0.0000002 por invocación
-        actionRequired: 'Implementar caché en endpoints frecuentes y optimizar lógica de negocio',
+        actionRequired:
+          'Implementar caché en endpoints frecuentes y optimizar lógica de negocio',
       });
     }
 
@@ -308,27 +354,37 @@ export class CostOptimizationService {
     try {
       const functionsCommand = new ListFunctionsCommand({});
       const functionsResponse = await this.lambdaClient.send(functionsCommand);
-      
+
       for (const func of functionsResponse.Functions || []) {
-        if (func.FunctionName?.includes('trinity') && func.MemorySize && func.MemorySize > 512) {
+        if (
+          func.FunctionName?.includes('trinity') &&
+          func.MemorySize &&
+          func.MemorySize > 512
+        ) {
           recommendations.push({
             type: 'lambda',
             severity: 'medium',
             title: `Memoria Lambda excesiva: ${func.FunctionName}`,
             description: `La función ${func.FunctionName} tiene ${func.MemorySize}MB asignados. Evalúe si realmente necesita tanta memoria.`,
             potentialSavings: ((func.MemorySize - 512) / 128) * 5, // Estimación de ahorro mensual
-            actionRequired: 'Revisar uso real de memoria y ajustar configuración',
+            actionRequired:
+              'Revisar uso real de memoria y ajustar configuración',
           });
         }
       }
     } catch (error) {
-      this.logger.warn('⚠️ No se pudo analizar configuración de Lambda:', error.message);
+      this.logger.warn(
+        '⚠️ No se pudo analizar configuración de Lambda:',
+        error.message,
+      );
     }
 
     return recommendations;
   }
 
-  private async analyzeDynamoOptimizations(metrics: CostMetrics): Promise<CostOptimizationRecommendation[]> {
+  private async analyzeDynamoOptimizations(
+    metrics: CostMetrics,
+  ): Promise<CostOptimizationRecommendation[]> {
     const recommendations: CostOptimizationRecommendation[] = [];
 
     // Analizar uso excesivo de RCU/WCU
@@ -339,7 +395,8 @@ export class CostOptimizationService {
         title: 'Alto consumo de Read Capacity Units',
         description: `Se consumieron ${metrics.dynamoReadUnits} RCU en las últimas 24h. Considere implementar caché o reserved capacity.`,
         potentialSavings: (metrics.dynamoReadUnits - 1000) * 0.00013, // $0.00013 por RCU
-        actionRequired: 'Implementar caché Redis o considerar reserved capacity para DynamoDB',
+        actionRequired:
+          'Implementar caché Redis o considerar reserved capacity para DynamoDB',
       });
     }
 
@@ -350,14 +407,17 @@ export class CostOptimizationService {
         title: 'Alto consumo de Write Capacity Units',
         description: `Se consumieron ${metrics.dynamoWriteUnits} WCU en las últimas 24h. Optimice las operaciones de escritura.`,
         potentialSavings: (metrics.dynamoWriteUnits - 500) * 0.00065, // $0.00065 por WCU
-        actionRequired: 'Optimizar batch writes y reducir actualizaciones innecesarias',
+        actionRequired:
+          'Optimizar batch writes y reducir actualizaciones innecesarias',
       });
     }
 
     return recommendations;
   }
 
-  private analyzeGeneralOptimizations(metrics: CostMetrics): CostOptimizationRecommendation[] {
+  private analyzeGeneralOptimizations(
+    metrics: CostMetrics,
+  ): CostOptimizationRecommendation[] {
     const recommendations: CostOptimizationRecommendation[] = [];
 
     // Recomendación de reserved instances si el costo es alto
@@ -368,7 +428,8 @@ export class CostOptimizationService {
         title: 'Considerar Reserved Capacity',
         description: `Con un costo estimado de $${metrics.estimatedMonthlyCost}/mes, podría beneficiarse de reserved capacity en DynamoDB.`,
         potentialSavings: metrics.estimatedMonthlyCost * 0.2, // 20% de ahorro estimado
-        actionRequired: 'Evaluar patrones de uso y configurar reserved capacity para recursos predecibles',
+        actionRequired:
+          'Evaluar patrones de uso y configurar reserved capacity para recursos predecibles',
       });
     }
 
@@ -377,7 +438,8 @@ export class CostOptimizationService {
       type: 'general',
       severity: 'low',
       title: 'Limpieza de recursos',
-      description: 'Revise regularmente logs, snapshots y recursos no utilizados para optimizar costos.',
+      description:
+        'Revise regularmente logs, snapshots y recursos no utilizados para optimizar costos.',
       potentialSavings: 5, // $5 estimado
       actionRequired: 'Configurar políticas de retención y limpieza automática',
     });

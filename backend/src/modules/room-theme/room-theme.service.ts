@@ -1,12 +1,22 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  Logger,
+  ConflictException,
+} from '@nestjs/common';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
 import { DynamoDBKeys } from '../../infrastructure/database/dynamodb.constants';
-import { RoomTheme, ThemeCategory } from '../../domain/entities/room-template.entity';
+import {
+  RoomTheme,
+  ThemeCategory,
+} from '../../domain/entities/room-template.entity';
 import { RealtimeCompatibilityService } from '../realtime/realtime-compatibility.service';
-import { 
-  ThemeUsageStats, 
-  PopularTheme, 
-  RoomThemeApplication, 
+import {
+  ThemeUsageStats,
+  PopularTheme,
+  RoomThemeApplication,
   ThemeCustomizations,
   ThemeRating,
   ThemeFilters,
@@ -16,17 +26,17 @@ import {
   ThemeChangeHistory,
   ThemeCollection,
   ThemeRecommendation,
-  AutoThemeConfig
+  AutoThemeConfig,
 } from '../../domain/entities/room-theme.entity';
-import { 
-  CreateThemeDto, 
-  UpdateThemeDto, 
-  ApplyThemeDto, 
-  RateThemeDto, 
+import {
+  CreateThemeDto,
+  UpdateThemeDto,
+  ApplyThemeDto,
+  RateThemeDto,
   ThemeFiltersDto,
   ThemeCustomizationsDto,
   CreateThemeCollectionDto,
-  AutoThemeConfigDto
+  AutoThemeConfigDto,
 } from './dto/theme.dto';
 import { RoomService } from '../room/room.service';
 import { EventTracker } from '../analytics/event-tracker.service';
@@ -47,7 +57,7 @@ const SYSTEM_THEMES: Partial<RoomTheme>[] = [
       secondary: '#2d2d2d',
       accent: '#ff6b35',
       background: '#0f0f0f',
-      text: '#ffffff'
+      text: '#ffffff',
     },
     isCustom: false,
     isPublic: true,
@@ -62,7 +72,7 @@ const SYSTEM_THEMES: Partial<RoomTheme>[] = [
       secondary: '#cd853f',
       accent: '#ff8c00',
       background: '#2f1b14',
-      text: '#f5deb3'
+      text: '#f5deb3',
     },
     isCustom: false,
     isPublic: true,
@@ -77,7 +87,7 @@ const SYSTEM_THEMES: Partial<RoomTheme>[] = [
       secondary: '#f8f9fa',
       accent: '#007bff',
       background: '#ffffff',
-      text: '#212529'
+      text: '#212529',
     },
     isCustom: false,
     isPublic: true,
@@ -92,7 +102,7 @@ const SYSTEM_THEMES: Partial<RoomTheme>[] = [
       secondary: '#ff5722',
       accent: '#ffeb3b',
       background: '#1a1a1a',
-      text: '#ffffff'
+      text: '#ffffff',
     },
     isCustom: false,
     isPublic: true,
@@ -107,11 +117,11 @@ const SYSTEM_THEMES: Partial<RoomTheme>[] = [
       secondary: '#2f0000',
       accent: '#ff0000',
       background: '#000000',
-      text: '#ffffff'
+      text: '#ffffff',
     },
     isCustom: false,
     isPublic: true,
-  }
+  },
 ];
 
 @Injectable()
@@ -128,19 +138,24 @@ export class RoomThemeService {
   /**
    * Crear un tema personalizado
    */
-  async createTheme(userId: string, createThemeDto: CreateThemeDto): Promise<RoomTheme> {
+  async createTheme(
+    userId: string,
+    createThemeDto: CreateThemeDto,
+  ): Promise<RoomTheme> {
     // Validar el tema
     const validationResult = await this.validateTheme(createThemeDto);
     if (!validationResult.isValid) {
-      throw new BadRequestException(`Tema inválido: ${validationResult.errors.join(', ')}`);
+      throw new BadRequestException(
+        `Tema inválido: ${validationResult.errors.join(', ')}`,
+      );
     }
 
     // Verificar que el nombre no exista para el usuario
     const existingThemes = await this.getUserThemes(userId);
-    const nameExists = existingThemes.some(theme => 
-      theme.name.toLowerCase() === createThemeDto.name.toLowerCase()
+    const nameExists = existingThemes.some(
+      (theme) => theme.name.toLowerCase() === createThemeDto.name.toLowerCase(),
     );
-    
+
     if (nameExists) {
       throw new ConflictException('Ya tienes un tema con ese nombre');
     }
@@ -192,7 +207,7 @@ export class RoomThemeService {
         {
           source: 'room_theme_service',
           userAgent: 'backend',
-        }
+        },
       );
 
       this.logger.log(`Tema creado: ${themeId} por usuario ${userId}`);
@@ -211,7 +226,7 @@ export class RoomThemeService {
       let themes: RoomTheme[] = [];
 
       // Obtener temas del sistema
-      const systemThemes = SYSTEM_THEMES.map(theme => ({
+      const systemThemes = SYSTEM_THEMES.map((theme) => ({
         ...theme,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -219,21 +234,23 @@ export class RoomThemeService {
 
       // Filtrar temas del sistema por categoría si se especifica
       if (filters.category) {
-        themes = systemThemes.filter(theme => theme.category === filters.category);
+        themes = systemThemes.filter(
+          (theme) => theme.category === filters.category,
+        );
       } else {
         themes = [...systemThemes];
       }
 
       // Obtener temas personalizados públicos
-      const baseExpressionValues = filters.category ? 
-        { ':category': DynamoDBKeys.themeGSI2PK(filters.category) } :
-        { ':prefix': 'CATEGORY#' };
+      const baseExpressionValues = filters.category
+        ? { ':category': DynamoDBKeys.themeGSI2PK(filters.category) }
+        : { ':prefix': 'CATEGORY#' };
 
       const queryParams: any = {
         IndexName: 'GSI2',
-        KeyConditionExpression: filters.category ? 
-          'GSI2PK = :category' : 
-          'begins_with(GSI2PK, :prefix)',
+        KeyConditionExpression: filters.category
+          ? 'GSI2PK = :category'
+          : 'begins_with(GSI2PK, :prefix)',
         ExpressionAttributeValues: {
           ...baseExpressionValues,
           ':isPublic': true,
@@ -243,7 +260,7 @@ export class RoomThemeService {
       };
 
       const result = await this.dynamoDBService.query(queryParams);
-      const customThemes = result.Items?.map(item => item as RoomTheme) || [];
+      const customThemes = result.Items?.map((item) => item as RoomTheme) || [];
 
       themes.push(...customThemes);
 
@@ -273,9 +290,11 @@ export class RoomThemeService {
         },
       });
 
-      return result.Items?.map(item => item as RoomTheme) || [];
+      return result.Items?.map((item) => item as RoomTheme) || [];
     } catch (error) {
-      this.logger.error(`Error obteniendo temas de usuario ${userId}: ${error.message}`);
+      this.logger.error(
+        `Error obteniendo temas de usuario ${userId}: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -285,7 +304,7 @@ export class RoomThemeService {
    */
   async getTheme(themeId: string): Promise<RoomTheme> {
     // Verificar si es un tema del sistema
-    const systemTheme = SYSTEM_THEMES.find(theme => theme.id === themeId);
+    const systemTheme = SYSTEM_THEMES.find((theme) => theme.id === themeId);
     if (systemTheme) {
       return {
         ...systemTheme,
@@ -297,7 +316,7 @@ export class RoomThemeService {
     // Buscar en temas personalizados
     const result = await this.dynamoDBService.getItem(
       DynamoDBKeys.themePK(themeId),
-      DynamoDBKeys.themeSK()
+      DynamoDBKeys.themeSK(),
     );
 
     if (!result) {
@@ -310,10 +329,14 @@ export class RoomThemeService {
   /**
    * Actualizar un tema personalizado
    */
-  async updateTheme(themeId: string, userId: string, updateThemeDto: UpdateThemeDto): Promise<RoomTheme> {
+  async updateTheme(
+    themeId: string,
+    userId: string,
+    updateThemeDto: UpdateThemeDto,
+  ): Promise<RoomTheme> {
     // Verificar que el tema existe y pertenece al usuario
     const theme = await this.getTheme(themeId);
-    
+
     if (!theme.isCustom) {
       throw new ForbiddenException('No se pueden modificar temas del sistema');
     }
@@ -323,26 +346,37 @@ export class RoomThemeService {
     }
 
     // Validar actualizaciones solo si hay cambios en campos críticos
-    if (updateThemeDto.colors || 
-        (updateThemeDto.name !== undefined && updateThemeDto.name.trim() !== '') || 
-        (updateThemeDto.description !== undefined && updateThemeDto.description.trim() !== '')) {
-      
+    if (
+      updateThemeDto.colors ||
+      (updateThemeDto.name !== undefined &&
+        updateThemeDto.name.trim() !== '') ||
+      (updateThemeDto.description !== undefined &&
+        updateThemeDto.description.trim() !== '')
+    ) {
       // Crear datos de validación con valores actualizados
       const validationData = { ...theme };
-      
-      if (updateThemeDto.name !== undefined && updateThemeDto.name.trim() !== '') {
+
+      if (
+        updateThemeDto.name !== undefined &&
+        updateThemeDto.name.trim() !== ''
+      ) {
         validationData.name = updateThemeDto.name;
       }
-      if (updateThemeDto.description !== undefined && updateThemeDto.description.trim() !== '') {
+      if (
+        updateThemeDto.description !== undefined &&
+        updateThemeDto.description.trim() !== ''
+      ) {
         validationData.description = updateThemeDto.description;
       }
       if (updateThemeDto.colors !== undefined) {
         validationData.colors = updateThemeDto.colors;
       }
-      
+
       const validationResult = await this.validateTheme(validationData);
       if (!validationResult.isValid) {
-        throw new BadRequestException(`Tema inválido: ${validationResult.errors.join(', ')}`);
+        throw new BadRequestException(
+          `Tema inválido: ${validationResult.errors.join(', ')}`,
+        );
       }
     }
 
@@ -353,10 +387,16 @@ export class RoomThemeService {
     };
 
     // Solo actualizar propiedades que están definidas y no vacías
-    if (updateThemeDto.name !== undefined && updateThemeDto.name.trim() !== '') {
+    if (
+      updateThemeDto.name !== undefined &&
+      updateThemeDto.name.trim() !== ''
+    ) {
       updatedTheme.name = updateThemeDto.name;
     }
-    if (updateThemeDto.description !== undefined && updateThemeDto.description.trim() !== '') {
+    if (
+      updateThemeDto.description !== undefined &&
+      updateThemeDto.description.trim() !== ''
+    ) {
       updatedTheme.description = updateThemeDto.description;
     }
     if (updateThemeDto.category !== undefined) {
@@ -403,7 +443,7 @@ export class RoomThemeService {
   async deleteTheme(themeId: string, userId: string): Promise<void> {
     // Verificar que el tema existe y pertenece al usuario
     const theme = await this.getTheme(themeId);
-    
+
     if (!theme.isCustom) {
       throw new ForbiddenException('No se pueden eliminar temas del sistema');
     }
@@ -415,13 +455,15 @@ export class RoomThemeService {
     // Verificar que no hay salas usando el tema
     const activeApplications = await this.getThemeApplications(themeId);
     if (activeApplications.length > 0) {
-      throw new ConflictException('No se puede eliminar un tema que está siendo usado por salas');
+      throw new ConflictException(
+        'No se puede eliminar un tema que está siendo usado por salas',
+      );
     }
 
     try {
       await this.dynamoDBService.deleteItem(
         DynamoDBKeys.themePK(themeId),
-        DynamoDBKeys.themeSK()
+        DynamoDBKeys.themeSK(),
       );
 
       this.logger.log(`Tema eliminado: ${themeId} por usuario ${userId}`);
@@ -435,9 +477,9 @@ export class RoomThemeService {
    * Aplicar tema a una sala
    */
   async applyThemeToRoom(
-    roomId: string, 
-    userId: string, 
-    applyThemeDto: ApplyThemeDto
+    roomId: string,
+    userId: string,
+    applyThemeDto: ApplyThemeDto,
   ): Promise<RoomThemeApplication> {
     // Verificar que el usuario tiene permisos en la sala
     await this.verifyRoomAccess(roomId, userId);
@@ -480,7 +522,13 @@ export class RoomThemeService {
       await this.incrementThemeUsage(applyThemeDto.themeId);
 
       // Registrar en historial
-      await this.recordThemeChange(roomId, undefined, applyThemeDto.themeId, userId, applyThemeDto.reason);
+      await this.recordThemeChange(
+        roomId,
+        undefined,
+        applyThemeDto.themeId,
+        userId,
+        applyThemeDto.reason,
+      );
 
       // 📝 Track theme application event
       await this.eventTracker.trackEvent(
@@ -497,7 +545,7 @@ export class RoomThemeService {
         {
           source: 'room_theme_service',
           userAgent: 'backend',
-        }
+        },
       );
 
       // 🔔 Notificar cambio de tema en tiempo real
@@ -509,7 +557,9 @@ export class RoomThemeService {
         customizations: applyThemeDto.customizations,
       });
 
-      this.logger.log(`Tema ${applyThemeDto.themeId} aplicado a sala ${roomId} por usuario ${userId}`);
+      this.logger.log(
+        `Tema ${applyThemeDto.themeId} aplicado a sala ${roomId} por usuario ${userId}`,
+      );
       return application;
     } catch (error) {
       this.logger.error(`Error aplicando tema: ${error.message}`);
@@ -535,7 +585,13 @@ export class RoomThemeService {
       await this.deactivatePreviousTheme(roomId);
 
       // Registrar en historial
-      await this.recordThemeChange(roomId, currentTheme.theme.id, undefined, userId, 'Tema removido');
+      await this.recordThemeChange(
+        roomId,
+        currentTheme.theme.id,
+        undefined,
+        userId,
+        'Tema removido',
+      );
 
       // 📝 Track theme removal event
       await this.eventTracker.trackEvent(
@@ -550,7 +606,7 @@ export class RoomThemeService {
         {
           source: 'room_theme_service',
           userAgent: 'backend',
-        }
+        },
       );
 
       // 🔔 Notificar remoción de tema en tiempo real
@@ -600,7 +656,9 @@ export class RoomThemeService {
         appliedBy: application.appliedBy,
       };
     } catch (error) {
-      this.logger.error(`Error obteniendo tema de sala ${roomId}: ${error.message}`);
+      this.logger.error(
+        `Error obteniendo tema de sala ${roomId}: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -608,7 +666,11 @@ export class RoomThemeService {
   /**
    * Calificar un tema
    */
-  async rateTheme(themeId: string, userId: string, rateThemeDto: RateThemeDto): Promise<ThemeRating> {
+  async rateTheme(
+    themeId: string,
+    userId: string,
+    rateThemeDto: RateThemeDto,
+  ): Promise<ThemeRating> {
     // Verificar que el tema existe
     await this.getTheme(themeId);
 
@@ -647,10 +709,12 @@ export class RoomThemeService {
         {
           source: 'room_theme_service',
           userAgent: 'backend',
-        }
+        },
       );
 
-      this.logger.log(`Tema ${themeId} calificado por usuario ${userId}: ${rateThemeDto.rating}/5`);
+      this.logger.log(
+        `Tema ${themeId} calificado por usuario ${userId}: ${rateThemeDto.rating}/5`,
+      );
       return rating;
     } catch (error) {
       this.logger.error(`Error calificando tema: ${error.message}`);
@@ -665,7 +729,7 @@ export class RoomThemeService {
     try {
       // Para esta implementación, devolvemos los temas del sistema como populares
       // En una implementación completa, esto calcularía popularidad basada en uso y ratings
-      const systemThemes = SYSTEM_THEMES.map(theme => ({
+      const systemThemes = SYSTEM_THEMES.map((theme) => ({
         ...theme,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -708,7 +772,13 @@ export class RoomThemeService {
 
       // Validar colores
       if (themeData.colors) {
-        const colorFields = ['primary', 'secondary', 'accent', 'background', 'text'];
+        const colorFields = [
+          'primary',
+          'secondary',
+          'accent',
+          'background',
+          'text',
+        ];
         for (const field of colorFields) {
           const color = themeData.colors[field];
           if (!color || !/^#[0-9A-Fa-f]{6}$/.test(color)) {
@@ -717,8 +787,15 @@ export class RoomThemeService {
         }
 
         // Verificar contraste
-        if (this.calculateContrast(themeData.colors.background, themeData.colors.text) < 4.5) {
-          warnings.push('El contraste entre fondo y texto puede ser insuficiente para accesibilidad');
+        if (
+          this.calculateContrast(
+            themeData.colors.background,
+            themeData.colors.text,
+          ) < 4.5
+        ) {
+          warnings.push(
+            'El contraste entre fondo y texto puede ser insuficiente para accesibilidad',
+          );
         }
       }
 
@@ -729,7 +806,6 @@ export class RoomThemeService {
           errors.push(`${field} debe ser una URL válida`);
         }
       }
-
     } catch (error) {
       errors.push(`Error validando tema: ${error.message}`);
     }
@@ -741,7 +817,10 @@ export class RoomThemeService {
     };
   }
 
-  private async applyThemeFilters(themes: RoomTheme[], filters: ThemeFiltersDto): Promise<RoomTheme[]> {
+  private async applyThemeFilters(
+    themes: RoomTheme[],
+    filters: ThemeFiltersDto,
+  ): Promise<RoomTheme[]> {
     let filteredThemes = [...themes];
 
     // Filtrar por rating mínimo
@@ -758,24 +837,29 @@ export class RoomThemeService {
 
     // Filtrar por creador
     if (filters.creatorId) {
-      filteredThemes = filteredThemes.filter(theme => theme.creatorId === filters.creatorId);
+      filteredThemes = filteredThemes.filter(
+        (theme) => theme.creatorId === filters.creatorId,
+      );
     }
 
     return filteredThemes;
   }
 
-  private sortAndPaginateThemes(themes: RoomTheme[], filters: ThemeFiltersDto): RoomTheme[] {
+  private sortAndPaginateThemes(
+    themes: RoomTheme[],
+    filters: ThemeFiltersDto,
+  ): RoomTheme[] {
     // Ordenar
     themes.sort((a, b) => {
       switch (filters.sortBy) {
         case ThemeSortBy.NAME:
-          return filters.sortOrder === 'asc' ? 
-            a.name.localeCompare(b.name) : 
-            b.name.localeCompare(a.name);
+          return filters.sortOrder === 'asc'
+            ? a.name.localeCompare(b.name)
+            : b.name.localeCompare(a.name);
         case ThemeSortBy.CREATED_AT:
-          return filters.sortOrder === 'asc' ? 
-            a.createdAt.getTime() - b.createdAt.getTime() : 
-            b.createdAt.getTime() - a.createdAt.getTime();
+          return filters.sortOrder === 'asc'
+            ? a.createdAt.getTime() - b.createdAt.getTime()
+            : b.createdAt.getTime() - a.createdAt.getTime();
         default:
           // Por defecto ordenar por popularidad (simulado)
           return Math.random() - 0.5;
@@ -788,12 +872,15 @@ export class RoomThemeService {
     return themes.slice(offset, offset + limit);
   }
 
-  private async verifyRoomAccess(roomId: string, userId: string): Promise<void> {
+  private async verifyRoomAccess(
+    roomId: string,
+    userId: string,
+  ): Promise<void> {
     try {
       const room = await this.roomService.getRoom(roomId);
-      
+
       // Verificar que el usuario es miembro de la sala
-      const isMember = room.members?.some(member => member.userId === userId);
+      const isMember = room.members?.some((member) => member.userId === userId);
       if (!isMember) {
         throw new ForbiddenException('No tienes acceso a esta sala');
       }
@@ -817,11 +904,11 @@ export class RoomThemeService {
   }
 
   private async recordThemeChange(
-    roomId: string, 
-    previousThemeId: string | undefined, 
-    newThemeId: string | undefined, 
-    userId: string, 
-    reason?: string
+    roomId: string,
+    previousThemeId: string | undefined,
+    newThemeId: string | undefined,
+    userId: string,
+    reason?: string,
   ): Promise<void> {
     const changeId = uuidv4();
     const now = new Date();
@@ -850,7 +937,9 @@ export class RoomThemeService {
     }
   }
 
-  private async getThemeApplications(themeId: string): Promise<RoomThemeApplication[]> {
+  private async getThemeApplications(
+    themeId: string,
+  ): Promise<RoomThemeApplication[]> {
     try {
       const result = await this.dynamoDBService.query({
         IndexName: 'GSI1',
@@ -865,9 +954,11 @@ export class RoomThemeService {
         },
       });
 
-      return result.Items?.map(item => item as RoomThemeApplication) || [];
+      return result.Items?.map((item) => item as RoomThemeApplication) || [];
     } catch (error) {
-      this.logger.error(`Error obteniendo aplicaciones de tema ${themeId}: ${error.message}`);
+      this.logger.error(
+        `Error obteniendo aplicaciones de tema ${themeId}: ${error.message}`,
+      );
       return [];
     }
   }

@@ -3,11 +3,11 @@ import { ContentSuggestionService } from './content-suggestion.service';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { PermissionService } from '../permission/permission.service';
-import { 
-  ContentSuggestion, 
-  ContentSuggestionType, 
-  ContentSuggestionStatus, 
-  RoomSuggestionConfig 
+import {
+  ContentSuggestion,
+  ContentSuggestionType,
+  ContentSuggestionStatus,
+  RoomSuggestionConfig,
 } from '../../domain/entities/content-suggestion.entity';
 import { RoomPermission } from '../../domain/entities/room-moderation.entity';
 import { ForbiddenException, BadRequestException } from '@nestjs/common';
@@ -91,7 +91,9 @@ describe('ContentSuggestionService', () => {
               .mockResolvedValueOnce({ Items: [] }) // User suggestions today
               .mockResolvedValueOnce({ Items: [] }); // Pending suggestions
             dynamoDBService.putItem.mockResolvedValue(undefined);
-            realtimeService.notifyContentSuggestion.mockResolvedValue(undefined);
+            realtimeService.notifyContentSuggestion.mockResolvedValue(
+              undefined,
+            );
 
             const createSuggestionDto = {
               title,
@@ -101,7 +103,12 @@ describe('ContentSuggestionService', () => {
             };
 
             // Act
-            const result = await service.createSuggestion(roomId, userId, username, createSuggestionDto);
+            const result = await service.createSuggestion(
+              roomId,
+              userId,
+              username,
+              createSuggestionDto,
+            );
 
             // Assert
             expect(result).toBeDefined();
@@ -114,12 +121,16 @@ describe('ContentSuggestionService', () => {
             expect(result.votes).toEqual([]);
             expect(result.totalVotes).toBe(0);
             expect(result.voteScore).toBe(0);
-            expect(permissionService.checkPermission).toHaveBeenCalledWith(roomId, userId, RoomPermission.SUGGEST_CONTENT);
+            expect(permissionService.checkPermission).toHaveBeenCalledWith(
+              roomId,
+              userId,
+              RoomPermission.SUGGEST_CONTENT,
+            );
             expect(dynamoDBService.putItem).toHaveBeenCalled();
             expect(realtimeService.notifyContentSuggestion).toHaveBeenCalled();
-          }
+          },
         ),
-        { numRuns: 30 }
+        { numRuns: 30 },
       );
     });
 
@@ -167,11 +178,16 @@ describe('ContentSuggestionService', () => {
 
             // Act & Assert
             await expect(
-              service.createSuggestion(roomId, userId, username, createSuggestionDto)
+              service.createSuggestion(
+                roomId,
+                userId,
+                username,
+                createSuggestionDto,
+              ),
             ).rejects.toThrow(ForbiddenException);
-          }
+          },
         ),
-        { numRuns: 20 }
+        { numRuns: 20 },
       );
     });
   });
@@ -186,7 +202,14 @@ describe('ContentSuggestionService', () => {
           fc.boolean(),
           fc.integer({ min: 1, max: 10 }),
           fc.integer({ min: 1, max: 20 }),
-          async (roomId, userId, isEnabled, requireApproval, minVotesToApprove, maxSuggestionsPerUser) => {
+          async (
+            roomId,
+            userId,
+            isEnabled,
+            requireApproval,
+            minVotesToApprove,
+            maxSuggestionsPerUser,
+          ) => {
             // Arrange
             permissionService.checkPermission.mockResolvedValue({
               hasPermission: true,
@@ -202,7 +225,11 @@ describe('ContentSuggestionService', () => {
             };
 
             // Act
-            const result = await service.configureSuggestionConfig(roomId, userId, configDto);
+            const result = await service.configureSuggestionConfig(
+              roomId,
+              userId,
+              configDto,
+            );
 
             // Assert
             expect(result).toBeDefined();
@@ -213,9 +240,9 @@ describe('ContentSuggestionService', () => {
             expect(result.maxSuggestionsPerUser).toBe(maxSuggestionsPerUser);
             expect(result.createdBy).toBe(userId);
             expect(dynamoDBService.putItem).toHaveBeenCalled();
-          }
+          },
         ),
-        { numRuns: 30 }
+        { numRuns: 30 },
       );
     });
   });
@@ -223,66 +250,60 @@ describe('ContentSuggestionService', () => {
   describe('getSuggestionConfig', () => {
     it('should return existing configuration', async () => {
       await fc.assert(
-        fc.asyncProperty(
-          fc.string({ minLength: 1 }),
-          async (roomId) => {
-            // Arrange
-            const mockConfig: RoomSuggestionConfig = {
-              roomId,
-              isEnabled: true,
-              requireApproval: true,
-              allowVoting: true,
-              allowComments: true,
-              minVotesToApprove: 3,
-              minScoreToApprove: 2,
-              maxSuggestionsPerUser: 5,
-              maxPendingSuggestions: 20,
-              autoImplementHighScored: false,
-              autoImplementThreshold: 5,
-              allowedTypes: Object.values(ContentSuggestionType),
-              requireReason: false,
-              moderationEnabled: true,
-              createdBy: 'system',
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            };
+        fc.asyncProperty(fc.string({ minLength: 1 }), async (roomId) => {
+          // Arrange
+          const mockConfig: RoomSuggestionConfig = {
+            roomId,
+            isEnabled: true,
+            requireApproval: true,
+            allowVoting: true,
+            allowComments: true,
+            minVotesToApprove: 3,
+            minScoreToApprove: 2,
+            maxSuggestionsPerUser: 5,
+            maxPendingSuggestions: 20,
+            autoImplementHighScored: false,
+            autoImplementThreshold: 5,
+            allowedTypes: Object.values(ContentSuggestionType),
+            requireReason: false,
+            moderationEnabled: true,
+            createdBy: 'system',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
 
-            dynamoDBService.getItem.mockResolvedValue(mockConfig);
+          dynamoDBService.getItem.mockResolvedValue(mockConfig);
 
-            // Act
-            const result = await service.getSuggestionConfig(roomId);
+          // Act
+          const result = await service.getSuggestionConfig(roomId);
 
-            // Assert
-            expect(result).toBeDefined();
-            expect(result.roomId).toBe(roomId);
-            expect(result.isEnabled).toBe(true);
-            expect(result.requireApproval).toBe(true);
-          }
-        ),
-        { numRuns: 30 }
+          // Assert
+          expect(result).toBeDefined();
+          expect(result.roomId).toBe(roomId);
+          expect(result.isEnabled).toBe(true);
+          expect(result.requireApproval).toBe(true);
+        }),
+        { numRuns: 30 },
       );
     });
 
     it('should return default configuration when none exists', async () => {
       await fc.assert(
-        fc.asyncProperty(
-          fc.string({ minLength: 1 }),
-          async (roomId) => {
-            // Arrange
-            dynamoDBService.getItem.mockResolvedValue(null);
+        fc.asyncProperty(fc.string({ minLength: 1 }), async (roomId) => {
+          // Arrange
+          dynamoDBService.getItem.mockResolvedValue(null);
 
-            // Act
-            const result = await service.getSuggestionConfig(roomId);
+          // Act
+          const result = await service.getSuggestionConfig(roomId);
 
-            // Assert
-            expect(result).toBeDefined();
-            expect(result.roomId).toBe(roomId);
-            expect(result.isEnabled).toBe(true); // Default value
-            expect(result.requireApproval).toBe(true); // Default value
-            expect(result.createdBy).toBe('system');
-          }
-        ),
-        { numRuns: 20 }
+          // Assert
+          expect(result).toBeDefined();
+          expect(result.roomId).toBe(roomId);
+          expect(result.isEnabled).toBe(true); // Default value
+          expect(result.requireApproval).toBe(true); // Default value
+          expect(result.createdBy).toBe('system');
+        }),
+        { numRuns: 20 },
       );
     });
   });
@@ -296,25 +317,28 @@ describe('ContentSuggestionService', () => {
           fc.integer({ min: 1, max: 100 }),
           async (roomId, userId, limit) => {
             // Arrange
-            const mockSuggestions: ContentSuggestion[] = Array.from({ length: Math.min(limit, 10) }, (_, i) => ({
-              id: `suggestion-${i}`,
-              roomId,
-              suggestedBy: `user-${i}`,
-              suggestedByUsername: `user${i}`,
-              type: ContentSuggestionType.MOVIE,
-              status: ContentSuggestionStatus.PENDING,
-              title: `Movie ${i}`,
-              votes: [],
-              totalVotes: 0,
-              positiveVotes: 0,
-              negativeVotes: 0,
-              voteScore: 0,
-              comments: [],
-              commentCount: 0,
-              priority: 3,
-              createdAt: new Date(Date.now() - i * 1000),
-              updatedAt: new Date(Date.now() - i * 1000),
-            }));
+            const mockSuggestions: ContentSuggestion[] = Array.from(
+              { length: Math.min(limit, 10) },
+              (_, i) => ({
+                id: `suggestion-${i}`,
+                roomId,
+                suggestedBy: `user-${i}`,
+                suggestedByUsername: `user${i}`,
+                type: ContentSuggestionType.MOVIE,
+                status: ContentSuggestionStatus.PENDING,
+                title: `Movie ${i}`,
+                votes: [],
+                totalVotes: 0,
+                positiveVotes: 0,
+                negativeVotes: 0,
+                voteScore: 0,
+                comments: [],
+                commentCount: 0,
+                priority: 3,
+                createdAt: new Date(Date.now() - i * 1000),
+                updatedAt: new Date(Date.now() - i * 1000),
+              }),
+            );
 
             permissionService.checkPermission.mockResolvedValue({
               hasPermission: true,
@@ -328,17 +352,25 @@ describe('ContentSuggestionService', () => {
             const filters = { limit };
 
             // Act
-            const result = await service.getSuggestions(roomId, userId, filters);
+            const result = await service.getSuggestions(
+              roomId,
+              userId,
+              filters,
+            );
 
             // Assert
             expect(result).toBeDefined();
             expect(result.suggestions).toHaveLength(mockSuggestions.length);
             expect(result.totalCount).toBe(mockSuggestions.length);
             expect(result.hasMore).toBe(false);
-            expect(permissionService.checkPermission).toHaveBeenCalledWith(roomId, userId, RoomPermission.VIEW_ROOM);
-          }
+            expect(permissionService.checkPermission).toHaveBeenCalledWith(
+              roomId,
+              userId,
+              RoomPermission.VIEW_ROOM,
+            );
+          },
         ),
-        { numRuns: 30 }
+        { numRuns: 30 },
       );
     });
   });

@@ -11,24 +11,24 @@ export enum RoomPermission {
   VOTE = 'vote',
   CHAT = 'chat',
   REACT = 'react',
-  
+
   // Permisos de contenido
   SUGGEST_CONTENT = 'suggest_content',
   INJECT_CONTENT = 'inject_content',
   REMOVE_CONTENT = 'remove_content',
-  
+
   // Permisos de gestión
   INVITE_MEMBERS = 'invite_members',
   REMOVE_MEMBERS = 'remove_members',
   MANAGE_ROLES = 'manage_roles',
   MODIFY_SETTINGS = 'modify_settings',
-  
+
   // Permisos de moderación
   MUTE_MEMBERS = 'mute_members',
   WARN_MEMBERS = 'warn_members',
   BAN_MEMBERS = 'ban_members',
   VIEW_MODERATION_LOG = 'view_moderation_log',
-  
+
   // Permisos administrativos
   DELETE_ROOM = 'delete_room',
   TRANSFER_OWNERSHIP = 'transfer_ownership',
@@ -133,25 +133,25 @@ export interface MemberModerationStatus {
 export interface AutoModerationConfig {
   roomId: string;
   enabled: boolean;
-  
+
   // Configuración de advertencias
   maxWarningsBeforeAction: number;
   warningResetDays: number;
-  
+
   // Configuración de spam
   spamDetectionEnabled: boolean;
   maxMessagesPerMinute: number;
-  
+
   // Configuración de contenido
   profanityFilterEnabled: boolean;
   customBannedWords: string[];
-  
+
   // Acciones automáticas
   autoMuteOnSpam: boolean;
   autoMuteDuration: number; // minutos
   autoBanOnExcessiveWarnings: boolean;
   autoBanDuration: number; // minutos, 0 = permanente
-  
+
   updatedBy: string;
   updatedAt: Date;
 }

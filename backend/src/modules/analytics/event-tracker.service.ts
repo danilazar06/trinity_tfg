@@ -35,7 +35,9 @@ export class EventTracker {
       // Store event in analytics events table
       await this.storeEvent(fullEvent);
 
-      this.logger.log(`📝 Event tracked: ${fullEvent.eventType} for ${fullEvent.userId || 'anonymous'}`);
+      this.logger.log(
+        `📝 Event tracked: ${fullEvent.eventType} for ${fullEvent.userId || 'anonymous'}`,
+      );
     } catch (error) {
       this.logger.error('❌ Error tracking event:', error);
       // Don't throw - analytics failures shouldn't break main functionality
@@ -49,7 +51,7 @@ export class EventTracker {
     userId: string,
     actionType: EventType,
     properties: Record<string, any> = {},
-    context: EventContext = {}
+    context: EventContext = {},
   ): Promise<void> {
     await this.trackEvent({
       eventType: actionType,
@@ -70,7 +72,7 @@ export class EventTracker {
     eventType: EventType,
     userId?: string,
     properties: Record<string, any> = {},
-    context: EventContext = {}
+    context: EventContext = {},
   ): Promise<void> {
     await this.trackEvent({
       eventType,
@@ -93,10 +95,10 @@ export class EventTracker {
     contentId: string,
     interactionType: 'vote' | 'view' | 'match',
     properties: Record<string, any> = {},
-    context: EventContext = {}
+    context: EventContext = {},
   ): Promise<void> {
     const eventType = this.mapContentInteractionToEventType(interactionType);
-    
+
     await this.trackEvent({
       eventType,
       userId,
@@ -116,13 +118,17 @@ export class EventTracker {
    */
   async trackAIEvent(
     userId: string,
-    aiEventType: 'recommendation_requested' | 'recommendation_accepted' | 'recommendation_rejected',
+    aiEventType:
+      | 'recommendation_requested'
+      | 'recommendation_accepted'
+      | 'recommendation_rejected',
     properties: Record<string, any> = {},
-    context: EventContext = {}
+    context: EventContext = {},
   ): Promise<void> {
-    const eventType = aiEventType === 'recommendation_requested' 
-      ? EventType.AI_RECOMMENDATION_REQUESTED 
-      : EventType.AI_RECOMMENDATION_ACCEPTED;
+    const eventType =
+      aiEventType === 'recommendation_requested'
+        ? EventType.AI_RECOMMENDATION_REQUESTED
+        : EventType.AI_RECOMMENDATION_ACCEPTED;
 
     await this.trackEvent({
       eventType,
@@ -142,7 +148,7 @@ export class EventTracker {
   async trackSystemEvent(
     eventType: EventType,
     properties: Record<string, any> = {},
-    context: EventContext = {}
+    context: EventContext = {},
   ): Promise<void> {
     await this.trackEvent({
       eventType,
@@ -159,7 +165,7 @@ export class EventTracker {
    */
   async batchTrackEvents(events: Partial<AnalyticsEvent>[]): Promise<void> {
     try {
-      const fullEvents = events.map(event => ({
+      const fullEvents = events.map((event) => ({
         eventId: event.eventId || uuidv4(),
         eventType: event.eventType!,
         timestamp: event.timestamp || new Date(),
@@ -194,7 +200,7 @@ export class EventTracker {
       endDate?: Date;
     },
     limit: number = 100,
-    lastEvaluatedKey?: any
+    lastEvaluatedKey?: any,
   ): Promise<{
     events: AnalyticsEvent[];
     lastEvaluatedKey?: any;
@@ -203,7 +209,7 @@ export class EventTracker {
     try {
       // Mock implementation - in real scenario, query DynamoDB with filters
       const mockEvents: AnalyticsEvent[] = [];
-      
+
       return {
         events: mockEvents,
         lastEvaluatedKey: undefined,
@@ -230,7 +236,10 @@ export class EventTracker {
   private async storeBatchEvents(events: AnalyticsEvent[]): Promise<void> {
     try {
       // Store batch events in DynamoDB using MultiTableService
-      await this.multiTableService.batchWriteItems(this.ANALYTICS_EVENTS_TABLE, events);
+      await this.multiTableService.batchWriteItems(
+        this.ANALYTICS_EVENTS_TABLE,
+        events,
+      );
     } catch (error) {
       this.logger.error('❌ Error storing batch events:', error);
       throw error;
@@ -244,23 +253,23 @@ export class EventTracker {
   private calculateTTL(eventType: EventType): number {
     // Set TTL based on event type (in seconds from now)
     const now = Math.floor(Date.now() / 1000);
-    
+
     switch (eventType) {
       case EventType.API_REQUEST:
       case EventType.PERFORMANCE_METRIC:
-        return now + (7 * 24 * 60 * 60); // 7 days
-      
+        return now + 7 * 24 * 60 * 60; // 7 days
+
       case EventType.USER_LOGIN:
       case EventType.USER_LOGOUT:
       case EventType.CONTENT_VOTED:
-        return now + (90 * 24 * 60 * 60); // 90 days
-      
+        return now + 90 * 24 * 60 * 60; // 90 days
+
       case EventType.ROOM_CREATED:
       case EventType.MATCH_FOUND:
-        return now + (365 * 24 * 60 * 60); // 1 year
-      
+        return now + 365 * 24 * 60 * 60; // 1 year
+
       default:
-        return now + (30 * 24 * 60 * 60); // 30 days default
+        return now + 30 * 24 * 60 * 60; // 30 days default
     }
   }
 
@@ -282,7 +291,7 @@ export class EventTracker {
     try {
       // Mock implementation - in real scenario, delete processed events older than TTL
       const deletedCount = 0;
-      
+
       this.logger.log(`🧹 Cleaned up ${deletedCount} processed events`);
       return deletedCount;
     } catch (error) {
@@ -294,7 +303,10 @@ export class EventTracker {
   /**
    * 📈 Get event statistics
    */
-  async getEventStatistics(timeRange?: { startDate: Date; endDate: Date }): Promise<{
+  async getEventStatistics(timeRange?: {
+    startDate: Date;
+    endDate: Date;
+  }): Promise<{
     totalEvents: number;
     eventsByType: Record<string, number>;
     eventsPerHour: number;

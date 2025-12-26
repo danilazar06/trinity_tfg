@@ -75,7 +75,14 @@ export interface RoomSettingsNotification {
 }
 
 export interface ChatMessageNotification {
-  type: 'message' | 'edit' | 'delete' | 'reaction' | 'typing' | 'user_joined' | 'user_left';
+  type:
+    | 'message'
+    | 'edit'
+    | 'delete'
+    | 'reaction'
+    | 'typing'
+    | 'user_joined'
+    | 'user_left';
   roomId: string;
   userId: string;
   username: string;
@@ -86,7 +93,13 @@ export interface ChatMessageNotification {
 }
 
 export interface ContentSuggestionNotification {
-  type: 'created' | 'voted' | 'commented' | 'approved' | 'rejected' | 'implemented';
+  type:
+    | 'created'
+    | 'voted'
+    | 'commented'
+    | 'approved'
+    | 'rejected'
+    | 'implemented';
   roomId: string;
   suggestionId: string;
   userId: string;
@@ -109,8 +122,10 @@ export class RealtimeService {
    */
   async notifyVote(roomId: string, voteData: VoteNotification) {
     try {
-      this.logger.log(`📡 Notifying vote for room ${roomId}: ${voteData.userId} voted ${voteData.voteType} on ${voteData.mediaId}`);
-      
+      this.logger.log(
+        `📡 Notifying vote for room ${roomId}: ${voteData.userId} voted ${voteData.voteType} on ${voteData.mediaId}`,
+      );
+
       this.realtimeGateway.notifyVote(roomId, {
         type: 'vote',
         userId: voteData.userId,
@@ -129,8 +144,10 @@ export class RealtimeService {
    */
   async notifyMatch(roomId: string, matchData: MatchNotification) {
     try {
-      this.logger.log(`🎯 Notifying match for room ${roomId}: ${matchData.mediaTitle}`);
-      
+      this.logger.log(
+        `🎯 Notifying match for room ${roomId}: ${matchData.mediaTitle}`,
+      );
+
       this.realtimeGateway.notifyMatch(roomId, {
         type: 'match',
         mediaId: matchData.mediaId,
@@ -147,10 +164,15 @@ export class RealtimeService {
   /**
    * Notificar cambio de estado de sala
    */
-  async notifyRoomStateChange(roomId: string, stateData: RoomStateNotification) {
+  async notifyRoomStateChange(
+    roomId: string,
+    stateData: RoomStateNotification,
+  ) {
     try {
-      this.logger.log(`🏠 Notifying room state change for ${roomId}: ${stateData.status}`);
-      
+      this.logger.log(
+        `🏠 Notifying room state change for ${roomId}: ${stateData.status}`,
+      );
+
       this.realtimeGateway.notifyRoomStateChange(roomId, {
         type: 'roomState',
         status: stateData.status,
@@ -167,10 +189,15 @@ export class RealtimeService {
   /**
    * Notificar cambio de estado de miembro
    */
-  async notifyMemberStatusChange(roomId: string, memberData: MemberStatusNotification) {
+  async notifyMemberStatusChange(
+    roomId: string,
+    memberData: MemberStatusNotification,
+  ) {
     try {
-      this.logger.log(`👤 Notifying member status change for room ${roomId}: ${memberData.userId} is ${memberData.status}`);
-      
+      this.logger.log(
+        `👤 Notifying member status change for room ${roomId}: ${memberData.userId} is ${memberData.status}`,
+      );
+
       this.realtimeGateway.notifyMemberStatusChange(roomId, {
         type: 'memberStatus',
         userId: memberData.userId,
@@ -178,7 +205,9 @@ export class RealtimeService {
         lastActivity: memberData.lastActivity,
       });
     } catch (error) {
-      this.logger.error(`Error notifying member status change: ${error.message}`);
+      this.logger.error(
+        `Error notifying member status change: ${error.message}`,
+      );
       // Don't throw - real-time notifications are not critical
     }
   }
@@ -186,35 +215,47 @@ export class RealtimeService {
   /**
    * Notificar progreso de cola
    */
-  async notifyQueueProgress(roomId: string, progressData: {
-    currentPosition: number;
-    totalItems: number;
-    currentMediaId: string;
-    nextMediaId?: string;
-  }) {
-    this.logger.log(`📊 Notifying queue progress for room ${roomId}: ${progressData.currentPosition}/${progressData.totalItems}`);
-    
+  async notifyQueueProgress(
+    roomId: string,
+    progressData: {
+      currentPosition: number;
+      totalItems: number;
+      currentMediaId: string;
+      nextMediaId?: string;
+    },
+  ) {
+    this.logger.log(
+      `📊 Notifying queue progress for room ${roomId}: ${progressData.currentPosition}/${progressData.totalItems}`,
+    );
+
     this.realtimeGateway.notifyRoomStateChange(roomId, {
       type: 'queueProgress',
       currentPosition: progressData.currentPosition,
       totalItems: progressData.totalItems,
       currentMediaId: progressData.currentMediaId,
       nextMediaId: progressData.nextMediaId,
-      percentage: Math.round((progressData.currentPosition / progressData.totalItems) * 100),
+      percentage: Math.round(
+        (progressData.currentPosition / progressData.totalItems) * 100,
+      ),
     });
   }
 
   /**
    * Notificar nueva recomendación de IA
    */
-  async notifyAIRecommendation(roomId: string, recommendationData: {
-    mediaIds: string[];
-    reasoning: string;
-    emotionalState: string;
-    confidence: number;
-  }) {
-    this.logger.log(`🧠 Notifying AI recommendation for room ${roomId}: ${recommendationData.mediaIds.length} recommendations`);
-    
+  async notifyAIRecommendation(
+    roomId: string,
+    recommendationData: {
+      mediaIds: string[];
+      reasoning: string;
+      emotionalState: string;
+      confidence: number;
+    },
+  ) {
+    this.logger.log(
+      `🧠 Notifying AI recommendation for room ${roomId}: ${recommendationData.mediaIds.length} recommendations`,
+    );
+
     this.realtimeGateway.notifyRoomStateChange(roomId, {
       type: 'aiRecommendation',
       mediaIds: recommendationData.mediaIds,
@@ -227,10 +268,15 @@ export class RealtimeService {
   /**
    * Notificar asignación/remoción de rol
    */
-  async notifyRoleAssignment(roomId: string, roleData: RoleAssignmentNotification) {
+  async notifyRoleAssignment(
+    roomId: string,
+    roleData: RoleAssignmentNotification,
+  ) {
     try {
-      this.logger.log(`👑 Notifying role assignment for room ${roomId}: ${roleData.action} role ${roleData.roleName} to ${roleData.targetUserId}`);
-      
+      this.logger.log(
+        `👑 Notifying role assignment for room ${roomId}: ${roleData.action} role ${roleData.roleName} to ${roleData.targetUserId}`,
+      );
+
       this.realtimeGateway.notifyRoleAssignment(roomId, {
         type: 'roleAssignment',
         targetUserId: roleData.targetUserId,
@@ -248,10 +294,15 @@ export class RealtimeService {
   /**
    * Notificar acción de moderación
    */
-  async notifyModerationAction(roomId: string, moderationData: ModerationActionNotification) {
+  async notifyModerationAction(
+    roomId: string,
+    moderationData: ModerationActionNotification,
+  ) {
     try {
-      this.logger.log(`🛡️ Notifying moderation action for room ${roomId}: ${moderationData.actionType} on ${moderationData.targetUserId}`);
-      
+      this.logger.log(
+        `🛡️ Notifying moderation action for room ${roomId}: ${moderationData.actionType} on ${moderationData.targetUserId}`,
+      );
+
       this.realtimeGateway.notifyModerationAction(roomId, {
         type: 'moderationAction',
         targetUserId: moderationData.targetUserId,
@@ -270,10 +321,15 @@ export class RealtimeService {
   /**
    * Notificar evento de programación
    */
-  async notifyScheduleEvent(roomId: string, scheduleData: ScheduleNotification) {
+  async notifyScheduleEvent(
+    roomId: string,
+    scheduleData: ScheduleNotification,
+  ) {
     try {
-      this.logger.log(`📅 Notifying schedule event for room ${roomId}: ${scheduleData.action} - ${scheduleData.title}`);
-      
+      this.logger.log(
+        `📅 Notifying schedule event for room ${roomId}: ${scheduleData.action} - ${scheduleData.title}`,
+      );
+
       this.realtimeGateway.notifyScheduleEvent(roomId, {
         type: 'scheduleEvent',
         scheduleId: scheduleData.scheduleId,
@@ -294,8 +350,10 @@ export class RealtimeService {
    */
   async notifyThemeChange(roomId: string, themeData: ThemeChangeNotification) {
     try {
-      this.logger.log(`🎨 Notifying theme change for room ${roomId}: ${themeData.action} - ${themeData.themeName || 'theme'}`);
-      
+      this.logger.log(
+        `🎨 Notifying theme change for room ${roomId}: ${themeData.action} - ${themeData.themeName || 'theme'}`,
+      );
+
       this.realtimeGateway.notifyThemeChange(roomId, {
         type: 'themeChange',
         themeId: themeData.themeId,
@@ -313,10 +371,15 @@ export class RealtimeService {
   /**
    * Notificar cambio de configuración de sala
    */
-  async notifyRoomSettingsChange(roomId: string, settingsData: RoomSettingsNotification) {
+  async notifyRoomSettingsChange(
+    roomId: string,
+    settingsData: RoomSettingsNotification,
+  ) {
     try {
-      this.logger.log(`⚙️ Notifying room settings change for ${roomId}: ${settingsData.settingKey} changed by ${settingsData.changedBy}`);
-      
+      this.logger.log(
+        `⚙️ Notifying room settings change for ${roomId}: ${settingsData.settingKey} changed by ${settingsData.changedBy}`,
+      );
+
       this.realtimeGateway.notifyRoomSettingsChange(roomId, {
         type: 'roomSettingsChange',
         settingKey: settingsData.settingKey,
@@ -326,7 +389,9 @@ export class RealtimeService {
         category: settingsData.category,
       });
     } catch (error) {
-      this.logger.error(`Error notifying room settings change: ${error.message}`);
+      this.logger.error(
+        `Error notifying room settings change: ${error.message}`,
+      );
       // Don't throw - real-time notifications are not critical
     }
   }
@@ -336,8 +401,10 @@ export class RealtimeService {
    */
   async notifyChatMessage(roomId: string, chatData: ChatMessageNotification) {
     try {
-      this.logger.log(`💬 Notifying chat message for room ${roomId}: ${chatData.type} from ${chatData.username}`);
-      
+      this.logger.log(
+        `💬 Notifying chat message for room ${roomId}: ${chatData.type} from ${chatData.username}`,
+      );
+
       this.realtimeGateway.notifyChatMessage(roomId, {
         type: 'chatMessage',
         eventType: chatData.type,
@@ -358,10 +425,15 @@ export class RealtimeService {
   /**
    * Notificar sugerencia de contenido
    */
-  async notifyContentSuggestion(roomId: string, suggestionData: ContentSuggestionNotification) {
+  async notifyContentSuggestion(
+    roomId: string,
+    suggestionData: ContentSuggestionNotification,
+  ) {
     try {
-      this.logger.log(`💡 Notifying content suggestion for room ${roomId}: ${suggestionData.type} by ${suggestionData.username}`);
-      
+      this.logger.log(
+        `💡 Notifying content suggestion for room ${roomId}: ${suggestionData.type} by ${suggestionData.username}`,
+      );
+
       this.realtimeGateway.notifyContentSuggestion(roomId, {
         type: 'contentSuggestion',
         eventType: suggestionData.type,
@@ -396,7 +468,7 @@ export class RealtimeService {
    */
   getRealtimeStats() {
     const stats = this.realtimeGateway.getConnectionStats();
-    
+
     return {
       ...stats,
       timestamp: new Date().toISOString(),
@@ -407,9 +479,12 @@ export class RealtimeService {
   /**
    * Broadcast a todos los usuarios conectados (admin only)
    */
-  async broadcastSystemMessage(message: string, type: 'info' | 'warning' | 'maintenance' = 'info') {
+  async broadcastSystemMessage(
+    message: string,
+    type: 'info' | 'warning' | 'maintenance' = 'info',
+  ) {
     this.logger.log(`📢 Broadcasting system message: ${message}`);
-    
+
     // Esto enviaría a todos los usuarios conectados
     this.realtimeGateway.server.emit('systemMessage', {
       type,
@@ -423,7 +498,7 @@ export class RealtimeService {
    */
   async sendPrivateMessage(userId: string, message: any) {
     this.logger.log(`💬 Sending private message to user ${userId}`);
-    
+
     // Buscar el socket del usuario y enviar mensaje privado
     const userSocket = this.realtimeGateway['connectedUsers'].get(userId);
     if (userSocket) {
@@ -433,7 +508,7 @@ export class RealtimeService {
       });
       return true;
     }
-    
+
     return false; // Usuario no conectado
   }
 }

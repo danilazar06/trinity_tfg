@@ -1,16 +1,27 @@
-import { IsOptional, IsNumber, IsBoolean, IsEnum, Min, Max, ValidateIf } from 'class-validator';
+import {
+  IsOptional,
+  IsNumber,
+  IsBoolean,
+  IsEnum,
+  Min,
+  Max,
+  ValidateIf,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ConsensusType, RoomPrivacy } from '../../../domain/entities/room-template.entity';
+import {
+  ConsensusType,
+  RoomPrivacy,
+} from '../../../domain/entities/room-template.entity';
 
 /**
  * DTO para actualizar configuraciones avanzadas de sala
  */
 export class UpdateRoomSettingsDto {
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Tiempo límite de votación por elemento en segundos',
     minimum: 30,
     maximum: 300,
-    example: 60
+    example: 60,
   })
   @IsOptional()
   @IsNumber()
@@ -18,11 +29,11 @@ export class UpdateRoomSettingsDto {
   @Max(300)
   votingTimeout?: number;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Tiempo límite de sesión en minutos',
     minimum: 15,
     maximum: 480,
-    example: 120
+    example: 120,
   })
   @IsOptional()
   @IsNumber()
@@ -30,42 +41,43 @@ export class UpdateRoomSettingsDto {
   @Max(480)
   sessionTimeout?: number;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Tipo de consenso requerido',
     enum: ConsensusType,
-    example: ConsensusType.MAJORITY
+    example: ConsensusType.MAJORITY,
   })
   @IsOptional()
   @IsEnum(ConsensusType)
   consensusThreshold?: ConsensusType;
 
-  @ApiPropertyOptional({ 
-    description: 'Porcentaje personalizado para consenso (requerido si consensusThreshold es CUSTOM)',
+  @ApiPropertyOptional({
+    description:
+      'Porcentaje personalizado para consenso (requerido si consensusThreshold es CUSTOM)',
     minimum: 50,
     maximum: 100,
-    example: 75
+    example: 75,
   })
   @IsOptional()
-  @ValidateIf(o => o.consensusThreshold === ConsensusType.CUSTOM)
+  @ValidateIf((o) => o.consensusThreshold === ConsensusType.CUSTOM)
   @IsNumber()
   @Min(50)
   @Max(100)
   customThreshold?: number;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Nivel de privacidad de la sala',
     enum: RoomPrivacy,
-    example: RoomPrivacy.PUBLIC
+    example: RoomPrivacy.PUBLIC,
   })
   @IsOptional()
   @IsEnum(RoomPrivacy)
   privacy?: RoomPrivacy;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Número máximo de miembros',
     minimum: 2,
     maximum: 50,
-    example: 10
+    example: 10,
   })
   @IsOptional()
   @IsNumber()
@@ -73,110 +85,110 @@ export class UpdateRoomSettingsDto {
   @Max(50)
   maxMembers?: number;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Requiere aprobación para unirse',
-    example: false
+    example: false,
   })
   @IsOptional()
   @IsBoolean()
   requireApproval?: boolean;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Permite votación de invitados',
-    example: true
+    example: true,
   })
   @IsOptional()
   @IsBoolean()
   allowGuestVoting?: boolean;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Habilita inyección de contenido',
-    example: true
+    example: true,
   })
   @IsOptional()
   @IsBoolean()
   contentInjectionEnabled?: boolean;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Frecuencia de inyección (elementos entre inyecciones)',
     minimum: 5,
     maximum: 50,
-    example: 10
+    example: 10,
   })
   @IsOptional()
-  @ValidateIf(o => o.contentInjectionEnabled === true)
+  @ValidateIf((o) => o.contentInjectionEnabled === true)
   @IsNumber()
   @Min(5)
   @Max(50)
   injectionFrequency?: number;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Permite sugerencias de miembros',
-    example: true
+    example: true,
   })
   @IsOptional()
   @IsBoolean()
   allowMemberSuggestions?: boolean;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Progreso automático habilitado',
-    example: false
+    example: false,
   })
   @IsOptional()
   @IsBoolean()
   autoProgressEnabled?: boolean;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Chat habilitado',
-    example: true
+    example: true,
   })
   @IsOptional()
   @IsBoolean()
   chatEnabled?: boolean;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Votación anónima',
-    example: false
+    example: false,
   })
   @IsOptional()
   @IsBoolean()
   anonymousVoting?: boolean;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Mostrar progreso de votación',
-    example: true
+    example: true,
   })
   @IsOptional()
   @IsBoolean()
   showVotingProgress?: boolean;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Habilitar reacciones',
-    example: true
+    example: true,
   })
   @IsOptional()
   @IsBoolean()
   enableReactions?: boolean;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Manejo automático de miembros inactivos',
-    example: true
+    example: true,
   })
   @IsOptional()
   @IsBoolean()
   autoInactiveHandling?: boolean;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Optimización inteligente',
-    example: false
+    example: false,
   })
   @IsOptional()
   @IsBoolean()
   smartOptimization?: boolean;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Coincidencia predictiva',
-    example: false
+    example: false,
   })
   @IsOptional()
   @IsBoolean()
@@ -196,7 +208,9 @@ export class RoomSettingsResponseDto {
   @ApiProperty({ description: 'Fecha de última actualización' })
   updatedAt: Date;
 
-  @ApiProperty({ description: 'ID del usuario que actualizó las configuraciones' })
+  @ApiProperty({
+    description: 'ID del usuario que actualizó las configuraciones',
+  })
   updatedBy: string;
 }
 
@@ -227,9 +241,9 @@ export class SettingsRecommendationsResponseDto {
   @ApiProperty({ description: 'ID de la sala' })
   roomId: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Lista de recomendaciones',
-    type: [SettingsRecommendationDto]
+    type: [SettingsRecommendationDto],
   })
   recommendations: SettingsRecommendationDto[];
 

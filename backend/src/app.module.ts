@@ -54,8 +54,6 @@ import { PermissionAuditMiddleware } from './common/middleware/permission-audit.
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(PermissionAuditMiddleware)
-      .forRoutes('*'); // Aplicar auditoría a todas las rutas
+    consumer.apply(PermissionAuditMiddleware).forRoutes('*'); // Aplicar auditoría a todas las rutas
   }
 }

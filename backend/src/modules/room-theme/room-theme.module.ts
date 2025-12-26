@@ -1,6 +1,9 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { RoomThemeService } from './room-theme.service';
-import { RoomThemeController, RoomThemeManagementController } from './room-theme.controller';
+import {
+  RoomThemeController,
+  RoomThemeManagementController,
+} from './room-theme.controller';
 import { DatabaseModule } from '../../infrastructure/database/database.module';
 import { RoomModule } from '../room/room.module';
 import { AnalyticsModule } from '../analytics/analytics.module';

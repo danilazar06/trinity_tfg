@@ -29,11 +29,18 @@ export class AuthService {
   /**
    * Registrar un nuevo usuario
    */
-  async register(createUserDto: CreateUserDto): Promise<{ user: UserProfile; requiresConfirmation: boolean }> {
+  async register(
+    createUserDto: CreateUserDto,
+  ): Promise<{ user: UserProfile; requiresConfirmation: boolean }> {
     const { email, username, password, phoneNumber } = createUserDto;
 
     // Registrar en Cognito
-    const { userSub } = await this.cognitoService.signUp(email, username, password, phoneNumber);
+    const { userSub } = await this.cognitoService.signUp(
+      email,
+      username,
+      password,
+      phoneNumber,
+    );
 
     // Crear perfil de usuario en DynamoDB
     const user: User = {
@@ -70,20 +77,22 @@ export class AuthService {
       {
         source: 'auth_service',
         userAgent: 'backend',
-      }
+      },
     );
 
     this.logger.log(`Usuario registrado: ${email}`);
-    return { 
-      user: userProfile, 
-      requiresConfirmation: true // Cognito requiere confirmación por email
+    return {
+      user: userProfile,
+      requiresConfirmation: true, // Cognito requiere confirmación por email
     };
   }
 
   /**
    * Confirmar registro de usuario
    */
-  async confirmSignUp(confirmSignUpDto: ConfirmSignUpDto): Promise<{ message: string }> {
+  async confirmSignUp(
+    confirmSignUpDto: ConfirmSignUpDto,
+  ): Promise<{ message: string }> {
     const { email, confirmationCode } = confirmSignUpDto;
 
     await this.cognitoService.confirmSignUp(email, confirmationCode);
@@ -111,9 +120,11 @@ export class AuthService {
   /**
    * Reenviar código de confirmación
    */
-  async resendConfirmation(resendDto: ResendConfirmationDto): Promise<{ message: string }> {
+  async resendConfirmation(
+    resendDto: ResendConfirmationDto,
+  ): Promise<{ message: string }> {
     await this.cognitoService.resendConfirmationCode(resendDto.email);
-    
+
     this.logger.log(`Código reenviado: ${resendDto.email}`);
     return { message: 'Código de confirmación reenviado' };
   }
@@ -121,7 +132,9 @@ export class AuthService {
   /**
    * Iniciar sesión
    */
-  async login(loginUserDto: LoginUserDto): Promise<{ user: UserProfile; tokens: CognitoTokens }> {
+  async login(
+    loginUserDto: LoginUserDto,
+  ): Promise<{ user: UserProfile; tokens: CognitoTokens }> {
     const { email, password } = loginUserDto;
 
     // Autenticar con Cognito
@@ -129,7 +142,7 @@ export class AuthService {
 
     // Obtener o crear perfil en DynamoDB
     let user = await this.findUserByEmail(email);
-    
+
     if (!user) {
       // Crear perfil si no existe (usuario creado directamente en Cognito)
       user = {
@@ -184,7 +197,7 @@ export class AuthService {
       {
         source: 'auth_service',
         userAgent: 'backend',
-      }
+      },
     );
 
     this.logger.log(`Usuario autenticado: ${email}`);
@@ -196,15 +209,16 @@ export class AuthService {
    */
   async validateUserByToken(accessToken: string): Promise<UserProfile | null> {
     try {
-      const cognitoUser = await this.cognitoService.validateAccessToken(accessToken);
-      
+      const cognitoUser =
+        await this.cognitoService.validateAccessToken(accessToken);
+
       if (!cognitoUser) {
         return null;
       }
 
       // Obtener perfil completo desde DynamoDB
       const user = await this.getUserById(cognitoUser.sub);
-      
+
       if (!user) {
         // Crear perfil si no existe
         const newUser: User = {
@@ -238,9 +252,11 @@ export class AuthService {
   /**
    * Iniciar recuperación de contraseña
    */
-  async forgotPassword(forgotPasswordDto: ForgotPasswordDto): Promise<{ message: string }> {
+  async forgotPassword(
+    forgotPasswordDto: ForgotPasswordDto,
+  ): Promise<{ message: string }> {
     await this.cognitoService.forgotPassword(forgotPasswordDto.email);
-    
+
     this.logger.log(`Recuperación iniciada: ${forgotPasswordDto.email}`);
     return { message: 'Código de recuperación enviado al email' };
   }
@@ -248,11 +264,17 @@ export class AuthService {
   /**
    * Confirmar nueva contraseña
    */
-  async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
+  async resetPassword(
+    resetPasswordDto: ResetPasswordDto,
+  ): Promise<{ message: string }> {
     const { email, confirmationCode, newPassword } = resetPasswordDto;
-    
-    await this.cognitoService.confirmForgotPassword(email, confirmationCode, newPassword);
-    
+
+    await this.cognitoService.confirmForgotPassword(
+      email,
+      confirmationCode,
+      newPassword,
+    );
+
     this.logger.log(`Contraseña restablecida: ${email}`);
     return { message: 'Contraseña restablecida exitosamente' };
   }
@@ -290,7 +312,9 @@ export class AuthService {
 
       return items.length > 0 ? (items[0] as User) : null;
     } catch (error) {
-      this.logger.error(`Error finding user by email ${email}: ${error.message}`);
+      this.logger.error(
+        `Error finding user by email ${email}: ${error.message}`,
+      );
       return null;
     }
   }
@@ -310,13 +334,15 @@ export class AuthService {
         {
           source: 'auth_service',
           userAgent: 'backend',
-        }
+        },
       );
 
       this.logger.log(`Usuario cerró sesión: ${userId}`);
       return { message: 'Sesión cerrada exitosamente' };
     } catch (error) {
-      this.logger.error(`Error during logout for user ${userId}: ${error.message}`);
+      this.logger.error(
+        `Error during logout for user ${userId}: ${error.message}`,
+      );
       throw error;
     }
   }

@@ -53,11 +53,26 @@ export class InactiveMemberService {
     private configService: ConfigService,
   ) {
     this.config = {
-      warningThresholdMinutes: this.configService.get('INACTIVE_WARNING_MINUTES', 15),
-      inactiveThresholdMinutes: this.configService.get('INACTIVE_THRESHOLD_MINUTES', 30),
-      exclusionThresholdMinutes: this.configService.get('INACTIVE_EXCLUSION_MINUTES', 60),
-      enableAutomaticCleanup: this.configService.get('ENABLE_INACTIVE_CLEANUP', true),
-      notificationEnabled: this.configService.get('ENABLE_INACTIVE_NOTIFICATIONS', true),
+      warningThresholdMinutes: this.configService.get(
+        'INACTIVE_WARNING_MINUTES',
+        15,
+      ),
+      inactiveThresholdMinutes: this.configService.get(
+        'INACTIVE_THRESHOLD_MINUTES',
+        30,
+      ),
+      exclusionThresholdMinutes: this.configService.get(
+        'INACTIVE_EXCLUSION_MINUTES',
+        60,
+      ),
+      enableAutomaticCleanup: this.configService.get(
+        'ENABLE_INACTIVE_CLEANUP',
+        true,
+      ),
+      notificationEnabled: this.configService.get(
+        'ENABLE_INACTIVE_NOTIFICATIONS',
+        true,
+      ),
     };
   }
 
@@ -68,7 +83,7 @@ export class InactiveMemberService {
     try {
       const members = await this.memberService.getRoomMembers(roomId);
       const now = new Date();
-      
+
       let activeCount = 0;
       let warningCount = 0;
       let inactiveCount = 0;
@@ -113,12 +128,14 @@ export class InactiveMemberService {
       };
 
       this.logger.log(
-        `Activity check for room ${roomId}: ${activeCount} active, ${inactiveCount} inactive, ${excludedCount} excluded`
+        `Activity check for room ${roomId}: ${activeCount} active, ${inactiveCount} inactive, ${excludedCount} excluded`,
       );
 
       return report;
     } catch (error) {
-      this.logger.error(`Error checking room member activity: ${error.message}`);
+      this.logger.error(
+        `Error checking room member activity: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -130,7 +147,7 @@ export class InactiveMemberService {
     const members = await this.memberService.getRoomMembers(roomId);
     const now = new Date();
 
-    return members.filter(member => {
+    return members.filter((member) => {
       const activityStatus = this.calculateActivityStatus(member, now);
       return !activityStatus.shouldExcludeFromVoting;
     });
@@ -152,7 +169,10 @@ export class InactiveMemberService {
   /**
    * Obtener estado de actividad de un miembro específico
    */
-  async getMemberActivityStatus(roomId: string, userId: string): Promise<MemberActivityStatus | null> {
+  async getMemberActivityStatus(
+    roomId: string,
+    userId: string,
+  ): Promise<MemberActivityStatus | null> {
     try {
       const member = await this.memberService.getMember(roomId, userId);
       if (!member) {
@@ -161,7 +181,9 @@ export class InactiveMemberService {
 
       return this.calculateActivityStatus(member, new Date());
     } catch (error) {
-      this.logger.error(`Error getting member activity status: ${error.message}`);
+      this.logger.error(
+        `Error getting member activity status: ${error.message}`,
+      );
       return null;
     }
   }
@@ -180,10 +202,12 @@ export class InactiveMemberService {
 
       // En una implementación real, obtendríamos todas las salas activas
       // Por ahora, este método está preparado para ser llamado por sala específica
-      
+
       this.logger.log('Automatic inactivity cleanup completed');
     } catch (error) {
-      this.logger.error(`Error in automatic inactivity cleanup: ${error.message}`);
+      this.logger.error(
+        `Error in automatic inactivity cleanup: ${error.message}`,
+      );
     }
   }
 
@@ -199,18 +223,18 @@ export class InactiveMemberService {
     try {
       const members = await this.memberService.getRoomMembers(roomId);
       const now = new Date();
-      
+
       let warned = 0;
       let markedInactive = 0;
       let excluded = 0;
 
       for (const member of members) {
         const activityStatus = this.calculateActivityStatus(member, now);
-        
+
         // Actualizar estado si cambió
         if (activityStatus.status !== member.status) {
           await this.updateMemberActivityStatus(member, activityStatus.status);
-          
+
           switch (activityStatus.activityLevel) {
             case ActivityLevel.WARNING:
               warned++;
@@ -226,7 +250,7 @@ export class InactiveMemberService {
       }
 
       this.logger.log(
-        `Cleanup completed for room ${roomId}: ${warned} warned, ${markedInactive} inactive, ${excluded} excluded`
+        `Cleanup completed for room ${roomId}: ${warned} warned, ${markedInactive} inactive, ${excluded} excluded`,
       );
 
       return {
@@ -253,7 +277,7 @@ export class InactiveMemberService {
 
       // Actualizar actividad y estado
       await this.memberService.updateMemberActivity(roomId, userId);
-      
+
       if (member.status !== MemberStatus.ACTIVE) {
         await this.updateMemberActivityStatus(member, MemberStatus.ACTIVE);
       }
@@ -296,22 +320,22 @@ export class InactiveMemberService {
     try {
       const members = await this.memberService.getRoomMembers(roomId);
       const now = new Date();
-      
+
       let activeCount = 0;
       let inactiveCount = 0;
       let totalInactivityMinutes = 0;
       let mostInactiveMinutes = 0;
       let mostInactiveUserId: string | null = null;
 
-      members.forEach(member => {
+      members.forEach((member) => {
         const activityStatus = this.calculateActivityStatus(member, now);
-        
+
         if (activityStatus.activityLevel === ActivityLevel.ACTIVE) {
           activeCount++;
         } else {
           inactiveCount++;
           totalInactivityMinutes += activityStatus.minutesSinceActivity;
-          
+
           if (activityStatus.minutesSinceActivity > mostInactiveMinutes) {
             mostInactiveMinutes = activityStatus.minutesSinceActivity;
             mostInactiveUserId = member.userId;
@@ -319,19 +343,22 @@ export class InactiveMemberService {
         }
       });
 
-      const averageInactivityMinutes = inactiveCount > 0 
-        ? Math.round(totalInactivityMinutes / inactiveCount) 
-        : 0;
+      const averageInactivityMinutes =
+        inactiveCount > 0
+          ? Math.round(totalInactivityMinutes / inactiveCount)
+          : 0;
 
       return {
         totalMembers: members.length,
         activeMembers: activeCount,
         inactiveMembers: inactiveCount,
         averageInactivityMinutes,
-        mostInactiveMember: mostInactiveUserId ? {
-          userId: mostInactiveUserId,
-          minutesInactive: mostInactiveMinutes,
-        } : null,
+        mostInactiveMember: mostInactiveUserId
+          ? {
+              userId: mostInactiveUserId,
+              minutesInactive: mostInactiveMinutes,
+            }
+          : null,
       };
     } catch (error) {
       this.logger.error(`Error getting room activity stats: ${error.message}`);
@@ -342,9 +369,14 @@ export class InactiveMemberService {
   /**
    * Métodos privados de utilidad
    */
-  private calculateActivityStatus(member: Member, now: Date): MemberActivityStatus {
+  private calculateActivityStatus(
+    member: Member,
+    now: Date,
+  ): MemberActivityStatus {
     const lastActivity = new Date(member.lastActivityAt);
-    const minutesSinceActivity = Math.floor((now.getTime() - lastActivity.getTime()) / (1000 * 60));
+    const minutesSinceActivity = Math.floor(
+      (now.getTime() - lastActivity.getTime()) / (1000 * 60),
+    );
 
     let activityLevel: ActivityLevel;
     let shouldExcludeFromVoting = false;
@@ -379,16 +411,27 @@ export class InactiveMemberService {
     };
   }
 
-  private async updateMemberActivityStatus(member: Member, newStatus: MemberStatus): Promise<void> {
+  private async updateMemberActivityStatus(
+    member: Member,
+    newStatus: MemberStatus,
+  ): Promise<void> {
     try {
       if (newStatus === MemberStatus.INACTIVE) {
-        await this.memberService.markMemberInactive(member.roomId, member.userId);
+        await this.memberService.markMemberInactive(
+          member.roomId,
+          member.userId,
+        );
       } else {
         // Reactivar miembro
-        await this.memberService.updateMemberActivity(member.roomId, member.userId);
+        await this.memberService.updateMemberActivity(
+          member.roomId,
+          member.userId,
+        );
       }
     } catch (error) {
-      this.logger.error(`Error updating member activity status: ${error.message}`);
+      this.logger.error(
+        `Error updating member activity status: ${error.message}`,
+      );
       throw error;
     }
   }

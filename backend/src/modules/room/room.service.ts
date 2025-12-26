@@ -1,8 +1,19 @@
-import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
 import { DynamoDBKeys } from '../../infrastructure/database/dynamodb.constants';
-import { Room, CreateRoomDto, ContentFilters, RoomSummary, MemberRole } from '../../domain/entities/room.entity';
+import {
+  Room,
+  CreateRoomDto,
+  ContentFilters,
+  RoomSummary,
+  MemberRole,
+} from '../../domain/entities/room.entity';
 import { MemberService } from './member.service';
 import { RealtimeCompatibilityService } from '../realtime/realtime-compatibility.service';
 import { EventTracker } from '../analytics/event-tracker.service';
@@ -22,7 +33,10 @@ export class RoomService {
   /**
    * Crear una nueva sala
    */
-  async createRoom(creatorId: string, createRoomDto: CreateRoomDto): Promise<Room> {
+  async createRoom(
+    creatorId: string,
+    createRoomDto: CreateRoomDto,
+  ): Promise<Room> {
     const roomId = uuidv4();
     const inviteCode = this.generateInviteCode();
 
@@ -64,7 +78,7 @@ export class RoomService {
       {
         source: 'room_service',
         userAgent: 'backend',
-      }
+      },
     );
 
     this.logger.log(`Sala creada: ${roomId} por usuario ${creatorId}`);
@@ -131,10 +145,11 @@ export class RoomService {
       for (const memberItem of memberRooms) {
         const roomId = memberItem.roomId;
         const room = await this.getRoomById(roomId);
-        
+
         if (room) {
-          const { members, matches } = await this.dynamoDBService.getRoomState(roomId);
-          
+          const { members, matches } =
+            await this.dynamoDBService.getRoomState(roomId);
+
           roomSummaries.push({
             id: room.id,
             name: room.name,
@@ -149,7 +164,9 @@ export class RoomService {
 
       return roomSummaries;
     } catch (error) {
-      this.logger.error(`Error getting user rooms for ${userId}: ${error.message}`);
+      this.logger.error(
+        `Error getting user rooms for ${userId}: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -159,7 +176,7 @@ export class RoomService {
    */
   async joinRoom(userId: string, inviteCode: string): Promise<Room> {
     const room = await this.getRoomByInviteCode(inviteCode);
-    
+
     if (!room) {
       throw new NotFoundException('Código de invitación inválido');
     }
@@ -243,7 +260,9 @@ export class RoomService {
     }
 
     if (room.creatorId !== userId) {
-      throw new ForbiddenException('Solo el creador puede actualizar los filtros');
+      throw new ForbiddenException(
+        'Solo el creador puede actualizar los filtros',
+      );
     }
 
     const updatedRoom = {
@@ -309,13 +328,18 @@ export class RoomService {
       },
     );
 
-    this.logger.log(`Lista maestra actualizada para la sala ${roomId} con ${mediaIds.length} elementos`);
+    this.logger.log(
+      `Lista maestra actualizada para la sala ${roomId} con ${mediaIds.length} elementos`,
+    );
   }
 
   /**
    * Obtener detalles completos de la sala con miembros y matches
    */
-  async getRoomDetails(roomId: string, userId: string): Promise<{
+  async getRoomDetails(
+    roomId: string,
+    userId: string,
+  ): Promise<{
     room: Room;
     members: any[];
     matchCount: number;
@@ -332,11 +356,12 @@ export class RoomService {
       throw new ForbiddenException('No tienes acceso a esta sala');
     }
 
-    const { members, matches } = await this.dynamoDBService.getRoomState(roomId);
+    const { members, matches } =
+      await this.dynamoDBService.getRoomState(roomId);
 
     return {
       room,
-      members: members.map(member => ({
+      members: members.map((member) => ({
         userId: member.userId,
         role: member.role,
         status: member.status,
@@ -358,7 +383,9 @@ export class RoomService {
     }
 
     if (room.creatorId !== userId) {
-      throw new ForbiddenException('Solo el creador puede regenerar el código de invitación');
+      throw new ForbiddenException(
+        'Solo el creador puede regenerar el código de invitación',
+      );
     }
 
     const newInviteCode = this.generateInviteCode();
@@ -400,18 +427,21 @@ export class RoomService {
     totalMatches: number;
     averageProgress: number;
   }> {
-    const { members, matches } = await this.dynamoDBService.getRoomState(roomId);
+    const { members, matches } =
+      await this.dynamoDBService.getRoomState(roomId);
     const activeMembers = await this.memberService.getActiveMembers(roomId);
 
     // Calcular progreso promedio
     const totalProgress = members.reduce((sum, member) => {
-      const progress = member.shuffledList.length > 0 
-        ? (member.currentIndex / member.shuffledList.length) * 100 
-        : 0;
+      const progress =
+        member.shuffledList.length > 0
+          ? (member.currentIndex / member.shuffledList.length) * 100
+          : 0;
       return sum + progress;
     }, 0);
 
-    const averageProgress = members.length > 0 ? totalProgress / members.length : 0;
+    const averageProgress =
+      members.length > 0 ? totalProgress / members.length : 0;
 
     return {
       totalMembers: members.length,

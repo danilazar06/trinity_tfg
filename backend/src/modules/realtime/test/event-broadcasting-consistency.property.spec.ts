@@ -40,7 +40,9 @@ describe('Event Broadcasting Consistency Property Tests', () => {
       ],
     }).compile();
 
-    realtimeService = module.get<RealtimeCompatibilityService>(RealtimeCompatibilityService);
+    realtimeService = module.get<RealtimeCompatibilityService>(
+      RealtimeCompatibilityService,
+    );
     appSyncPublisher = module.get<AppSyncPublisher>(AppSyncPublisher);
   });
 
@@ -74,20 +76,24 @@ describe('Event Broadcasting Consistency Property Tests', () => {
               'moderationAction',
               'chatMessage',
               'contentSuggestion',
-              'automationAction'
+              'automationAction',
             ),
             eventData: fc.record({
-              timestamp: fc.date(),
+              timestamp: fc.date({
+                min: new Date('2024-01-01'),
+                max: new Date('2030-12-31'),
+              }),
               metadata: fc.dictionary(fc.string(), fc.anything()),
             }),
           }),
           async ({ roomId, userId, eventType, eventData }) => {
             // Test that all event types maintain consistent structure
             const mockPublishMethod = jest.fn().mockResolvedValue(true);
-            
+
             switch (eventType) {
               case 'vote':
-                (appSyncPublisher.publishVoteUpdate as jest.Mock) = mockPublishMethod;
+                (appSyncPublisher.publishVoteUpdate as jest.Mock) =
+                  mockPublishMethod;
                 await realtimeService.notifyVote(roomId, {
                   userId,
                   mediaId: 'test-media',
@@ -96,7 +102,8 @@ describe('Event Broadcasting Consistency Property Tests', () => {
                 });
                 break;
               case 'match':
-                (appSyncPublisher.publishMatchFound as jest.Mock) = mockPublishMethod;
+                (appSyncPublisher.publishMatchFound as jest.Mock) =
+                  mockPublishMethod;
                 await realtimeService.notifyMatch(roomId, {
                   mediaId: 'test-media',
                   title: 'Test Movie',
@@ -105,7 +112,8 @@ describe('Event Broadcasting Consistency Property Tests', () => {
                 });
                 break;
               case 'roomStateChange':
-                (appSyncPublisher.publishRoomStateChange as jest.Mock) = mockPublishMethod;
+                (appSyncPublisher.publishRoomStateChange as jest.Mock) =
+                  mockPublishMethod;
                 await realtimeService.notifyRoomStateChange(roomId, {
                   status: 'active',
                   queueLength: 10,
@@ -113,7 +121,8 @@ describe('Event Broadcasting Consistency Property Tests', () => {
                 });
                 break;
               case 'memberStatusChange':
-                (appSyncPublisher.publishMemberStatusChange as jest.Mock) = mockPublishMethod;
+                (appSyncPublisher.publishMemberStatusChange as jest.Mock) =
+                  mockPublishMethod;
                 await realtimeService.notifyMemberStatusChange(roomId, {
                   userId,
                   status: 'active',
@@ -121,7 +130,8 @@ describe('Event Broadcasting Consistency Property Tests', () => {
                 });
                 break;
               case 'themeChange':
-                (appSyncPublisher.publishThemeChange as jest.Mock) = mockPublishMethod;
+                (appSyncPublisher.publishThemeChange as jest.Mock) =
+                  mockPublishMethod;
                 await realtimeService.notifyThemeChange(roomId, {
                   themeId: 'test-theme',
                   themeName: 'Test Theme',
@@ -130,18 +140,22 @@ describe('Event Broadcasting Consistency Property Tests', () => {
                 });
                 break;
               case 'scheduleEvent':
-                (appSyncPublisher.publishScheduleEvent as jest.Mock) = mockPublishMethod;
+                (appSyncPublisher.publishScheduleEvent as jest.Mock) =
+                  mockPublishMethod;
                 await realtimeService.notifyScheduleEvent(roomId, {
                   scheduleId: 'test-schedule',
                   title: 'Test Schedule',
                   action: 'created',
                   startTime: eventData.timestamp.toISOString(),
-                  endTime: new Date(eventData.timestamp.getTime() + 3600000).toISOString(),
+                  endTime: new Date(
+                    eventData.timestamp.getTime() + 3600000,
+                  ).toISOString(),
                   message: 'Test message',
                 });
                 break;
               case 'roleAssignment':
-                (appSyncPublisher.publishRoleAssignment as jest.Mock) = mockPublishMethod;
+                (appSyncPublisher.publishRoleAssignment as jest.Mock) =
+                  mockPublishMethod;
                 await realtimeService.notifyRoleAssignment(roomId, {
                   targetUserId: userId,
                   roleId: 'test-role',
@@ -151,7 +165,8 @@ describe('Event Broadcasting Consistency Property Tests', () => {
                 });
                 break;
               case 'moderationAction':
-                (appSyncPublisher.publishModerationAction as jest.Mock) = mockPublishMethod;
+                (appSyncPublisher.publishModerationAction as jest.Mock) =
+                  mockPublishMethod;
                 await realtimeService.notifyModerationAction(roomId, {
                   targetUserId: userId,
                   moderatorId: 'moderator',
@@ -160,7 +175,8 @@ describe('Event Broadcasting Consistency Property Tests', () => {
                 });
                 break;
               case 'chatMessage':
-                (appSyncPublisher.publishChatMessage as jest.Mock) = mockPublishMethod;
+                (appSyncPublisher.publishChatMessage as jest.Mock) =
+                  mockPublishMethod;
                 await realtimeService.notifyChatMessage(roomId, {
                   type: 'message',
                   roomId,
@@ -177,7 +193,8 @@ describe('Event Broadcasting Consistency Property Tests', () => {
                 });
                 break;
               case 'contentSuggestion':
-                (appSyncPublisher.publishContentSuggestion as jest.Mock) = mockPublishMethod;
+                (appSyncPublisher.publishContentSuggestion as jest.Mock) =
+                  mockPublishMethod;
                 await realtimeService.notifyContentSuggestion(roomId, {
                   type: 'created',
                   roomId,
@@ -196,7 +213,8 @@ describe('Event Broadcasting Consistency Property Tests', () => {
                 break;
               case 'automationAction':
                 // AppSync publisher doesn't have publishAutomationAction, use room state change
-                (appSyncPublisher.publishRoomStateChange as jest.Mock) = mockPublishMethod;
+                (appSyncPublisher.publishRoomStateChange as jest.Mock) =
+                  mockPublishMethod;
                 await realtimeService.notifyRoomStateChange(roomId, {
                   status: 'active',
                   queueLength: 10,
@@ -207,17 +225,17 @@ describe('Event Broadcasting Consistency Property Tests', () => {
 
             // Verify that the appropriate publisher method was called
             expect(mockPublishMethod).toHaveBeenCalledTimes(1);
-            
+
             // Verify that the call includes the roomId as the first parameter
             const callArgs = mockPublishMethod.mock.calls[0];
             expect(callArgs).toBeDefined();
             expect(callArgs.length).toBeGreaterThan(0);
-            
+
             // First parameter should be roomId
             expect(callArgs[0]).toBe(roomId);
-          }
+          },
         ),
-        { numRuns: 50, timeout: 10000 }
+        { numRuns: 50, timeout: 10000 },
       );
     });
 
@@ -231,10 +249,13 @@ describe('Event Broadcasting Consistency Property Tests', () => {
               eventData: fc.record({
                 mediaId: fc.string({ minLength: 1, maxLength: 50 }),
                 vote: fc.constantFrom('like', 'dislike', 'skip'),
-                timestamp: fc.date(),
+                timestamp: fc.date({
+                  min: new Date('2024-01-01'),
+                  max: new Date('2030-12-31'),
+                }),
               }),
             }),
-            { minLength: 2, maxLength: 10 }
+            { minLength: 2, maxLength: 10 },
           ),
           async (events) => {
             // Mock all publisher methods
@@ -242,13 +263,13 @@ describe('Event Broadcasting Consistency Property Tests', () => {
             (appSyncPublisher.publishVoteUpdate as jest.Mock) = mockPublishVote;
 
             // Send all events concurrently
-            const promises = events.map(event =>
+            const promises = events.map((event) =>
               realtimeService.notifyVote(event.roomId, {
                 userId: event.userId,
                 mediaId: event.eventData.mediaId,
                 vote: event.eventData.vote,
                 timestamp: event.eventData.timestamp.toISOString(),
-              })
+              }),
             );
 
             await Promise.all(promises);
@@ -261,19 +282,19 @@ describe('Event Broadcasting Consistency Property Tests', () => {
             for (let i = 0; i < calls.length; i++) {
               const callArgs = calls[i];
               const originalEvent = events[i];
-              
+
               // First parameter should be roomId
               expect(callArgs[0]).toBe(originalEvent.roomId);
-              
+
               // Second parameter should contain event data
               const eventData = callArgs[1];
               expect(eventData).toBeDefined();
               expect(eventData.userId).toBe(originalEvent.userId);
               expect(eventData.mediaId).toBe(originalEvent.eventData.mediaId);
             }
-          }
+          },
         ),
-        { numRuns: 20, timeout: 15000 }
+        { numRuns: 20, timeout: 15000 },
       );
     });
 
@@ -289,7 +310,7 @@ describe('Event Broadcasting Consistency Property Tests', () => {
                 vote: fc.constantFrom('like', 'dislike', 'skip'),
                 delay: fc.integer({ min: 0, max: 100 }),
               }),
-              { minLength: 3, maxLength: 8 }
+              { minLength: 3, maxLength: 8 },
             ),
           }),
           async ({ roomId, events }) => {
@@ -301,12 +322,14 @@ describe('Event Broadcasting Consistency Property Tests', () => {
             // Send events with controlled delays to test ordering
             for (const event of events) {
               if (event.delay > 0) {
-                await new Promise(resolve => setTimeout(resolve, event.delay));
+                await new Promise((resolve) =>
+                  setTimeout(resolve, event.delay),
+                );
               }
-              
+
               const timestamp = new Date();
               timestamps.push(timestamp);
-              
+
               await realtimeService.notifyVote(roomId, {
                 userId: event.userId,
                 mediaId: event.mediaId,
@@ -325,9 +348,9 @@ describe('Event Broadcasting Consistency Property Tests', () => {
               expect(calls[i]).toBeDefined();
               expect(calls[i][0]).toBe(roomId); // roomId should be consistent
             }
-          }
+          },
         ),
-        { numRuns: 15, timeout: 20000 }
+        { numRuns: 15, timeout: 20000 },
       );
     });
 
@@ -339,7 +362,7 @@ describe('Event Broadcasting Consistency Property Tests', () => {
               fc.string({ minLength: 1, maxLength: 50 }),
               fc.constant(''),
               fc.constant(null),
-              fc.constant(undefined)
+              fc.constant(undefined),
             ),
             eventData: fc.oneof(
               fc.record({
@@ -353,7 +376,7 @@ describe('Event Broadcasting Consistency Property Tests', () => {
                 vote: fc.constant('invalid'),
               }),
               fc.constant(null),
-              fc.constant(undefined)
+              fc.constant(undefined),
             ),
           }),
           async ({ roomId, eventData }) => {
@@ -369,7 +392,7 @@ describe('Event Broadcasting Consistency Property Tests', () => {
                     mediaId: eventData?.mediaId || '',
                     vote: eventData?.vote || 'like',
                     timestamp: new Date().toISOString(),
-                  })
+                  }),
                 ).rejects.toThrow();
               } else {
                 // Should handle valid data
@@ -379,9 +402,12 @@ describe('Event Broadcasting Consistency Property Tests', () => {
                   vote: eventData.vote,
                   timestamp: new Date().toISOString(),
                 });
-                
-                if (eventData.userId && eventData.mediaId && 
-                    ['like', 'dislike', 'skip'].includes(eventData.vote)) {
+
+                if (
+                  eventData.userId &&
+                  eventData.mediaId &&
+                  ['like', 'dislike', 'skip'].includes(eventData.vote)
+                ) {
                   expect(mockPublishVote).toHaveBeenCalledTimes(1);
                 }
               }
@@ -389,9 +415,9 @@ describe('Event Broadcasting Consistency Property Tests', () => {
               // Malformed data should result in predictable errors
               expect(error).toBeInstanceOf(Error);
             }
-          }
+          },
         ),
-        { numRuns: 30, timeout: 10000 }
+        { numRuns: 30, timeout: 10000 },
       );
     });
   });

@@ -8,9 +8,10 @@ async function bootstrap() {
 
   // Configurar CORS
   app.enableCors({
-    origin: process.env.NODE_ENV === 'production' 
-      ? ['https://your-frontend-domain.com'] 
-      : ['http://localhost:3000', 'http://localhost:19006'], // React Native Metro
+    origin:
+      process.env.NODE_ENV === 'production'
+        ? ['https://your-frontend-domain.com']
+        : ['http://localhost:3000', 'http://localhost:19006'], // React Native Metro
     credentials: true,
   });
 
@@ -29,11 +30,13 @@ async function bootstrap() {
   // Configurar Swagger
   const config = new DocumentBuilder()
     .setTitle('Trinity API')
-    .setDescription('API para la plataforma Trinity de descubrimiento de contenido multimedia')
+    .setDescription(
+      'API para la plataforma Trinity de descubrimiento de contenido multimedia',
+    )
     .setVersion('1.0')
     .addBearerAuth()
     .build();
-  
+
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
@@ -42,9 +45,11 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  
+
   console.log(`🚀 Trinity API ejecutándose en http://localhost:${port}`);
-  console.log(`📚 Documentación disponible en http://localhost:${port}/api/docs`);
+  console.log(
+    `📚 Documentación disponible en http://localhost:${port}/api/docs`,
+  );
 }
 
 bootstrap();

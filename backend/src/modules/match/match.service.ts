@@ -36,7 +36,10 @@ export class MatchService {
   /**
    * Detectar si hay un match para un contenido específico
    */
-  async detectMatch(roomId: string, mediaId: string): Promise<MatchDetectionResult> {
+  async detectMatch(
+    roomId: string,
+    mediaId: string,
+  ): Promise<MatchDetectionResult> {
     try {
       // Verificar si ya existe un match para este contenido
       const existingMatch = await this.getMatchByMediaId(roomId, mediaId);
@@ -52,15 +55,21 @@ export class MatchService {
       }
 
       // Verificar consenso unánime
-      const consensusResult = await this.interactionService.checkUnanimousVote(roomId, mediaId);
-      
-      if (consensusResult.isUnanimous && consensusResult.voteType === VoteType.LIKE) {
+      const consensusResult = await this.interactionService.checkUnanimousVote(
+        roomId,
+        mediaId,
+      );
+
+      if (
+        consensusResult.isUnanimous &&
+        consensusResult.voteType === VoteType.LIKE
+      ) {
         // Crear el match
         const match = await this.createMatch(
           roomId,
           mediaId,
           consensusResult.totalVotes,
-          ConsensusType.UNANIMOUS_LIKE
+          ConsensusType.UNANIMOUS_LIKE,
         );
 
         return {
@@ -80,7 +89,9 @@ export class MatchService {
         requiredVotes: consensusResult.activeMembers,
       };
     } catch (error) {
-      this.logger.error(`Error detecting match for ${mediaId} in room ${roomId}: ${error.message}`);
+      this.logger.error(
+        `Error detecting match for ${mediaId} in room ${roomId}: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -92,15 +103,20 @@ export class MatchService {
     roomId: string,
     mediaId: string,
     totalVotes: number,
-    consensusType: ConsensusType
+    consensusType: ConsensusType,
   ): Promise<Match> {
     try {
       const matchId = uuidv4();
 
       // Obtener votos positivos para este contenido
-      const votes = await this.interactionService.getMediaVotes(roomId, mediaId);
-      const positiveVotes = votes.filter(vote => vote.voteType === VoteType.LIKE);
-      const participants = positiveVotes.map(vote => vote.userId);
+      const votes = await this.interactionService.getMediaVotes(
+        roomId,
+        mediaId,
+      );
+      const positiveVotes = votes.filter(
+        (vote) => vote.voteType === VoteType.LIKE,
+      );
+      const participants = positiveVotes.map((vote) => vote.userId);
 
       // Obtener detalles del contenido
       const mediaDetails = await this.mediaService.getMovieDetails(mediaId);
@@ -135,12 +151,12 @@ export class MatchService {
           totalVotes,
           participantCount: participants.length,
           mediaTitle: mediaDetails.title,
-          mediaGenres: mediaDetails.genres?.map(g => g.name) || [],
+          mediaGenres: mediaDetails.genres?.map((g) => g.name) || [],
         },
         {
           source: 'match_service',
           userAgent: 'backend',
-        }
+        },
       );
 
       // Enviar notificaciones a los participantes
@@ -151,11 +167,14 @@ export class MatchService {
         mediaId,
         mediaTitle: mediaDetails.title,
         participants,
-        matchType: consensusType === ConsensusType.UNANIMOUS_LIKE ? 'unanimous' : 'majority',
+        matchType:
+          consensusType === ConsensusType.UNANIMOUS_LIKE
+            ? 'unanimous'
+            : 'majority',
       });
 
       this.logger.log(
-        `Match created: ${matchId} for media ${mediaId} in room ${roomId} with ${participants.length} participants`
+        `Match created: ${matchId} for media ${mediaId} in room ${roomId} with ${participants.length} participants`,
       );
 
       return match;
@@ -191,16 +210,21 @@ export class MatchService {
   /**
    * Obtener match por mediaId en una sala
    */
-  async getMatchByMediaId(roomId: string, mediaId: string): Promise<Match | null> {
+  async getMatchByMediaId(
+    roomId: string,
+    mediaId: string,
+  ): Promise<Match | null> {
     try {
       const item = await this.dynamoDBService.getItem(
         DynamoDBKeys.roomPK(roomId),
-        DynamoDBKeys.matchSK(mediaId)
+        DynamoDBKeys.matchSK(mediaId),
       );
 
       return item ? (item as Match) : null;
     } catch (error) {
-      this.logger.error(`Error getting match for media ${mediaId}: ${error.message}`);
+      this.logger.error(
+        `Error getting match for media ${mediaId}: ${error.message}`,
+      );
       return null;
     }
   }
@@ -208,7 +232,10 @@ export class MatchService {
   /**
    * Obtener todos los matches de una sala
    */
-  async getRoomMatches(roomId: string, limit: number = 50): Promise<MatchSummary[]> {
+  async getRoomMatches(
+    roomId: string,
+    limit: number = 50,
+  ): Promise<MatchSummary[]> {
     try {
       const items = await this.dynamoDBService.query({
         KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
@@ -220,7 +247,7 @@ export class MatchService {
         Limit: limit,
       });
 
-      return items.map(item => this.convertToMatchSummary(item as Match));
+      return items.map((item) => this.convertToMatchSummary(item as Match));
     } catch (error) {
       this.logger.error(`Error getting room matches: ${error.message}`);
       throw error;
@@ -233,12 +260,12 @@ export class MatchService {
   async getRoomMatchLibrary(roomId: string): Promise<RoomMatchLibrary> {
     try {
       const matches = await this.getRoomMatches(roomId, 100);
-      
+
       // Calcular estadísticas
       const matchesByGenre: { [genre: string]: number } = {};
       let totalMatchTime = 0;
 
-      matches.forEach(match => {
+      matches.forEach((match) => {
         // Agrupar por género (usar el primer género del contenido)
         const genres = match.mediaTitle.split(' '); // Simplificado
         const primaryGenre = genres[0] || 'Unknown';
@@ -249,9 +276,10 @@ export class MatchService {
         totalMatchTime += matchTime;
       });
 
-      const averageMatchTime = matches.length > 0 
-        ? Math.round(totalMatchTime / matches.length / (1000 * 60)) // En minutos
-        : 0;
+      const averageMatchTime =
+        matches.length > 0
+          ? Math.round(totalMatchTime / matches.length / (1000 * 60)) // En minutos
+          : 0;
 
       return {
         roomId,
@@ -272,25 +300,32 @@ export class MatchService {
   async getMatchStats(roomId: string): Promise<MatchStats> {
     try {
       const matches = await this.getRoomMatches(roomId, 1000);
-      
+
       // Filtrar matches de esta semana
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      const matchesThisWeek = matches.filter(match => match.createdAt > oneWeekAgo);
+      const matchesThisWeek = matches.filter(
+        (match) => match.createdAt > oneWeekAgo,
+      );
 
       // Calcular estadísticas
-      const totalParticipants = matches.reduce((sum, match) => sum + match.participantCount, 0);
-      const averageParticipants = matches.length > 0 ? totalParticipants / matches.length : 0;
+      const totalParticipants = matches.reduce(
+        (sum, match) => sum + match.participantCount,
+        0,
+      );
+      const averageParticipants =
+        matches.length > 0 ? totalParticipants / matches.length : 0;
 
       // Género más popular (simplificado)
       const genreCounts: { [genre: string]: number } = {};
-      matches.forEach(match => {
+      matches.forEach((match) => {
         const genre = 'Action'; // Simplificado - en realidad vendría de mediaDetails
         genreCounts[genre] = (genreCounts[genre] || 0) + 1;
       });
 
-      const mostPopularGenre = Object.keys(genreCounts).reduce((a, b) => 
-        genreCounts[a] > genreCounts[b] ? a : b, 'Unknown'
+      const mostPopularGenre = Object.keys(genreCounts).reduce(
+        (a, b) => (genreCounts[a] > genreCounts[b] ? a : b),
+        'Unknown',
       );
 
       // Tiempos de match (simplificado)
@@ -327,7 +362,7 @@ export class MatchService {
       for (const match of matches) {
         await this.dynamoDBService.deleteItem(
           DynamoDBKeys.roomPK(roomId),
-          DynamoDBKeys.matchSK(match.id)
+          DynamoDBKeys.matchSK(match.id),
         );
       }
 
@@ -341,24 +376,30 @@ export class MatchService {
   /**
    * Verificar matches pendientes después de cada voto
    */
-  async checkPendingMatches(roomId: string, mediaId: string): Promise<Match | null> {
+  async checkPendingMatches(
+    roomId: string,
+    mediaId: string,
+  ): Promise<Match | null> {
     const detectionResult = await this.detectMatch(roomId, mediaId);
-    
+
     if (detectionResult.hasMatch && detectionResult.matchId) {
       return this.getMatchById(detectionResult.matchId);
     }
-    
+
     return null;
   }
 
   /**
    * Obtener matches recientes de múltiples salas (para un usuario)
    */
-  async getUserRecentMatches(userId: string, limit: number = 20): Promise<MatchSummary[]> {
+  async getUserRecentMatches(
+    userId: string,
+    limit: number = 20,
+  ): Promise<MatchSummary[]> {
     try {
       // Obtener salas del usuario
       const userRooms = await this.memberService.getRoomMembers(''); // Necesitaríamos un método diferente
-      
+
       // Por simplicidad, retornamos un array vacío
       // En una implementación real, consultaríamos todas las salas del usuario
       return [];
@@ -393,7 +434,9 @@ export class MatchService {
       };
 
       // En una implementación real, aquí enviaríamos notificaciones push, emails, etc.
-      this.logger.log(`Match notifications sent for ${match.id} to ${match.participants.length} users`);
+      this.logger.log(
+        `Match notifications sent for ${match.id} to ${match.participants.length} users`,
+      );
 
       // Marcar notificaciones como enviadas
       await this.dynamoDBService.conditionalUpdate(
@@ -404,7 +447,7 @@ export class MatchService {
         undefined,
         {
           ':sent': true,
-        }
+        },
       );
     } catch (error) {
       this.logger.error(`Error sending match notifications: ${error.message}`);

@@ -9,9 +9,9 @@ import { AnalyticsModule } from '../analytics/analytics.module';
 
 @Module({
   imports: [
-    RoomModule, 
-    MediaModule, 
-    InteractionModule, 
+    RoomModule,
+    MediaModule,
+    InteractionModule,
     RealtimeModule,
     forwardRef(() => AnalyticsModule),
   ],

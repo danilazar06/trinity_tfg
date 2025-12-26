@@ -6,11 +6,7 @@ import { RoomModule } from '../room/room.module';
 import { AnalyticsModule } from '../analytics/analytics.module';
 
 @Module({
-  imports: [
-    DatabaseModule,
-    RoomModule,
-    AnalyticsModule,
-  ],
+  imports: [DatabaseModule, RoomModule, AnalyticsModule],
   controllers: [RoomTemplateController],
   providers: [RoomTemplateService],
   exports: [RoomTemplateService],

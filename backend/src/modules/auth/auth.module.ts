@@ -8,10 +8,7 @@ import { CognitoService } from '../../infrastructure/cognito/cognito.service';
 import { AnalyticsModule } from '../analytics/analytics.module';
 
 @Module({
-  imports: [
-    PassportModule,
-    forwardRef(() => AnalyticsModule),
-  ],
+  imports: [PassportModule, forwardRef(() => AnalyticsModule)],
   controllers: [AuthController],
   providers: [AuthService, CognitoService, CognitoJwtStrategy],
   exports: [AuthService, CognitoService],

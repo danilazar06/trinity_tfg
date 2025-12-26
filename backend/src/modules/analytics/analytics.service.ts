@@ -28,19 +28,23 @@ export class AnalyticsService {
   /**
    * 📊 Get comprehensive dashboard overview
    */
-  async getDashboardOverview(timeRange?: TimeRange): Promise<DashboardOverview> {
+  async getDashboardOverview(
+    timeRange?: TimeRange,
+  ): Promise<DashboardOverview> {
     try {
       this.logger.log('📊 Generating dashboard overview...');
 
       const endDate = timeRange?.endDate || new Date();
-      const startDate = timeRange?.startDate || new Date(Date.now() - 24 * 60 * 60 * 1000); // Last 24h
+      const startDate =
+        timeRange?.startDate || new Date(Date.now() - 24 * 60 * 60 * 1000); // Last 24h
 
-      const [activeUsers, roomMetrics, contentMetrics, systemHealth] = await Promise.all([
-        this.getActiveUsersMetrics(startDate, endDate),
-        this.getRoomOverviewMetrics(startDate, endDate),
-        this.getContentOverviewMetrics(startDate, endDate),
-        this.getSystemHealthMetrics(),
-      ]);
+      const [activeUsers, roomMetrics, contentMetrics, systemHealth] =
+        await Promise.all([
+          this.getActiveUsersMetrics(startDate, endDate),
+          this.getRoomOverviewMetrics(startDate, endDate),
+          this.getContentOverviewMetrics(startDate, endDate),
+          this.getSystemHealthMetrics(),
+        ]);
 
       const overview: DashboardOverview = {
         activeUsers,
@@ -49,7 +53,9 @@ export class AnalyticsService {
         systemHealth,
       };
 
-      this.logger.log(`📊 Dashboard overview generated: ${activeUsers.daily} daily active users`);
+      this.logger.log(
+        `📊 Dashboard overview generated: ${activeUsers.daily} daily active users`,
+      );
       return overview;
     } catch (error) {
       this.logger.error('❌ Error generating dashboard overview:', error);
@@ -62,26 +68,38 @@ export class AnalyticsService {
    */
   async getUserBehaviorAnalytics(
     userId?: string,
-    timeRange?: TimeRange
+    timeRange?: TimeRange,
   ): Promise<UserBehaviorAnalytics> {
     try {
-      this.logger.log(`👥 Analyzing user behavior${userId ? ` for user ${userId}` : ''}...`);
+      this.logger.log(
+        `👥 Analyzing user behavior${userId ? ` for user ${userId}` : ''}...`,
+      );
 
       const endDate = timeRange?.endDate || new Date();
-      const startDate = timeRange?.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Last 30 days
+      const startDate =
+        timeRange?.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Last 30 days
 
       // Get user metrics from analytics table
-      const userMetrics = await this.getUserMetricsInRange(startDate, endDate, userId);
-      
+      const userMetrics = await this.getUserMetricsInRange(
+        startDate,
+        endDate,
+        userId,
+      );
+
       const analytics: UserBehaviorAnalytics = {
         totalUsers: await this.getTotalUsersCount(),
         activeUsers: await this.getActiveUsersMetrics(startDate, endDate),
         sessionMetrics: await this.calculateSessionMetrics(userMetrics),
         engagementMetrics: await this.calculateEngagementMetrics(userMetrics),
-        retentionMetrics: await this.calculateRetentionMetrics(startDate, endDate),
+        retentionMetrics: await this.calculateRetentionMetrics(
+          startDate,
+          endDate,
+        ),
       };
 
-      this.logger.log(`👥 User behavior analytics completed: ${analytics.totalUsers} total users`);
+      this.logger.log(
+        `👥 User behavior analytics completed: ${analytics.totalUsers} total users`,
+      );
       return analytics;
     } catch (error) {
       this.logger.error('❌ Error analyzing user behavior:', error);
@@ -94,25 +112,36 @@ export class AnalyticsService {
    */
   async getRoomPerformanceAnalytics(
     roomId?: string,
-    timeRange?: TimeRange
+    timeRange?: TimeRange,
   ): Promise<RoomPerformanceAnalytics> {
     try {
-      this.logger.log(`🏠 Analyzing room performance${roomId ? ` for room ${roomId}` : ''}...`);
+      this.logger.log(
+        `🏠 Analyzing room performance${roomId ? ` for room ${roomId}` : ''}...`,
+      );
 
       const endDate = timeRange?.endDate || new Date();
-      const startDate = timeRange?.startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // Last 7 days
+      const startDate =
+        timeRange?.startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // Last 7 days
 
-      const roomMetrics = await this.getRoomMetricsInRange(startDate, endDate, roomId);
-      
+      const roomMetrics = await this.getRoomMetricsInRange(
+        startDate,
+        endDate,
+        roomId,
+      );
+
       const analytics: RoomPerformanceAnalytics = {
         totalRooms: roomMetrics.length,
         completionRate: await this.calculateRoomCompletionRate(roomMetrics),
         averageMetrics: await this.calculateAverageRoomMetrics(roomMetrics),
-        performanceDistribution: await this.calculatePerformanceDistribution(roomMetrics),
-        optimizationInsights: await this.generateRoomOptimizationInsights(roomMetrics),
+        performanceDistribution:
+          await this.calculatePerformanceDistribution(roomMetrics),
+        optimizationInsights:
+          await this.generateRoomOptimizationInsights(roomMetrics),
       };
 
-      this.logger.log(`🏠 Room performance analytics completed: ${analytics.totalRooms} rooms analyzed`);
+      this.logger.log(
+        `🏠 Room performance analytics completed: ${analytics.totalRooms} rooms analyzed`,
+      );
       return analytics;
     } catch (error) {
       this.logger.error('❌ Error analyzing room performance:', error);
@@ -125,24 +154,37 @@ export class AnalyticsService {
    */
   async getContentPreferenceAnalytics(
     userId?: string,
-    timeRange?: TimeRange
+    timeRange?: TimeRange,
   ): Promise<ContentPreferenceAnalytics> {
     try {
-      this.logger.log(`🎬 Analyzing content preferences${userId ? ` for user ${userId}` : ''}...`);
+      this.logger.log(
+        `🎬 Analyzing content preferences${userId ? ` for user ${userId}` : ''}...`,
+      );
 
       const endDate = timeRange?.endDate || new Date();
-      const startDate = timeRange?.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Last 30 days
+      const startDate =
+        timeRange?.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Last 30 days
 
-      const contentMetrics = await this.getContentMetricsInRange(startDate, endDate, userId);
-      
+      const contentMetrics = await this.getContentMetricsInRange(
+        startDate,
+        endDate,
+        userId,
+      );
+
       const analytics: ContentPreferenceAnalytics = {
         genrePreferences: await this.calculateGenrePreferences(contentMetrics),
-        contentPerformance: await this.calculateContentPerformance(contentMetrics),
-        aiRecommendationMetrics: await this.calculateAIRecommendationMetrics(startDate, endDate),
+        contentPerformance:
+          await this.calculateContentPerformance(contentMetrics),
+        aiRecommendationMetrics: await this.calculateAIRecommendationMetrics(
+          startDate,
+          endDate,
+        ),
         trendingContent: await this.identifyTrendingContent(contentMetrics),
       };
 
-      this.logger.log(`🎬 Content preference analytics completed: ${Object.keys(analytics.genrePreferences).length} genres analyzed`);
+      this.logger.log(
+        `🎬 Content preference analytics completed: ${Object.keys(analytics.genrePreferences).length} genres analyzed`,
+      );
       return analytics;
     } catch (error) {
       this.logger.error('❌ Error analyzing content preferences:', error);
@@ -153,20 +195,28 @@ export class AnalyticsService {
   /**
    * 🔮 Generate predictive insights
    */
-  async generatePredictiveInsights(timeRange?: TimeRange): Promise<PredictiveInsights> {
+  async generatePredictiveInsights(
+    timeRange?: TimeRange,
+  ): Promise<PredictiveInsights> {
     try {
       this.logger.log('🔮 Generating predictive insights...');
 
       const endDate = timeRange?.endDate || new Date();
-      const startDate = timeRange?.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Last 30 days
+      const startDate =
+        timeRange?.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Last 30 days
 
       const insights: PredictiveInsights = {
         userChurnPrediction: await this.predictUserChurn(startDate, endDate),
-        roomSuccessPrediction: await this.predictRoomSuccess(startDate, endDate),
+        roomSuccessPrediction: await this.predictRoomSuccess(
+          startDate,
+          endDate,
+        ),
         contentTrends: await this.predictContentTrends(startDate, endDate),
       };
 
-      this.logger.log(`🔮 Predictive insights generated: ${insights.userChurnPrediction.length} churn predictions`);
+      this.logger.log(
+        `🔮 Predictive insights generated: ${insights.userChurnPrediction.length} churn predictions`,
+      );
       return insights;
     } catch (error) {
       this.logger.error('❌ Error generating predictive insights:', error);
@@ -177,10 +227,14 @@ export class AnalyticsService {
   /**
    * 🏠 Get advanced room analytics
    */
-  async getAdvancedRoomAnalytics(timeRange?: TimeRange): Promise<AdvancedRoomAnalytics> {
+  async getAdvancedRoomAnalytics(
+    timeRange?: TimeRange,
+  ): Promise<AdvancedRoomAnalytics> {
     try {
       this.logger.log('🏠 Getting advanced room analytics...');
-      return await this.roomAnalyticsService.getAdvancedRoomAnalytics(timeRange);
+      return await this.roomAnalyticsService.getAdvancedRoomAnalytics(
+        timeRange,
+      );
     } catch (error) {
       this.logger.error('❌ Error getting advanced room analytics:', error);
       throw new Error('Failed to get advanced room analytics');
@@ -193,13 +247,13 @@ export class AnalyticsService {
   async trackAdvancedRoomEvent(event: AnalyticsEvent): Promise<void> {
     try {
       this.logger.log(`📊 Tracking advanced room event: ${event.eventType}`);
-      
+
       // Store the event in analytics table
       await this.storeAnalyticsEvent(event);
-      
+
       // Process event for real-time metrics if needed
       await this.processRealTimeEvent(event);
-      
+
       this.logger.log(`📊 Advanced room event tracked: ${event.eventId}`);
     } catch (error) {
       this.logger.error('❌ Error tracking advanced room event:', error);
@@ -210,22 +264,28 @@ export class AnalyticsService {
   /**
    * 📈 Get room performance dashboard
    */
-  async getRoomPerformanceDashboard(roomId?: string, timeRange?: TimeRange): Promise<any> {
+  async getRoomPerformanceDashboard(
+    roomId?: string,
+    timeRange?: TimeRange,
+  ): Promise<any> {
     try {
-      this.logger.log(`📈 Getting room performance dashboard${roomId ? ` for room ${roomId}` : ''}...`);
+      this.logger.log(
+        `📈 Getting room performance dashboard${roomId ? ` for room ${roomId}` : ''}...`,
+      );
 
       const endDate = timeRange?.endDate || new Date();
-      const startDate = timeRange?.startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // Last 7 days
+      const startDate =
+        timeRange?.startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // Last 7 days
 
-      const [
-        basicAnalytics,
-        advancedAnalytics,
-        performanceScoring,
-      ] = await Promise.all([
-        this.getRoomPerformanceAnalytics(roomId, timeRange),
-        this.roomAnalyticsService.getAdvancedRoomAnalytics(timeRange),
-        this.roomAnalyticsService.getRoomPerformanceScoring(startDate, endDate),
-      ]);
+      const [basicAnalytics, advancedAnalytics, performanceScoring] =
+        await Promise.all([
+          this.getRoomPerformanceAnalytics(roomId, timeRange),
+          this.roomAnalyticsService.getAdvancedRoomAnalytics(timeRange),
+          this.roomAnalyticsService.getRoomPerformanceScoring(
+            startDate,
+            endDate,
+          ),
+        ]);
 
       const dashboard = {
         basicAnalytics,
@@ -242,7 +302,10 @@ export class AnalyticsService {
       this.logger.log(`📈 Room performance dashboard generated`);
       return dashboard;
     } catch (error) {
-      this.logger.error('❌ Error generating room performance dashboard:', error);
+      this.logger.error(
+        '❌ Error generating room performance dashboard:',
+        error,
+      );
       throw new Error('Failed to generate room performance dashboard');
     }
   }
@@ -299,7 +362,7 @@ export class AnalyticsService {
   private async getUserMetricsInRange(
     startDate: Date,
     endDate: Date,
-    userId?: string
+    userId?: string,
   ): Promise<UserMetrics[]> {
     // Mock implementation - in real scenario, query user analytics table
     return [];
@@ -308,7 +371,7 @@ export class AnalyticsService {
   private async getRoomMetricsInRange(
     startDate: Date,
     endDate: Date,
-    roomId?: string
+    roomId?: string,
   ): Promise<RoomMetrics[]> {
     // Mock implementation - in real scenario, query room analytics table
     return [];
@@ -317,7 +380,7 @@ export class AnalyticsService {
   private async getContentMetricsInRange(
     startDate: Date,
     endDate: Date,
-    userId?: string
+    userId?: string,
   ): Promise<ContentMetrics[]> {
     // Mock implementation - in real scenario, query content analytics table
     return [];
@@ -350,7 +413,9 @@ export class AnalyticsService {
     };
   }
 
-  private async calculateRoomCompletionRate(roomMetrics: RoomMetrics[]): Promise<number> {
+  private async calculateRoomCompletionRate(
+    roomMetrics: RoomMetrics[],
+  ): Promise<number> {
     // Mock implementation
     return 0.82; // 82%
   }
@@ -370,7 +435,7 @@ export class AnalyticsService {
     return {
       highPerforming: 0.35, // 35%
       mediumPerforming: 0.45, // 45%
-      lowPerforming: 0.20, // 20%
+      lowPerforming: 0.2, // 20%
     };
   }
 
@@ -397,7 +462,7 @@ export class AnalyticsService {
       Comedy: 0.22,
       Drama: 0.18,
       'Sci-Fi': 0.15,
-      Horror: 0.10,
+      Horror: 0.1,
       Romance: 0.07,
     };
   }
@@ -420,7 +485,10 @@ export class AnalyticsService {
     };
   }
 
-  private async calculateAIRecommendationMetrics(startDate: Date, endDate: Date) {
+  private async calculateAIRecommendationMetrics(
+    startDate: Date,
+    endDate: Date,
+  ) {
     // Mock implementation
     return {
       totalRecommendations: 450,
@@ -452,7 +520,10 @@ export class AnalyticsService {
         userId: 'user123',
         churnProbability: 0.75,
         riskFactors: ['Low engagement', 'No recent room joins'],
-        recommendations: ['Send personalized content recommendations', 'Invite to popular rooms'],
+        recommendations: [
+          'Send personalized content recommendations',
+          'Invite to popular rooms',
+        ],
       },
     ];
   }
@@ -463,7 +534,10 @@ export class AnalyticsService {
       {
         roomId: 'room456',
         successProbability: 0.85,
-        optimizationSuggestions: ['Add more diverse content', 'Invite active members'],
+        optimizationSuggestions: [
+          'Add more diverse content',
+          'Invite active members',
+        ],
       },
     ];
   }
@@ -493,7 +567,9 @@ export class AnalyticsService {
     try {
       // In a real implementation, this would store the event in DynamoDB
       // For now, we'll just log it
-      this.logger.debug(`Storing analytics event: ${event.eventType} - ${event.eventId}`);
+      this.logger.debug(
+        `Storing analytics event: ${event.eventType} - ${event.eventId}`,
+      );
     } catch (error) {
       this.logger.error('Error storing analytics event:', error);
       throw error;

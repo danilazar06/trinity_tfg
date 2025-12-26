@@ -1,22 +1,22 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Put, 
-  Delete, 
-  Body, 
-  Param, 
-  Query, 
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
   UseGuards,
   Request,
   HttpStatus,
-  HttpCode
+  HttpCode,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RoomScheduleService } from './room-schedule.service';
-import { 
-  CreateScheduleDto, 
-  UpdateScheduleDto, 
+import {
+  CreateScheduleDto,
+  UpdateScheduleDto,
   RespondToScheduleDto,
   ScheduleFiltersDto,
   CreateScheduleTemplateDto,
@@ -24,7 +24,7 @@ import {
   GetScheduleSuggestionsDto,
   CreateAutoScheduleConfigDto,
   ModifyScheduleInstanceDto,
-  ScheduleStatsQueryDto
+  ScheduleStatsQueryDto,
 } from './dto/schedule.dto';
 
 @Controller('room-schedules')
@@ -37,8 +37,14 @@ export class RoomScheduleController {
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async createSchedule(@Request() req: any, @Body() createScheduleDto: CreateScheduleDto) {
-    return this.roomScheduleService.createSchedule(req.user.userId, createScheduleDto);
+  async createSchedule(
+    @Request() req: any,
+    @Body() createScheduleDto: CreateScheduleDto,
+  ) {
+    return this.roomScheduleService.createSchedule(
+      req.user.userId,
+      createScheduleDto,
+    );
   }
 
   /**
@@ -47,7 +53,7 @@ export class RoomScheduleController {
   @Get('room/:roomId')
   async getRoomSchedules(
     @Param('roomId') roomId: string,
-    @Query() filters: ScheduleFiltersDto
+    @Query() filters: ScheduleFiltersDto,
   ) {
     return this.roomScheduleService.getRoomSchedules(roomId, filters);
   }
@@ -56,7 +62,10 @@ export class RoomScheduleController {
    * Obtener programaciones del usuario actual
    */
   @Get('my-schedules')
-  async getMySchedules(@Request() req: any, @Query() filters: ScheduleFiltersDto) {
+  async getMySchedules(
+    @Request() req: any,
+    @Query() filters: ScheduleFiltersDto,
+  ) {
     return this.roomScheduleService.getUserSchedules(req.user.userId, filters);
   }
 
@@ -75,9 +84,13 @@ export class RoomScheduleController {
   async updateSchedule(
     @Param('scheduleId') scheduleId: string,
     @Request() req: any,
-    @Body() updateScheduleDto: UpdateScheduleDto
+    @Body() updateScheduleDto: UpdateScheduleDto,
   ) {
-    return this.roomScheduleService.updateSchedule(scheduleId, req.user.userId, updateScheduleDto);
+    return this.roomScheduleService.updateSchedule(
+      scheduleId,
+      req.user.userId,
+      updateScheduleDto,
+    );
   }
 
   /**
@@ -85,10 +98,13 @@ export class RoomScheduleController {
    */
   @Delete(':scheduleId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteSchedule(@Param('scheduleId') scheduleId: string, @Request() req: any) {
+  async deleteSchedule(
+    @Param('scheduleId') scheduleId: string,
+    @Request() req: any,
+  ) {
     // Implementar lógica de eliminación
     const schedule = await this.roomScheduleService.getSchedule(scheduleId);
-    
+
     // Verificar permisos (solo el creador o admin de la sala puede eliminar)
     if (schedule.scheduledBy !== req.user.userId) {
       // Verificar si es admin de la sala (implementar según lógica de permisos)
@@ -96,9 +112,13 @@ export class RoomScheduleController {
     }
 
     // Marcar como cancelada en lugar de eliminar
-    return this.roomScheduleService.updateSchedule(scheduleId, req.user.userId, {
-      status: 'cancelled' as any
-    });
+    return this.roomScheduleService.updateSchedule(
+      scheduleId,
+      req.user.userId,
+      {
+        status: 'cancelled' as any,
+      },
+    );
   }
 
   /**
@@ -108,9 +128,13 @@ export class RoomScheduleController {
   async respondToSchedule(
     @Param('scheduleId') scheduleId: string,
     @Request() req: any,
-    @Body() responseDto: RespondToScheduleDto
+    @Body() responseDto: RespondToScheduleDto,
   ) {
-    return this.roomScheduleService.respondToSchedule(scheduleId, req.user.userId, responseDto);
+    return this.roomScheduleService.respondToSchedule(
+      scheduleId,
+      req.user.userId,
+      responseDto,
+    );
   }
 
   /**
@@ -125,7 +149,9 @@ export class RoomScheduleController {
    * Obtener sugerencias de horario
    */
   @Post('suggestions')
-  async getScheduleSuggestions(@Body() getSuggestionsDto: GetScheduleSuggestionsDto) {
+  async getScheduleSuggestions(
+    @Body() getSuggestionsDto: GetScheduleSuggestionsDto,
+  ) {
     return this.roomScheduleService.getScheduleSuggestions(getSuggestionsDto);
   }
 
@@ -136,7 +162,7 @@ export class RoomScheduleController {
   @HttpCode(HttpStatus.CREATED)
   async createScheduleTemplate(
     @Request() req: any,
-    @Body() createTemplateDto: CreateScheduleTemplateDto
+    @Body() createTemplateDto: CreateScheduleTemplateDto,
   ) {
     // Implementar creación de plantillas
     throw new Error('Funcionalidad de plantillas no implementada aún');
@@ -157,7 +183,7 @@ export class RoomScheduleController {
   @Post('availability')
   async setUserAvailability(
     @Request() req: any,
-    @Body() availabilityDto: SetUserAvailabilityDto
+    @Body() availabilityDto: SetUserAvailabilityDto,
   ) {
     // Implementar configuración de disponibilidad
     throw new Error('Funcionalidad de disponibilidad no implementada aún');
@@ -179,7 +205,7 @@ export class RoomScheduleController {
   @HttpCode(HttpStatus.CREATED)
   async createAutoScheduleConfig(
     @Request() req: any,
-    @Body() autoScheduleDto: CreateAutoScheduleConfigDto
+    @Body() autoScheduleDto: CreateAutoScheduleConfigDto,
   ) {
     // Implementar auto-programación
     throw new Error('Funcionalidad de auto-programación no implementada aún');
@@ -202,7 +228,7 @@ export class RoomScheduleController {
     @Param('scheduleId') scheduleId: string,
     @Param('instanceId') instanceId: string,
     @Request() req: any,
-    @Body() modifyDto: ModifyScheduleInstanceDto
+    @Body() modifyDto: ModifyScheduleInstanceDto,
   ) {
     // Implementar modificación de instancias
     throw new Error('Funcionalidad de instancias no implementada aún');
@@ -215,7 +241,7 @@ export class RoomScheduleController {
   async getScheduleInstances(
     @Param('scheduleId') scheduleId: string,
     @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string
+    @Query('endDate') endDate?: string,
   ) {
     // Implementar obtención de instancias
     throw new Error('Funcionalidad de instancias no implementada aún');
@@ -228,9 +254,11 @@ export class RoomScheduleController {
   async getPublicSchedules(@Query() filters: ScheduleFiltersDto) {
     // Filtrar solo programaciones públicas
     const publicFilters = { ...filters, isPublic: true };
-    
+
     // Implementar búsqueda global de programaciones públicas
-    throw new Error('Funcionalidad de programaciones públicas no implementada aún');
+    throw new Error(
+      'Funcionalidad de programaciones públicas no implementada aún',
+    );
   }
 
   /**
@@ -239,7 +267,7 @@ export class RoomScheduleController {
   @Get('search')
   async searchSchedules(
     @Query('q') query: string,
-    @Query() filters: ScheduleFiltersDto
+    @Query() filters: ScheduleFiltersDto,
   ) {
     // Implementar búsqueda por texto
     throw new Error('Funcionalidad de búsqueda no implementada aún');
@@ -251,14 +279,14 @@ export class RoomScheduleController {
   @Get('upcoming')
   async getUpcomingSchedules(
     @Request() req: any,
-    @Query('days') days: number = 7
+    @Query('days') days: number = 7,
   ) {
     const filters: ScheduleFiltersDto = {
       userId: req.user.userId,
       startDate: new Date().toISOString(),
       endDate: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString(),
       status: 'scheduled' as any,
-      limit: 50
+      limit: 50,
     };
 
     return this.roomScheduleService.getUserSchedules(req.user.userId, filters);
@@ -270,7 +298,7 @@ export class RoomScheduleController {
   @Post(':scheduleId/checkin')
   async checkInToSchedule(
     @Param('scheduleId') scheduleId: string,
-    @Request() req: any
+    @Request() req: any,
   ) {
     // Implementar check-in
     throw new Error('Funcionalidad de check-in no implementada aún');
@@ -282,7 +310,7 @@ export class RoomScheduleController {
   @Post(':scheduleId/checkout')
   async checkOutFromSchedule(
     @Param('scheduleId') scheduleId: string,
-    @Request() req: any
+    @Request() req: any,
   ) {
     // Implementar check-out
     throw new Error('Funcionalidad de check-out no implementada aún');

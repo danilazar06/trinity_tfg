@@ -147,7 +147,14 @@ export interface ChatSearchResult {
  * Evento de chat en tiempo real
  */
 export interface ChatEvent {
-  type: 'message' | 'edit' | 'delete' | 'reaction' | 'typing' | 'user_joined' | 'user_left';
+  type:
+    | 'message'
+    | 'edit'
+    | 'delete'
+    | 'reaction'
+    | 'typing'
+    | 'user_joined'
+    | 'user_left';
   roomId: string;
   userId: string;
   username: string;

@@ -45,7 +45,8 @@ export class RoomAnalyticsController {
       this.logger.log('📊 Getting advanced room analytics...');
 
       const timeRange = this.parseTimeRange(startDate, endDate);
-      const analytics = await this.roomAnalyticsService.getAdvancedRoomAnalytics(timeRange);
+      const analytics =
+        await this.roomAnalyticsService.getAdvancedRoomAnalytics(timeRange);
 
       this.logger.log('📊 Advanced room analytics retrieved successfully');
       return analytics;
@@ -198,16 +199,20 @@ export class RoomAnalyticsController {
       this.logger.log('👥 Getting member engagement analytics...');
 
       const timeRange = this.parseTimeRange(startDate, endDate);
-      const analytics = await this.roomAnalyticsService.getMemberEngagementAnalytics(
-        timeRange?.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-        timeRange?.endDate || new Date(),
-      );
+      const analytics =
+        await this.roomAnalyticsService.getMemberEngagementAnalytics(
+          timeRange?.startDate ||
+            new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          timeRange?.endDate || new Date(),
+        );
 
       this.logger.log('👥 Member engagement analytics retrieved successfully');
       return analytics;
     } catch (error) {
       this.logger.error('❌ Error getting member engagement analytics:', error);
-      throw new BadRequestException('Failed to get member engagement analytics');
+      throw new BadRequestException(
+        'Failed to get member engagement analytics',
+      );
     }
   }
 
@@ -248,10 +253,15 @@ export class RoomAnalyticsController {
     @Query('endDate') endDate?: string,
   ): Promise<any> {
     try {
-      this.logger.log(`📈 Getting room performance dashboard${roomId ? ` for room ${roomId}` : ''}...`);
+      this.logger.log(
+        `📈 Getting room performance dashboard${roomId ? ` for room ${roomId}` : ''}...`,
+      );
 
       const timeRange = this.parseTimeRange(startDate, endDate);
-      const dashboard = await this.analyticsService.getRoomPerformanceDashboard(roomId, timeRange);
+      const dashboard = await this.analyticsService.getRoomPerformanceDashboard(
+        roomId,
+        timeRange,
+      );
 
       this.logger.log('📈 Room performance dashboard retrieved successfully');
       return dashboard;
@@ -275,15 +285,13 @@ export class RoomAnalyticsController {
       this.logger.log(`📊 Getting analytics summary for room ${roomId}...`);
 
       const timeRange = this.parseTimeRange(startDate, endDate);
-      
+
       // Get room-specific analytics
-      const [
-        advancedAnalytics,
-        performanceScoring,
-      ] = await Promise.all([
+      const [advancedAnalytics, performanceScoring] = await Promise.all([
         this.roomAnalyticsService.getAdvancedRoomAnalytics(timeRange),
         this.roomAnalyticsService.getRoomPerformanceScoring(
-          timeRange?.startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          timeRange?.startDate ||
+            new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
           timeRange?.endDate || new Date(),
         ),
       ]);
@@ -291,23 +299,39 @@ export class RoomAnalyticsController {
       const summary = {
         roomId,
         timeRange: {
-          startDate: timeRange?.startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          startDate:
+            timeRange?.startDate ||
+            new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
           endDate: timeRange?.endDate || new Date(),
         },
         performanceScore: performanceScoring.overallScore,
         keyMetrics: {
-          templateUsage: advancedAnalytics.templateAnalytics.templateUsageStats.totalUsages,
-          themeApplications: advancedAnalytics.themeAnalytics.themeUsageStats.totalApplications,
-          scheduledSessions: advancedAnalytics.scheduleAnalytics.scheduleAttendanceStats.totalScheduledSessions,
-          moderationActions: advancedAnalytics.moderationAnalytics.moderationActionStats.totalActions,
+          templateUsage:
+            advancedAnalytics.templateAnalytics.templateUsageStats.totalUsages,
+          themeApplications:
+            advancedAnalytics.themeAnalytics.themeUsageStats.totalApplications,
+          scheduledSessions:
+            advancedAnalytics.scheduleAnalytics.scheduleAttendanceStats
+              .totalScheduledSessions,
+          moderationActions:
+            advancedAnalytics.moderationAnalytics.moderationActionStats
+              .totalActions,
         },
-        recommendations: performanceScoring.improvementRecommendations.slice(0, 3),
+        recommendations: performanceScoring.improvementRecommendations.slice(
+          0,
+          3,
+        ),
       };
 
-      this.logger.log(`📊 Analytics summary for room ${roomId} retrieved successfully`);
+      this.logger.log(
+        `📊 Analytics summary for room ${roomId} retrieved successfully`,
+      );
       return summary;
     } catch (error) {
-      this.logger.error(`❌ Error getting analytics summary for room ${roomId}:`, error);
+      this.logger.error(
+        `❌ Error getting analytics summary for room ${roomId}:`,
+        error,
+      );
       throw new BadRequestException('Failed to get room analytics summary');
     }
   }
@@ -315,14 +339,19 @@ export class RoomAnalyticsController {
   /**
    * Parse time range from query parameters
    */
-  private parseTimeRange(startDate?: string, endDate?: string): TimeRange | undefined {
+  private parseTimeRange(
+    startDate?: string,
+    endDate?: string,
+  ): TimeRange | undefined {
     if (!startDate && !endDate) {
       return undefined;
     }
 
     try {
       const range: TimeRange = {
-        startDate: startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        startDate: startDate
+          ? new Date(startDate)
+          : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
         endDate: endDate ? new Date(endDate) : new Date(),
       };
 
@@ -338,7 +367,9 @@ export class RoomAnalyticsController {
       return range;
     } catch (error) {
       this.logger.error('Error parsing time range:', error);
-      throw new BadRequestException('Invalid date format. Use ISO 8601 format (YYYY-MM-DD)');
+      throw new BadRequestException(
+        'Invalid date format. Use ISO 8601 format (YYYY-MM-DD)',
+      );
     }
   }
 }
