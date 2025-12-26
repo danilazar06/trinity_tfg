@@ -390,7 +390,7 @@ export class RoomThemeManagementController {
   async getThemeHistory(
     @Param('roomId') roomId: string,
     @Query('limit') limit?: number,
-    @Request() req: any,
+    @Request() req?: any,
   ): Promise<any[]> {
     // En una implementación completa, esto consultaría el historial real
     return [

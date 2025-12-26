@@ -21,6 +21,7 @@ import { ContentSuggestionModule } from './modules/content-suggestion/content-su
 import { RoomAutomationModule } from './modules/room-automation/room-automation.module';
 import { PerformanceOptimizerModule } from './optimization/performance-optimizer.module';
 import { DatabaseModule } from './infrastructure/database/database.module';
+import { HealthModule } from './modules/health/health.module';
 import { PermissionAuditMiddleware } from './common/middleware/permission-audit.middleware';
 
 @Module({
@@ -50,6 +51,7 @@ import { PermissionAuditMiddleware } from './common/middleware/permission-audit.
     ContentSuggestionModule, // Sistema de sugerencias de contenido colaborativo
     RoomAutomationModule, // Sistema de automatización inteligente de salas
     PerformanceOptimizerModule, // Sistema de optimización de rendimiento (Task 12)
+    HealthModule, // Sistema de health checks para AWS y servicios externos
   ],
 })
 export class AppModule implements NestModule {

@@ -27,26 +27,13 @@ export class DynamoDBService {
   private readonly tableName: string;
 
   constructor(private configService: ConfigService) {
-    // Configuración para desarrollo local o AWS
-    const isLocal = this.configService.get('NODE_ENV') === 'development';
-
-    if (isLocal) {
-      // Para desarrollo local con DynamoDB Local
-      this.dynamodb = new AWS.DynamoDB.DocumentClient({
-        region: 'localhost',
-        endpoint: 'http://localhost:8000',
-        accessKeyId: 'fakeMyKeyId',
-        secretAccessKey: 'fakeSecretAccessKey',
-      });
-    } else {
-      // Para producción en AWS
-      AWS.config.update({
-        region: this.configService.get('AWS_REGION', 'us-east-1'),
-        accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID'),
-        secretAccessKey: this.configService.get('AWS_SECRET_ACCESS_KEY'),
-      });
-      this.dynamodb = new AWS.DynamoDB.DocumentClient();
-    }
+    // Siempre usar DynamoDB real de AWS (no local)
+    AWS.config.update({
+      region: this.configService.get('AWS_REGION', 'eu-west-1'),
+      accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID'),
+      secretAccessKey: this.configService.get('AWS_SECRET_ACCESS_KEY'),
+    });
+    this.dynamodb = new AWS.DynamoDB.DocumentClient();
 
     this.tableName = this.configService.get(
       'DYNAMODB_TABLE_NAME',

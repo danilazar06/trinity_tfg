@@ -350,7 +350,7 @@ export class RoomChatController {
     @Param('roomId') roomId: string,
     @Query('q') searchText: string,
     @Query('limit') limit?: number,
-    @Request() req: any,
+    @Request() req?: any,
   ): Promise<ChatSearchResult> {
     const { userId } = req.user;
     const filters: ChatMessageFiltersDto = {
@@ -381,7 +381,7 @@ export class RoomChatController {
   async getRecentMessages(
     @Param('roomId') roomId: string,
     @Query('limit') limit?: number,
-    @Request() req: any,
+    @Request() req?: any,
   ): Promise<ChatSearchResult> {
     const { userId } = req.user;
     const filters: ChatMessageFiltersDto = {
@@ -413,7 +413,7 @@ export class RoomChatController {
     @Param('roomId') roomId: string,
     @Param('targetUserId') targetUserId: string,
     @Query('limit') limit?: number,
-    @Request() req: any,
+    @Request() req?: any,
   ): Promise<ChatSearchResult> {
     const { userId } = req.user;
     const filters: ChatMessageFiltersDto = {

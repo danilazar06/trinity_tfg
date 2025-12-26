@@ -184,7 +184,7 @@ Respuesta JSON:`;
         genres: ['Drama inspiracional', 'Biografía', 'Comedia'],
         approach: 'catarsis',
       },
-      default: { genres: ['Drama', 'Comedia', 'Aventura'], approach: 'mixed' },
+      default: { genres: ['Drama', 'Comedia', 'Aventura'], approach: 'evasion' },
     };
 
     const recommendation =

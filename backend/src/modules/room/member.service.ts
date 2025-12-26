@@ -86,7 +86,7 @@ export class MemberService {
         DynamoDBKeys.memberSK(userId),
       );
 
-      return item ? (item as Member) : null;
+      return item ? (item as unknown as Member) : null;
     } catch (error) {
       this.logger.error(
         `Error getting member ${userId} from room ${roomId}: ${error.message}`,
@@ -108,7 +108,7 @@ export class MemberService {
         },
       });
 
-      return items as Member[];
+      return items as unknown as Member[];
     } catch (error) {
       this.logger.error(
         `Error getting members for room ${roomId}: ${error.message}`,

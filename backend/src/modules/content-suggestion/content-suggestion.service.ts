@@ -659,13 +659,13 @@ export class ContentSuggestionService {
 
       const result = await this.dynamoDBService.query(queryParams);
       const suggestions =
-        result.Items?.map((item) => item as ContentSuggestion) || [];
+        (result as any).Items?.map((item: any) => item as ContentSuggestion) || [];
 
       return {
         suggestions,
         totalCount: suggestions.length,
-        hasMore: !!result.LastEvaluatedKey,
-        nextOffset: result.LastEvaluatedKey?.GSI1PK,
+        hasMore: !!(result as any).LastEvaluatedKey,
+        nextOffset: (result as any).LastEvaluatedKey?.GSI1PK,
       };
     } catch (error) {
       this.logger.error(`Error obteniendo sugerencias: ${error.message}`);
@@ -760,7 +760,7 @@ export class ContentSuggestionService {
         };
       }
 
-      return result as RoomSuggestionConfig;
+      return result as unknown as RoomSuggestionConfig;
     } catch (error) {
       this.logger.error(
         `Error obteniendo configuración de sugerencias: ${error.message}`,
@@ -794,7 +794,7 @@ export class ContentSuggestionService {
         return this.calculateSuggestionStats(roomId);
       }
 
-      return result as RoomSuggestionStats;
+      return result as unknown as RoomSuggestionStats;
     } catch (error) {
       this.logger.error(
         `Error obteniendo estadísticas de sugerencias: ${error.message}`,
@@ -818,7 +818,7 @@ export class ContentSuggestionService {
       throw new NotFoundException('Sugerencia no encontrada');
     }
 
-    return result as ContentSuggestion;
+    return result as unknown as ContentSuggestion;
   }
 
   private async checkUserLimits(
@@ -839,7 +839,7 @@ export class ContentSuggestionService {
       },
     });
 
-    const todaySuggestions = result.Items?.length || 0;
+    const todaySuggestions = (result as any).Items?.length || 0;
     if (todaySuggestions >= config.maxSuggestionsPerUser) {
       throw new BadRequestException(
         `Has alcanzado el límite de ${config.maxSuggestionsPerUser} sugerencias por día`,
@@ -849,10 +849,6 @@ export class ContentSuggestionService {
     // Verificar límite de sugerencias pendientes en la sala
     const pendingResult = await this.dynamoDBService.query({
       KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
-      ExpressionAttributeValues: {
-        ':pk': DynamoDBKeys.roomPK(roomId),
-        ':sk': 'SUGGESTION#',
-      },
       FilterExpression: '#status = :status',
       ExpressionAttributeNames: {
         '#status': 'status',
@@ -864,7 +860,7 @@ export class ContentSuggestionService {
       },
     });
 
-    const pendingSuggestions = pendingResult.Items?.length || 0;
+    const pendingSuggestions = (pendingResult as any).Items?.length || 0;
     if (pendingSuggestions >= config.maxPendingSuggestions) {
       throw new BadRequestException(
         `La sala ha alcanzado el límite de ${config.maxPendingSuggestions} sugerencias pendientes`,

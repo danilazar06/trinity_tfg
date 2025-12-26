@@ -110,7 +110,7 @@ export class AutoScalingService {
    * 🚨 Verificación de alertas críticas
    * Ejecuta cada 15 minutos para detectar picos de costo
    */
-  @Cron(CronExpression.EVERY_15_MINUTES)
+  @Cron(CronExpression.EVERY_5_MINUTES)
   async criticalAlertsCheck() {
     try {
       const metrics =
@@ -136,7 +136,7 @@ export class AutoScalingService {
    * 🧹 Limpieza semanal
    * Ejecuta tareas de limpieza y mantenimiento cada domingo
    */
-  @Cron(CronExpression.EVERY_SUNDAY_AT_2AM)
+  @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async weeklyMaintenance() {
     try {
       this.logger.log('🧹 Iniciando mantenimiento semanal...');

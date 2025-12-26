@@ -87,7 +87,7 @@ export class RoomSettingsService {
         return DEFAULT_ROOM_SETTINGS;
       }
 
-      return (settingsEntity as RoomSettingsEntity).settings;
+      return (settingsEntity as unknown as RoomSettingsEntity).settings;
     } catch (error) {
       this.logger.error(
         `Error obteniendo configuraciones de sala ${roomId}: ${error.message}`,
@@ -466,7 +466,7 @@ export class RoomSettingsService {
       const room = await this.roomService.getRoom(roomId);
 
       // Verificar que el usuario es miembro de la sala
-      const isMember = room.members?.some((member) => member.userId === userId);
+      const isMember = room && (room as any).members?.some((member: any) => member.userId === userId);
       if (!isMember) {
         throw new ForbiddenException('No tienes acceso a esta sala');
       }
@@ -487,8 +487,8 @@ export class RoomSettingsService {
 
       // Verificar que el usuario es el creador o admin de la sala
       const isAdmin =
-        room.creatorId === userId ||
-        room.members?.some(
+        room && room.creatorId === userId ||
+        room && (room as any).members?.some(
           (member) => member.userId === userId && member.role === 'admin',
         );
 

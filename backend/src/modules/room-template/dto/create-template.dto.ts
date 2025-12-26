@@ -19,7 +19,7 @@ import {
   ConsensusType,
   RoomPrivacy,
 } from '../../../domain/entities/room-template.entity';
-import { ContentFilters } from '../../../domain/entities/room.entity';
+import type { ContentFilters } from '../../../domain/entities/room.entity';
 
 /**
  * DTO para configuración avanzada de sala

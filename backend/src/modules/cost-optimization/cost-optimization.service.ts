@@ -147,7 +147,6 @@ export class CostOptimizationService {
 
       const command = new DescribeBudgetsCommand({
         AccountId: process.env.AWS_ACCOUNT_ID,
-        BudgetNames: [budgetName],
       });
 
       const response = await this.budgetsClient.send(command);

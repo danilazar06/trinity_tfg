@@ -50,7 +50,7 @@ export class PermissionAuditMiddleware implements NestMiddleware {
       if (this.shouldAudit(req.path)) {
         await this.logPermissionAccess({
           id: auditId,
-          userId: req.user?.sub || 'anonymous',
+          userId: (req.user as any)?.id || (req.user as any)?.sub || 'anonymous',
           roomId: req.params.roomId || req.body?.roomId,
           endpoint: req.path,
           method: req.method,

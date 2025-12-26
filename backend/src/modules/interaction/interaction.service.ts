@@ -232,7 +232,7 @@ export class InteractionService {
         Limit: limit,
       });
 
-      return votes as Vote[];
+      return votes as unknown as Vote[];
     } catch (error) {
       this.logger.error(
         `Error obteniendo historial de votos: ${error.message}`,
@@ -255,7 +255,7 @@ export class InteractionService {
         },
       });
 
-      return votes as Vote[];
+      return votes as unknown as Vote[];
     } catch (error) {
       this.logger.error(`Error obteniendo votos de media: ${error.message}`);
       throw error;
@@ -530,7 +530,7 @@ export class InteractionService {
         DynamoDBKeys.voteSK(userId, mediaId),
       );
 
-      return item ? (item as Vote) : null;
+      return item ? (item as unknown as Vote) : null;
     } catch (error) {
       return null;
     }

@@ -26,7 +26,7 @@ import {
 /**
  * DTO para crear patrón de recurrencia
  */
-export class CreateRecurrencePatternDto implements Partial<RecurrencePattern> {
+export class CreateRecurrencePatternDto {
   @IsEnum(RecurrenceType)
   type: RecurrenceType;
 
@@ -212,7 +212,7 @@ export class RespondToScheduleDto {
 /**
  * DTO para filtros de búsqueda
  */
-export class ScheduleFiltersDto implements Partial<ScheduleFilters> {
+export class ScheduleFiltersDto {
   @IsOptional()
   @IsString()
   roomId?: string;

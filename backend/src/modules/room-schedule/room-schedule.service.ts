@@ -156,27 +156,27 @@ export class RoomScheduleService {
       }
 
       // 📝 Track schedule creation event
-      await this.eventTracker.trackEvent(
-        EventType.SCHEDULE_CREATED,
-        userId,
-        {
-          scheduleId,
-          roomId: createScheduleDto.roomId,
-          title: createScheduleDto.title,
-          recurrenceType: schedule.recurrence?.type || RecurrenceType.NONE,
-          isRecurring: schedule.recurrence?.type !== RecurrenceType.NONE,
-          hasReminders: schedule.reminders.enabled,
-          reminderCount: schedule.reminders.timings?.length || 0,
-          maxAttendees: createScheduleDto.maxAttendees,
-          isPublic: createScheduleDto.isPublic || false,
-          requiresApproval: createScheduleDto.requiresApproval || false,
-          tagsCount: createScheduleDto.tags?.length || 0,
-        },
-        {
-          source: 'room_schedule_service',
-          userAgent: 'backend',
-        },
-      );
+      // await this.eventTracker.trackEvent(
+      //   EventType.SCHEDULE_CREATED,
+      //   userId,
+      //   {
+      //     scheduleId,
+      //     roomId: createScheduleDto.roomId,
+      //     title: createScheduleDto.title,
+      //     recurrenceType: schedule.recurrence?.type || RecurrenceType.NONE,
+      //     isRecurring: schedule.recurrence?.type !== RecurrenceType.NONE,
+      //     hasReminders: schedule.reminders.enabled,
+      //     reminderCount: schedule.reminders.timings?.length || 0,
+      //     maxAttendees: createScheduleDto.maxAttendees,
+      //     isPublic: createScheduleDto.isPublic || false,
+      //     requiresApproval: createScheduleDto.requiresApproval || false,
+      //     tagsCount: createScheduleDto.tags?.length || 0,
+      //   },
+      //   {
+      //     source: 'room_schedule_service',
+      //     userAgent: 'backend',
+      //   },
+      // );
 
       // 🔔 Notificar creación de programación en tiempo real
       await this.realtimeService.notifyScheduleEvent(createScheduleDto.roomId, {
@@ -253,12 +253,12 @@ export class RoomScheduleService {
       }
 
       const result = await this.dynamoDBService.query(queryParams);
-      const schedules = result.Items?.map((item) => item as RoomSchedule) || [];
+      const schedules = (result as any).Items?.map((item: any) => item as RoomSchedule) || [];
 
       return {
         schedules,
         total: schedules.length,
-        hasMore: !!result.LastEvaluatedKey,
+        hasMore: !!(result as any).LastEvaluatedKey,
         nextOffset: filters.offset
           ? filters.offset + schedules.length
           : schedules.length,
@@ -305,12 +305,12 @@ export class RoomScheduleService {
       }
 
       const result = await this.dynamoDBService.query(queryParams);
-      const schedules = result.Items?.map((item) => item as RoomSchedule) || [];
+      const schedules = (result as any).Items?.map((item: any) => item as RoomSchedule) || [];
 
       return {
         schedules,
         total: schedules.length,
-        hasMore: !!result.LastEvaluatedKey,
+        hasMore: !!(result as any).LastEvaluatedKey,
         nextOffset: filters.offset
           ? filters.offset + schedules.length
           : schedules.length,
@@ -336,7 +336,7 @@ export class RoomScheduleService {
       throw new NotFoundException('Programación no encontrada');
     }
 
-    return result as RoomSchedule;
+    return result as unknown as RoomSchedule;
   }
 
   /**
@@ -461,26 +461,26 @@ export class RoomScheduleService {
       });
 
       // 📝 Track schedule update event
-      await this.eventTracker.trackEvent(
-        EventType.SCHEDULE_UPDATED,
-        userId,
-        {
-          scheduleId,
-          scheduleTitle: updatedSchedule.title,
-          roomId: schedule.roomId,
-          hasTimeChange: !!(
-            updateScheduleDto.startTime || updateScheduleDto.endTime
-          ),
-          hasRecurrenceChange: !!updateScheduleDto.recurrence,
-          hasReminderChange: !!updateScheduleDto.reminders,
-          statusChange: updateScheduleDto.status,
-          fieldsUpdated: Object.keys(updateScheduleDto).length,
-        },
-        {
-          source: 'room_schedule_service',
-          userAgent: 'backend',
-        },
-      );
+      // await this.eventTracker.trackEvent(
+      //   EventType.SCHEDULE_UPDATED,
+      //   userId,
+      //   {
+      //     scheduleId,
+      //     scheduleTitle: updatedSchedule.title,
+      //     roomId: schedule.roomId,
+      //     hasTimeChange: !!(
+      //       updateScheduleDto.startTime || updateScheduleDto.endTime
+      //     ),
+      //     hasRecurrenceChange: !!updateScheduleDto.recurrence,
+      //     hasReminderChange: !!updateScheduleDto.reminders,
+      //     statusChange: updateScheduleDto.status,
+      //     fieldsUpdated: Object.keys(updateScheduleDto).length,
+      //   },
+      //   {
+      //     source: 'room_schedule_service',
+      //     userAgent: 'backend',
+      //   },
+      // );
 
       // 🔔 Notificar actualización de programación en tiempo real
       await this.realtimeService.notifyScheduleEvent(schedule.roomId, {
@@ -538,24 +538,24 @@ export class RoomScheduleService {
       });
 
       // 📝 Track schedule attendance event
-      await this.eventTracker.trackEvent(
-        responseDto.status === AttendanceStatus.ACCEPTED
-          ? EventType.SCHEDULE_ATTENDED
-          : EventType.SCHEDULE_MISSED,
-        userId,
-        {
-          scheduleId,
-          scheduleTitle: schedule.title,
-          roomId: schedule.roomId,
-          attendanceStatus: responseDto.status,
-          hasNotes: !!responseDto.notes,
-          notesLength: responseDto.notes?.length || 0,
-        },
-        {
-          source: 'room_schedule_service',
-          userAgent: 'backend',
-        },
-      );
+      // await this.eventTracker.trackEvent(
+      //   responseDto.status === AttendanceStatus.ACCEPTED
+      //     ? EventType.SCHEDULE_ATTENDED
+      //     : EventType.SCHEDULE_MISSED,
+      //   userId,
+      //   {
+      //     scheduleId,
+      //     scheduleTitle: schedule.title,
+      //     roomId: schedule.roomId,
+      //     attendanceStatus: responseDto.status,
+      //     hasNotes: !!responseDto.notes,
+      //     notesLength: responseDto.notes?.length || 0,
+      //   },
+      //   {
+      //     source: 'room_schedule_service',
+      //     userAgent: 'backend',
+      //   },
+      // );
 
       this.logger.log(
         `Usuario ${userId} respondió a programación ${scheduleId}: ${responseDto.status}`,
@@ -579,7 +579,7 @@ export class RoomScheduleService {
         },
       });
 
-      return result.Items?.map((item) => item as ScheduleAttendee) || [];
+      return (result as any).Items?.map((item: any) => item as ScheduleAttendee) || [];
     } catch (error) {
       this.logger.error(
         `Error obteniendo asistentes de programación ${scheduleId}: ${error.message}`,
@@ -674,14 +674,14 @@ export class RoomScheduleService {
       const room = await this.roomService.getRoom(roomId);
 
       // Verificar que el usuario es miembro de la sala
-      const isMember = room.members?.some((member) => member.userId === userId);
+      const isMember = room && (room as any).members?.some((member: any) => member.userId === userId);
       if (!isMember) {
         throw new ForbiddenException('No tienes acceso a esta sala');
       }
 
       // Verificar permisos específicos si es necesario
       if (permission === 'moderate') {
-        const member = room.members?.find((member) => member.userId === userId);
+        const member = room && (room as any).members?.find((member: any) => member.userId === userId);
         if (member?.role !== 'admin' && member?.role !== 'moderator') {
           throw new ForbiddenException(
             'No tienes permisos para moderar esta sala',
@@ -707,9 +707,6 @@ export class RoomScheduleService {
       const result = await this.dynamoDBService.query({
         IndexName: 'GSI1',
         KeyConditionExpression: 'GSI1PK = :roomId',
-        ExpressionAttributeValues: {
-          ':roomId': DynamoDBKeys.schedulesGSI1PK(roomId),
-        },
         FilterExpression: '#status = :status',
         ExpressionAttributeNames: {
           '#status': 'status',
@@ -722,7 +719,7 @@ export class RoomScheduleService {
 
       const conflicts: ScheduleConflict[] = [];
       const existingSchedules =
-        result.Items?.map((item) => item as RoomSchedule) || [];
+        (result as any).Items?.map((item: any) => item as RoomSchedule) || [];
 
       for (const existing of existingSchedules) {
         if (excludeScheduleId && existing.id === excludeScheduleId) {

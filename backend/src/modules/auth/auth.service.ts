@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
-import { DynamoDBKeys } from '../../infrastructure/database/dynamodb.constants';
+import { MultiTableService } from '../../infrastructure/database/multi-table.service';
 import { CognitoService } from '../../infrastructure/cognito/cognito.service';
 import { EventTracker } from '../analytics/event-tracker.service';
 import { EventType } from '../analytics/interfaces/analytics.interfaces';
@@ -21,7 +20,7 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
-    private dynamoDBService: DynamoDBService,
+    private multiTableService: MultiTableService,
     private cognitoService: CognitoService,
     private eventTracker: EventTracker,
   ) {}
@@ -54,12 +53,12 @@ export class AuthService {
     };
 
     // Guardar en DynamoDB
-    await this.dynamoDBService.putItem({
-      PK: DynamoDBKeys.userPK(userSub),
-      SK: DynamoDBKeys.userSK(),
-      GSI1PK: DynamoDBKeys.userGSI1PK(email),
-      GSI1SK: DynamoDBKeys.userSK(),
-      ...user,
+    await this.multiTableService.createUser({
+      userId: userSub,
+      email,
+      username,
+      emailVerified: false,
+      phoneNumber,
     });
 
     const userProfile = this.toUserProfile(user);
@@ -100,17 +99,12 @@ export class AuthService {
     // Actualizar estado en DynamoDB
     const user = await this.findUserByEmail(email);
     if (user) {
-      await this.dynamoDBService.conditionalUpdate(
-        DynamoDBKeys.userPK(user.id),
-        DynamoDBKeys.userSK(),
-        'SET emailVerified = :emailVerified, updatedAt = :updatedAt',
-        'attribute_exists(PK)',
-        undefined,
-        {
+      await this.multiTableService.update('trinity-users-dev', { userId: user.id }, {
+        UpdateExpression: 'SET emailVerified = :emailVerified',
+        ExpressionAttributeValues: {
           ':emailVerified': true,
-          ':updatedAt': new Date().toISOString(),
         },
-      );
+      });
     }
 
     this.logger.log(`Usuario confirmado: ${email}`);
@@ -155,26 +149,21 @@ export class AuthService {
         phoneNumber: authResult.user.phone_number,
       };
 
-      await this.dynamoDBService.putItem({
-        PK: DynamoDBKeys.userPK(user.id),
-        SK: DynamoDBKeys.userSK(),
-        GSI1PK: DynamoDBKeys.userGSI1PK(email),
-        GSI1SK: DynamoDBKeys.userSK(),
-        ...user,
+      await this.multiTableService.createUser({
+        userId: user.id,
+        email: user.email,
+        username: user.username,
+        emailVerified: user.emailVerified,
+        phoneNumber: user.phoneNumber,
       });
     } else {
       // Actualizar información desde Cognito
-      await this.dynamoDBService.conditionalUpdate(
-        DynamoDBKeys.userPK(user.id),
-        DynamoDBKeys.userSK(),
-        'SET emailVerified = :emailVerified, updatedAt = :updatedAt',
-        'attribute_exists(PK)',
-        undefined,
-        {
+      await this.multiTableService.update('trinity-users-dev', { userId: user.id }, {
+        UpdateExpression: 'SET emailVerified = :emailVerified',
+        ExpressionAttributeValues: {
           ':emailVerified': authResult.user.email_verified,
-          ':updatedAt': new Date().toISOString(),
         },
-      );
+      });
       user.emailVerified = authResult.user.email_verified;
     }
 
@@ -231,12 +220,12 @@ export class AuthService {
           phoneNumber: cognitoUser.phone_number,
         };
 
-        await this.dynamoDBService.putItem({
-          PK: DynamoDBKeys.userPK(newUser.id),
-          SK: DynamoDBKeys.userSK(),
-          GSI1PK: DynamoDBKeys.userGSI1PK(newUser.email),
-          GSI1SK: DynamoDBKeys.userSK(),
-          ...newUser,
+        await this.multiTableService.createUser({
+          userId: newUser.id,
+          email: newUser.email,
+          username: newUser.username,
+          emailVerified: newUser.emailVerified,
+          phoneNumber: newUser.phoneNumber,
         });
 
         return this.toUserProfile(newUser);
@@ -284,12 +273,18 @@ export class AuthService {
    */
   async getUserById(userId: string): Promise<User | null> {
     try {
-      const item = await this.dynamoDBService.getItem(
-        DynamoDBKeys.userPK(userId),
-        DynamoDBKeys.userSK(),
-      );
-
-      return item ? (item as User) : null;
+      const item = await this.multiTableService.getUser(userId);
+      if (!item) return null;
+      
+      return {
+        id: item.userId,
+        email: item.email,
+        username: item.username,
+        emailVerified: item.emailVerified,
+        createdAt: new Date(item.createdAt),
+        updatedAt: new Date(item.updatedAt),
+        phoneNumber: item.phoneNumber,
+      };
     } catch (error) {
       this.logger.error(`Error getting user ${userId}: ${error.message}`);
       return null;
@@ -301,16 +296,26 @@ export class AuthService {
    */
   private async findUserByEmail(email: string): Promise<User | null> {
     try {
-      const items = await this.dynamoDBService.query({
-        IndexName: 'GSI1',
-        KeyConditionExpression: 'GSI1PK = :gsi1pk AND GSI1SK = :gsi1sk',
+      // Scan para buscar por email (no óptimo pero funcional para MVP)
+      const items = await this.multiTableService.scan('trinity-users-dev', {
+        FilterExpression: 'email = :email',
         ExpressionAttributeValues: {
-          ':gsi1pk': DynamoDBKeys.userGSI1PK(email),
-          ':gsi1sk': DynamoDBKeys.userSK(),
+          ':email': email,
         },
       });
 
-      return items.length > 0 ? (items[0] as User) : null;
+      if (items.length === 0) return null;
+      
+      const item = items[0];
+      return {
+        id: item.userId,
+        email: item.email,
+        username: item.username,
+        emailVerified: item.emailVerified,
+        createdAt: new Date(item.createdAt),
+        updatedAt: new Date(item.updatedAt),
+        phoneNumber: item.phoneNumber,
+      };
     } catch (error) {
       this.logger.error(
         `Error finding user by email ${email}: ${error.message}`,
