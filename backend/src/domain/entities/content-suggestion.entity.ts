@@ -34,7 +34,7 @@ export interface ContentSuggestion {
   suggestedByUsername: string;
   type: ContentSuggestionType;
   status: ContentSuggestionStatus;
-  
+
   // Información del contenido
   title: string;
   description?: string;
@@ -46,34 +46,34 @@ export interface ContentSuggestion {
   duration?: number; // En minutos
   posterUrl?: string;
   trailerUrl?: string;
-  
+
   // Información de la sugerencia
   reason?: string; // Por qué sugiere este contenido
   tags?: string[];
   priority: number; // 1-5, donde 5 es alta prioridad
-  
+
   // Votación y aprobación
   votes: ContentSuggestionVote[];
   totalVotes: number;
   positiveVotes: number;
   negativeVotes: number;
   voteScore: number; // Puntuación calculada
-  
+
   // Comentarios y discusión
   comments: ContentSuggestionComment[];
   commentCount: number;
-  
+
   // Moderación
   reviewedBy?: string;
   reviewedAt?: Date;
   reviewNotes?: string;
   moderationFlags?: string[];
-  
+
   // Implementación
   implementedAt?: Date;
   implementedBy?: string;
   addedToQueueAt?: Date;
-  
+
   // Metadatos
   metadata?: Record<string, any>;
   createdAt: Date;
@@ -144,21 +144,21 @@ export interface RoomSuggestionStats {
   approvedSuggestions: number;
   rejectedSuggestions: number;
   implementedSuggestions: number;
-  
+
   suggestionsByType: Record<ContentSuggestionType, number>;
   suggestionsByStatus: Record<ContentSuggestionStatus, number>;
-  
+
   topSuggesters: Array<{
     userId: string;
     username: string;
     suggestionCount: number;
     approvalRate: number;
   }>;
-  
+
   averageVotesPerSuggestion: number;
   averageScorePerSuggestion: number;
   averageTimeToApproval: number; // En horas
-  
+
   lastSuggestionAt: Date;
   mostPopularGenres: Array<{
     genre: string;
@@ -207,7 +207,13 @@ export interface SuggestionSearchResult {
  * Evento de sugerencia en tiempo real
  */
 export interface SuggestionEvent {
-  type: 'created' | 'voted' | 'commented' | 'approved' | 'rejected' | 'implemented';
+  type:
+    | 'created'
+    | 'voted'
+    | 'commented'
+    | 'approved'
+    | 'rejected'
+    | 'implemented';
   roomId: string;
   suggestionId: string;
   userId: string;

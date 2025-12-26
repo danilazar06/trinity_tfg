@@ -1,15 +1,20 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
 import { DynamoDBKeys } from '../../infrastructure/database/dynamodb.constants';
 import { RoomModerationService } from '../room-moderation/room-moderation.service';
-import { 
-  RoomPermission, 
-  SystemRole, 
+import {
+  RoomPermission,
+  SystemRole,
   PermissionCheckResult,
   CustomRole,
   PermissionCache,
   PermissionConflict,
-  PermissionInheritance
+  PermissionInheritance,
 } from '../../domain/entities/room-moderation.entity';
 import { PermissionAuditLog } from '../../common/middleware/permission-audit.middleware';
 
@@ -57,13 +62,18 @@ export class PermissionService {
     roomId: string,
     userId: string,
     permissions: RoomPermission[],
-    options: PermissionCheckOptions = {}
+    options: PermissionCheckOptions = {},
   ): Promise<PermissionCheckResult[]> {
     const results: PermissionCheckResult[] = [];
 
     for (const permission of permissions) {
       try {
-        const result = await this.checkSinglePermission(roomId, userId, permission, options);
+        const result = await this.checkSinglePermission(
+          roomId,
+          userId,
+          permission,
+          options,
+        );
         results.push(result);
       } catch (error) {
         results.push({
@@ -81,7 +91,9 @@ export class PermissionService {
   /**
    * Verificar permisos en lote para múltiples usuarios
    */
-  async bulkCheckPermissions(checks: BulkPermissionCheck[]): Promise<Map<string, PermissionCheckResult[]>> {
+  async bulkCheckPermissions(
+    checks: BulkPermissionCheck[],
+  ): Promise<Map<string, PermissionCheckResult[]>> {
     const results = new Map<string, PermissionCheckResult[]>();
 
     for (const check of checks) {
@@ -90,7 +102,7 @@ export class PermissionService {
         check.roomId,
         check.userId,
         check.permissions,
-        { useCache: true }
+        { useCache: true },
       );
       results.set(key, checkResults);
     }
@@ -101,16 +113,25 @@ export class PermissionService {
   /**
    * Obtener resumen completo de permisos de un usuario
    */
-  async getPermissionSummary(roomId: string, userId: string): Promise<PermissionSummary> {
-    const userRoles = await this.roomModerationService.getUserRoles(roomId, userId);
+  async getPermissionSummary(
+    roomId: string,
+    userId: string,
+  ): Promise<PermissionSummary> {
+    const userRoles = await this.roomModerationService.getUserRoles(
+      roomId,
+      userId,
+    );
     const directPermissions = this.extractDirectPermissions(userRoles);
-    const inheritedPermissions = await this.getInheritedPermissions(roomId, userId);
+    const inheritedPermissions = await this.getInheritedPermissions(
+      roomId,
+      userId,
+    );
     const conflicts = await this.detectPermissionConflicts(roomId, userId);
 
     return {
       userId,
       roomId,
-      roles: userRoles.map(role => role.id),
+      roles: userRoles.map((role) => role.id),
       permissions: directPermissions,
       inheritedPermissions,
       conflicts,
@@ -121,8 +142,14 @@ export class PermissionService {
   /**
    * Detectar conflictos de permisos
    */
-  async detectPermissionConflicts(roomId: string, userId: string): Promise<PermissionConflict[]> {
-    const userRoles = await this.roomModerationService.getUserRoles(roomId, userId);
+  async detectPermissionConflicts(
+    roomId: string,
+    userId: string,
+  ): Promise<PermissionConflict[]> {
+    const userRoles = await this.roomModerationService.getUserRoles(
+      roomId,
+      userId,
+    );
     const conflicts: PermissionConflict[] = [];
 
     // Verificar conflictos de jerarquía
@@ -144,7 +171,7 @@ export class PermissionService {
     }
 
     // Verificar permisos contradictorios
-    const allPermissions = userRoles.flatMap(role => role.permissions);
+    const allPermissions = userRoles.flatMap((role) => role.permissions);
     const contradictoryPairs = this.getContradictoryPermissions();
 
     for (const [perm1, perm2] of contradictoryPairs) {
@@ -154,7 +181,8 @@ export class PermissionService {
           description: `Permisos contradictorios: ${perm1} y ${perm2}`,
           permissions: [perm1, perm2],
           severity: 'medium',
-          recommendation: 'Revisar roles asignados y remover permisos contradictorios',
+          recommendation:
+            'Revisar roles asignados y remover permisos contradictorios',
         });
       }
     }
@@ -168,7 +196,7 @@ export class PermissionService {
   async resolvePermissionConflicts(
     roomId: string,
     userId: string,
-    moderatorId: string
+    moderatorId: string,
   ): Promise<{ resolved: number; remaining: PermissionConflict[] }> {
     const conflicts = await this.detectPermissionConflicts(roomId, userId);
     let resolved = 0;
@@ -177,23 +205,40 @@ export class PermissionService {
       try {
         if (conflict.type === 'hierarchy' && conflict.roles) {
           // Resolver conflictos de jerarquía removiendo el rol de menor prioridad
-          const userRoles = await this.roomModerationService.getUserRoles(roomId, userId);
-          const conflictRoles = userRoles.filter(role => conflict.roles!.includes(role.id));
-          
+          const userRoles = await this.roomModerationService.getUserRoles(
+            roomId,
+            userId,
+          );
+          const conflictRoles = userRoles.filter((role) =>
+            conflict.roles!.includes(role.id),
+          );
+
           if (conflictRoles.length === 2) {
-            const lowerRole = conflictRoles[0].priority < conflictRoles[1].priority ? 
-              conflictRoles[0] : conflictRoles[1];
-            
-            await this.roomModerationService.removeRole(roomId, userId, lowerRole.id, moderatorId);
+            const lowerRole =
+              conflictRoles[0].priority < conflictRoles[1].priority
+                ? conflictRoles[0]
+                : conflictRoles[1];
+
+            await this.roomModerationService.removeRole(
+              roomId,
+              userId,
+              lowerRole.id,
+              moderatorId,
+            );
             resolved++;
           }
         }
       } catch (error) {
-        this.logger.warn(`No se pudo resolver conflicto automáticamente: ${error.message}`);
+        this.logger.warn(
+          `No se pudo resolver conflicto automáticamente: ${error.message}`,
+        );
       }
     }
 
-    const remainingConflicts = await this.detectPermissionConflicts(roomId, userId);
+    const remainingConflicts = await this.detectPermissionConflicts(
+      roomId,
+      userId,
+    );
     return { resolved, remaining: remainingConflicts };
   }
 
@@ -212,8 +257,10 @@ export class PermissionService {
         }
       }
     }
-    
-    this.logger.debug(`Caché de permisos invalidado para sala ${roomId}${userId ? ` y usuario ${userId}` : ''}`);
+
+    this.logger.debug(
+      `Caché de permisos invalidado para sala ${roomId}${userId ? ` y usuario ${userId}` : ''}`,
+    );
   }
 
   /**
@@ -224,11 +271,13 @@ export class PermissionService {
     hitRate: number;
     entries: Array<{ key: string; lastAccessed: Date; ttl: number }>;
   } {
-    const entries = Array.from(this.permissionCache.entries()).map(([key, cache]) => ({
-      key,
-      lastAccessed: cache.lastAccessed,
-      ttl: cache.expiresAt.getTime() - Date.now(),
-    }));
+    const entries = Array.from(this.permissionCache.entries()).map(
+      ([key, cache]) => ({
+        key,
+        lastAccessed: cache.lastAccessed,
+        ttl: cache.expiresAt.getTime() - Date.now(),
+      }),
+    );
 
     return {
       size: this.permissionCache.size,
@@ -243,7 +292,7 @@ export class PermissionService {
     roomId: string,
     userId: string,
     permission: RoomPermission,
-    options: PermissionCheckOptions
+    options: PermissionCheckOptions,
   ): Promise<PermissionCheckResult> {
     // Verificar caché si está habilitado
     if (options.useCache) {
@@ -254,7 +303,11 @@ export class PermissionService {
     }
 
     // Verificar permiso usando el servicio de moderación
-    const result = await this.roomModerationService.checkPermission(roomId, userId, permission);
+    const result = await this.roomModerationService.checkPermission(
+      roomId,
+      userId,
+      permission,
+    );
 
     // Guardar en caché si está habilitado
     if (options.useCache) {
@@ -264,7 +317,11 @@ export class PermissionService {
     return result;
   }
 
-  private getFromCache(roomId: string, userId: string, permission: RoomPermission): PermissionCheckResult | null {
+  private getFromCache(
+    roomId: string,
+    userId: string,
+    permission: RoomPermission,
+  ): PermissionCheckResult | null {
     const cacheKey = `${roomId}:${userId}`;
     const cache = this.permissionCache.get(cacheKey);
 
@@ -285,7 +342,7 @@ export class PermissionService {
     roomId: string,
     userId: string,
     permission: RoomPermission,
-    result: PermissionCheckResult
+    result: PermissionCheckResult,
   ): void {
     const cacheKey = `${roomId}:${userId}`;
     let cache = this.permissionCache.get(cacheKey);
@@ -307,13 +364,16 @@ export class PermissionService {
 
   private extractDirectPermissions(roles: CustomRole[]): RoomPermission[] {
     const permissions = new Set<RoomPermission>();
-    roles.forEach(role => {
-      role.permissions.forEach(permission => permissions.add(permission));
+    roles.forEach((role) => {
+      role.permissions.forEach((permission) => permissions.add(permission));
     });
     return Array.from(permissions);
   }
 
-  private async getInheritedPermissions(roomId: string, userId: string): Promise<RoomPermission[]> {
+  private async getInheritedPermissions(
+    roomId: string,
+    userId: string,
+  ): Promise<RoomPermission[]> {
     // Por ahora, no hay herencia compleja implementada
     // En el futuro se podría implementar herencia de grupos, organizaciones, etc.
     return [];
@@ -322,15 +382,21 @@ export class PermissionService {
   private hasHierarchyConflict(role1: CustomRole, role2: CustomRole): boolean {
     // Verificar si hay conflicto de jerarquía
     // Por ejemplo, si un usuario tiene tanto rol de Guest como Owner
-    const systemRoles = [SystemRole.OWNER, SystemRole.ADMIN, SystemRole.MODERATOR, SystemRole.MEMBER, SystemRole.GUEST];
-    
+    const systemRoles = [
+      SystemRole.OWNER,
+      SystemRole.ADMIN,
+      SystemRole.MODERATOR,
+      SystemRole.MEMBER,
+      SystemRole.GUEST,
+    ];
+
     const role1IsSystem = systemRoles.includes(role1.id as SystemRole);
     const role2IsSystem = systemRoles.includes(role2.id as SystemRole);
 
     if (role1IsSystem && role2IsSystem) {
       const priority1 = role1.priority;
       const priority2 = role2.priority;
-      
+
       // Conflicto si la diferencia de prioridad es muy grande (ej: Owner y Guest)
       return Math.abs(priority1 - priority2) > 60;
     }
@@ -338,7 +404,9 @@ export class PermissionService {
     return false;
   }
 
-  private getContradictoryPermissions(): Array<[RoomPermission, RoomPermission]> {
+  private getContradictoryPermissions(): Array<
+    [RoomPermission, RoomPermission]
+  > {
     // Definir pares de permisos que son contradictorios
     return [
       // Por ahora no hay permisos directamente contradictorios

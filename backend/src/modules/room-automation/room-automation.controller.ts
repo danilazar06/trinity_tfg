@@ -12,7 +12,12 @@ import {
   HttpStatus,
   HttpException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RoomAutomationService } from './room-automation.service';
 import {
@@ -34,7 +39,10 @@ export class RoomAutomationController {
 
   @Post(':roomId/config')
   @ApiOperation({ summary: 'Create automation configuration for a room' })
-  @ApiResponse({ status: 201, description: 'Automation configuration created successfully' })
+  @ApiResponse({
+    status: 201,
+    description: 'Automation configuration created successfully',
+  })
   @ApiResponse({ status: 400, description: 'Invalid configuration data' })
   @ApiResponse({ status: 404, description: 'Room not found' })
   async createAutomationConfig(
@@ -68,8 +76,14 @@ export class RoomAutomationController {
 
   @Get(':roomId/config')
   @ApiOperation({ summary: 'Get automation configuration for a room' })
-  @ApiResponse({ status: 200, description: 'Automation configuration retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Automation configuration not found' })
+  @ApiResponse({
+    status: 200,
+    description: 'Automation configuration retrieved successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Automation configuration not found',
+  })
   async getAutomationConfig(
     @Param('roomId') roomId: string,
   ): Promise<AutomationConfigResponseDto> {
@@ -94,9 +108,15 @@ export class RoomAutomationController {
 
   @Put(':roomId/config')
   @ApiOperation({ summary: 'Update automation configuration for a room' })
-  @ApiResponse({ status: 200, description: 'Automation configuration updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Automation configuration updated successfully',
+  })
   @ApiResponse({ status: 400, description: 'Invalid configuration data' })
-  @ApiResponse({ status: 404, description: 'Automation configuration not found' })
+  @ApiResponse({
+    status: 404,
+    description: 'Automation configuration not found',
+  })
   async updateAutomationConfig(
     @Param('roomId') roomId: string,
     @Request() req: any,
@@ -128,8 +148,14 @@ export class RoomAutomationController {
 
   @Post(':roomId/optimize')
   @ApiOperation({ summary: 'Manually trigger room optimization' })
-  @ApiResponse({ status: 200, description: 'Room optimization completed successfully' })
-  @ApiResponse({ status: 404, description: 'Room or automation configuration not found' })
+  @ApiResponse({
+    status: 200,
+    description: 'Room optimization completed successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Room or automation configuration not found',
+  })
   async optimizeRoom(
     @Param('roomId') roomId: string,
   ): Promise<OptimizationDecisionResponseDto> {
@@ -144,7 +170,7 @@ export class RoomAutomationController {
           decisions,
           optimizedAt: new Date(),
           totalDecisions: decisions.length,
-          appliedDecisions: decisions.filter(d => d.applied).length,
+          appliedDecisions: decisions.filter((d) => d.applied).length,
         },
       };
     } catch (error) {
@@ -161,16 +187,20 @@ export class RoomAutomationController {
 
   @Get(':roomId/recommendations')
   @ApiOperation({ summary: 'Get smart recommendations for room improvement' })
-  @ApiResponse({ status: 200, description: 'Smart recommendations retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Smart recommendations retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'Room not found' })
   async getSmartRecommendations(
     @Param('roomId') roomId: string,
     @Query('limit') limit?: number,
   ): Promise<SmartRecommendationResponseDto> {
     try {
-      const recommendations = await this.roomAutomationService.generateSmartRecommendations(roomId);
-      
-      const limitedRecommendations = limit 
+      const recommendations =
+        await this.roomAutomationService.generateSmartRecommendations(roomId);
+
+      const limitedRecommendations = limit
         ? recommendations.slice(0, limit)
         : recommendations;
 
@@ -198,12 +228,19 @@ export class RoomAutomationController {
 
   @Get(':roomId/performance')
   @ApiOperation({ summary: 'Get automation performance metrics for a room' })
-  @ApiResponse({ status: 200, description: 'Performance metrics retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Automation configuration not found' })
+  @ApiResponse({
+    status: 200,
+    description: 'Performance metrics retrieved successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Automation configuration not found',
+  })
   async getAutomationPerformance(
     @Param('roomId') roomId: string,
   ): Promise<AutomationPerformanceResponseDto> {
-    const performance = await this.roomAutomationService.getAutomationPerformance(roomId);
+    const performance =
+      await this.roomAutomationService.getAutomationPerformance(roomId);
 
     if (!performance) {
       throw new HttpException(
@@ -262,11 +299,12 @@ export class RoomAutomationController {
 
   @Get(':roomId/status')
   @ApiOperation({ summary: 'Get automation status and overview for a room' })
-  @ApiResponse({ status: 200, description: 'Automation status retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Automation status retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'Room not found' })
-  async getAutomationStatus(
-    @Param('roomId') roomId: string,
-  ): Promise<{
+  async getAutomationStatus(@Param('roomId') roomId: string): Promise<{
     success: boolean;
     message: string;
     data: {
@@ -281,8 +319,10 @@ export class RoomAutomationController {
     };
   }> {
     try {
-      const config = await this.roomAutomationService.getAutomationConfig(roomId);
-      const recommendations = await this.roomAutomationService.generateSmartRecommendations(roomId);
+      const config =
+        await this.roomAutomationService.getAutomationConfig(roomId);
+      const recommendations =
+        await this.roomAutomationService.generateSmartRecommendations(roomId);
 
       if (!config) {
         return {
@@ -299,9 +339,11 @@ export class RoomAutomationController {
         };
       }
 
-      const successRate = config.performanceMetrics.totalOptimizations > 0
-        ? config.performanceMetrics.successfulOptimizations / config.performanceMetrics.totalOptimizations
-        : 0;
+      const successRate =
+        config.performanceMetrics.totalOptimizations > 0
+          ? config.performanceMetrics.successfulOptimizations /
+            config.performanceMetrics.totalOptimizations
+          : 0;
 
       return {
         success: true,
@@ -337,9 +379,13 @@ export class RoomAutomationController {
     @Request() req: any,
   ): Promise<{ success: boolean; message: string }> {
     try {
-      await this.roomAutomationService.updateAutomationConfig(roomId, req.user.sub, {
-        isEnabled: true,
-      });
+      await this.roomAutomationService.updateAutomationConfig(
+        roomId,
+        req.user.sub,
+        {
+          isEnabled: true,
+        },
+      );
 
       return {
         success: true,
@@ -365,9 +411,13 @@ export class RoomAutomationController {
     @Request() req: any,
   ): Promise<{ success: boolean; message: string }> {
     try {
-      await this.roomAutomationService.updateAutomationConfig(roomId, req.user.sub, {
-        isEnabled: false,
-      });
+      await this.roomAutomationService.updateAutomationConfig(
+        roomId,
+        req.user.sub,
+        {
+          isEnabled: false,
+        },
+      );
 
       return {
         success: true,

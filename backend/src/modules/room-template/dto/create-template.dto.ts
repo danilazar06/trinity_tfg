@@ -1,43 +1,83 @@
-import { IsString, IsBoolean, IsEnum, IsOptional, IsArray, ValidateNested, IsNumber, Min, Max, Length } from 'class-validator';
+import {
+  IsString,
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+  IsNumber,
+  Min,
+  Max,
+  Length,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TemplateCategory, TemplateConfiguration, AdvancedRoomSettings, ConsensusType, RoomPrivacy } from '../../../domain/entities/room-template.entity';
+import {
+  TemplateCategory,
+  TemplateConfiguration,
+  AdvancedRoomSettings,
+  ConsensusType,
+  RoomPrivacy,
+} from '../../../domain/entities/room-template.entity';
 import { ContentFilters } from '../../../domain/entities/room.entity';
 
 /**
  * DTO para configuración avanzada de sala
  */
 export class AdvancedRoomSettingsDto implements AdvancedRoomSettings {
-  @ApiPropertyOptional({ description: 'Tiempo límite de votación por elemento en segundos', minimum: 30, maximum: 300 })
+  @ApiPropertyOptional({
+    description: 'Tiempo límite de votación por elemento en segundos',
+    minimum: 30,
+    maximum: 300,
+  })
   @IsOptional()
   @IsNumber()
   @Min(30)
   @Max(300)
   votingTimeout?: number;
 
-  @ApiPropertyOptional({ description: 'Tiempo límite de sesión en minutos', minimum: 15, maximum: 480 })
+  @ApiPropertyOptional({
+    description: 'Tiempo límite de sesión en minutos',
+    minimum: 15,
+    maximum: 480,
+  })
   @IsOptional()
   @IsNumber()
   @Min(15)
   @Max(480)
   sessionTimeout?: number;
 
-  @ApiProperty({ description: 'Tipo de consenso requerido', enum: ConsensusType })
+  @ApiProperty({
+    description: 'Tipo de consenso requerido',
+    enum: ConsensusType,
+  })
   @IsEnum(ConsensusType)
   consensusThreshold: ConsensusType;
 
-  @ApiPropertyOptional({ description: 'Porcentaje personalizado para consenso (solo si consensusThreshold es CUSTOM)', minimum: 50, maximum: 100 })
+  @ApiPropertyOptional({
+    description:
+      'Porcentaje personalizado para consenso (solo si consensusThreshold es CUSTOM)',
+    minimum: 50,
+    maximum: 100,
+  })
   @IsOptional()
   @IsNumber()
   @Min(50)
   @Max(100)
   customThreshold?: number;
 
-  @ApiProperty({ description: 'Nivel de privacidad de la sala', enum: RoomPrivacy })
+  @ApiProperty({
+    description: 'Nivel de privacidad de la sala',
+    enum: RoomPrivacy,
+  })
   @IsEnum(RoomPrivacy)
   privacy: RoomPrivacy;
 
-  @ApiPropertyOptional({ description: 'Número máximo de miembros', minimum: 2, maximum: 50 })
+  @ApiPropertyOptional({
+    description: 'Número máximo de miembros',
+    minimum: 2,
+    maximum: 50,
+  })
   @IsOptional()
   @IsNumber()
   @Min(2)
@@ -56,7 +96,11 @@ export class AdvancedRoomSettingsDto implements AdvancedRoomSettings {
   @IsBoolean()
   contentInjectionEnabled: boolean;
 
-  @ApiPropertyOptional({ description: 'Frecuencia de inyección (elementos entre inyecciones)', minimum: 5, maximum: 50 })
+  @ApiPropertyOptional({
+    description: 'Frecuencia de inyección (elementos entre inyecciones)',
+    minimum: 5,
+    maximum: 50,
+  })
   @IsOptional()
   @IsNumber()
   @Min(5)
@@ -125,12 +169,20 @@ export class TemplateConfigurationDto implements TemplateConfiguration {
  * DTO para crear una nueva plantilla de sala
  */
 export class CreateTemplateDto {
-  @ApiProperty({ description: 'Nombre de la plantilla', minLength: 3, maxLength: 50 })
+  @ApiProperty({
+    description: 'Nombre de la plantilla',
+    minLength: 3,
+    maxLength: 50,
+  })
   @IsString()
   @Length(3, 50)
   name: string;
 
-  @ApiProperty({ description: 'Descripción de la plantilla', minLength: 10, maxLength: 500 })
+  @ApiProperty({
+    description: 'Descripción de la plantilla',
+    minLength: 10,
+    maxLength: 500,
+  })
   @IsString()
   @Length(10, 500)
   description: string;
@@ -139,7 +191,10 @@ export class CreateTemplateDto {
   @IsBoolean()
   isPublic: boolean;
 
-  @ApiProperty({ description: 'Categoría de la plantilla', enum: TemplateCategory })
+  @ApiProperty({
+    description: 'Categoría de la plantilla',
+    enum: TemplateCategory,
+  })
   @IsEnum(TemplateCategory)
   category: TemplateCategory;
 
@@ -148,7 +203,10 @@ export class CreateTemplateDto {
   @Type(() => TemplateConfigurationDto)
   configuration: TemplateConfigurationDto;
 
-  @ApiPropertyOptional({ description: 'Etiquetas para la plantilla', type: [String] })
+  @ApiPropertyOptional({
+    description: 'Etiquetas para la plantilla',
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -160,13 +218,21 @@ export class CreateTemplateDto {
  * DTO para actualizar una plantilla existente
  */
 export class UpdateTemplateDto {
-  @ApiPropertyOptional({ description: 'Nombre de la plantilla', minLength: 3, maxLength: 50 })
+  @ApiPropertyOptional({
+    description: 'Nombre de la plantilla',
+    minLength: 3,
+    maxLength: 50,
+  })
   @IsOptional()
   @IsString()
   @Length(3, 50)
   name?: string;
 
-  @ApiPropertyOptional({ description: 'Descripción de la plantilla', minLength: 10, maxLength: 500 })
+  @ApiPropertyOptional({
+    description: 'Descripción de la plantilla',
+    minLength: 10,
+    maxLength: 500,
+  })
   @IsOptional()
   @IsString()
   @Length(10, 500)
@@ -177,18 +243,26 @@ export class UpdateTemplateDto {
   @IsBoolean()
   isPublic?: boolean;
 
-  @ApiPropertyOptional({ description: 'Categoría de la plantilla', enum: TemplateCategory })
+  @ApiPropertyOptional({
+    description: 'Categoría de la plantilla',
+    enum: TemplateCategory,
+  })
   @IsOptional()
   @IsEnum(TemplateCategory)
   category?: TemplateCategory;
 
-  @ApiPropertyOptional({ description: 'Configuración completa de la plantilla' })
+  @ApiPropertyOptional({
+    description: 'Configuración completa de la plantilla',
+  })
   @IsOptional()
   @ValidateNested()
   @Type(() => TemplateConfigurationDto)
   configuration?: TemplateConfigurationDto;
 
-  @ApiPropertyOptional({ description: 'Etiquetas para la plantilla', type: [String] })
+  @ApiPropertyOptional({
+    description: 'Etiquetas para la plantilla',
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -200,7 +274,10 @@ export class UpdateTemplateDto {
  * DTO para filtros de búsqueda de plantillas
  */
 export class TemplateFiltersDto {
-  @ApiPropertyOptional({ description: 'Categoría de plantilla', enum: TemplateCategory })
+  @ApiPropertyOptional({
+    description: 'Categoría de plantilla',
+    enum: TemplateCategory,
+  })
   @IsOptional()
   @IsEnum(TemplateCategory)
   category?: TemplateCategory;
@@ -228,17 +305,27 @@ export class TemplateFiltersDto {
   @IsString()
   creatorId?: string;
 
-  @ApiPropertyOptional({ description: 'Ordenar por', enum: ['createdAt', 'updatedAt', 'usageCount', 'rating', 'name'] })
+  @ApiPropertyOptional({
+    description: 'Ordenar por',
+    enum: ['createdAt', 'updatedAt', 'usageCount', 'rating', 'name'],
+  })
   @IsOptional()
   @IsString()
   sortBy?: string;
 
-  @ApiPropertyOptional({ description: 'Orden de clasificación', enum: ['asc', 'desc'] })
+  @ApiPropertyOptional({
+    description: 'Orden de clasificación',
+    enum: ['asc', 'desc'],
+  })
   @IsOptional()
   @IsString()
   sortOrder?: 'asc' | 'desc';
 
-  @ApiPropertyOptional({ description: 'Límite de resultados', minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({
+    description: 'Límite de resultados',
+    minimum: 1,
+    maximum: 100,
+  })
   @IsOptional()
   @IsNumber()
   @Min(1)
@@ -262,7 +349,10 @@ export class RateTemplateDto {
   @Max(5)
   rating: number;
 
-  @ApiPropertyOptional({ description: 'Comentario opcional sobre la plantilla', maxLength: 200 })
+  @ApiPropertyOptional({
+    description: 'Comentario opcional sobre la plantilla',
+    maxLength: 200,
+  })
   @IsOptional()
   @IsString()
   @Length(0, 200)
@@ -273,19 +363,27 @@ export class RateTemplateDto {
  * DTO para crear sala desde plantilla con overrides
  */
 export class CreateRoomFromTemplateDto {
-  @ApiPropertyOptional({ description: 'Nombre personalizado para la sala', minLength: 3, maxLength: 50 })
+  @ApiPropertyOptional({
+    description: 'Nombre personalizado para la sala',
+    minLength: 3,
+    maxLength: 50,
+  })
   @IsOptional()
   @IsString()
   @Length(3, 50)
   roomName?: string;
 
-  @ApiPropertyOptional({ description: 'Configuración personalizada que sobrescribe la plantilla' })
+  @ApiPropertyOptional({
+    description: 'Configuración personalizada que sobrescribe la plantilla',
+  })
   @IsOptional()
   @ValidateNested()
   @Type(() => TemplateConfigurationDto)
   configurationOverrides?: Partial<TemplateConfigurationDto>;
 
-  @ApiPropertyOptional({ description: 'Si se debe iniciar la sala inmediatamente' })
+  @ApiPropertyOptional({
+    description: 'Si se debe iniciar la sala inmediatamente',
+  })
   @IsOptional()
   @IsBoolean()
   startImmediately?: boolean;

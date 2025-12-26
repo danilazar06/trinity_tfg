@@ -10,7 +10,7 @@ export enum TemplateCategory {
   HORROR_NIGHT = 'horror_night',
   COMEDY_SPECIAL = 'comedy_special',
   DOCUMENTARY = 'documentary',
-  CUSTOM = 'custom'
+  CUSTOM = 'custom',
 }
 
 /**
@@ -22,25 +22,25 @@ export interface AdvancedRoomSettings {
   sessionTimeout?: number; // minutos por sesión
   consensusThreshold: ConsensusType;
   customThreshold?: number; // porcentaje para consenso personalizado
-  
+
   // Privacidad y acceso
   privacy: RoomPrivacy;
   maxMembers?: number;
   requireApproval: boolean;
   allowGuestVoting: boolean;
-  
+
   // Gestión de contenido
   contentInjectionEnabled: boolean;
   injectionFrequency?: number; // elementos entre inyecciones
   allowMemberSuggestions: boolean;
   autoProgressEnabled: boolean;
-  
+
   // Características
   chatEnabled: boolean;
   anonymousVoting: boolean;
   showVotingProgress: boolean;
   enableReactions: boolean;
-  
+
   // Automatización
   autoInactiveHandling: boolean;
   smartOptimization: boolean;
@@ -54,7 +54,7 @@ export enum ConsensusType {
   UNANIMOUS = 'unanimous',
   MAJORITY = 'majority',
   SUPER_MAJORITY = 'super_majority', // 75%
-  CUSTOM = 'custom'
+  CUSTOM = 'custom',
 }
 
 /**
@@ -63,7 +63,7 @@ export enum ConsensusType {
 export enum RoomPrivacy {
   PUBLIC = 'public',
   PRIVATE = 'private',
-  INVITE_ONLY = 'invite_only'
+  INVITE_ONLY = 'invite_only',
 }
 
 /**
@@ -74,7 +74,7 @@ export interface RoomTheme {
   name: string;
   description: string;
   category: ThemeCategory;
-  
+
   // Elementos visuales
   colors: {
     primary: string;
@@ -83,17 +83,17 @@ export interface RoomTheme {
     background: string;
     text: string;
   };
-  
+
   // Assets
   backgroundImage?: string;
   icon?: string;
   banner?: string;
-  
+
   // Personalización
   isCustom: boolean;
   creatorId?: string;
   isPublic: boolean;
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -107,7 +107,7 @@ export enum ThemeCategory {
   EVENTS = 'events',
   MINIMAL = 'minimal',
   COLORFUL = 'colorful',
-  CUSTOM = 'custom'
+  CUSTOM = 'custom',
 }
 
 /**
@@ -159,7 +159,7 @@ export enum TemplateSortBy {
   UPDATED_AT = 'updatedAt',
   USAGE_COUNT = 'usageCount',
   RATING = 'rating',
-  NAME = 'name'
+  NAME = 'name',
 }
 
 /**

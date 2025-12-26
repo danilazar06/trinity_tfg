@@ -8,7 +8,7 @@ import { RealtimeModule } from '../realtime/realtime.module';
 @Module({
   imports: [
     DatabaseModule,
-    RoomModule, // Para verificar membresía y acceso a salas
+    forwardRef(() => RoomModule), // Para verificar membresía y acceso a salas
     forwardRef(() => RealtimeModule), // Para notificaciones en tiempo real
   ],
   controllers: [RoomModerationController],

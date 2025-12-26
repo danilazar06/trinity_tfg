@@ -1,3 +1,4 @@
+import '../../test-setup-integration';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
@@ -40,10 +41,15 @@ describe('Advanced Features Integration Tests', () => {
     // Get services
     authService = moduleFixture.get<AuthService>(AuthService);
     roomService = moduleFixture.get<RoomService>(RoomService);
-    automationService = moduleFixture.get<RoomAutomationService>(RoomAutomationService);
-    moderationService = moduleFixture.get<RoomModerationService>(RoomModerationService);
+    automationService = moduleFixture.get<RoomAutomationService>(
+      RoomAutomationService,
+    );
+    moderationService = moduleFixture.get<RoomModerationService>(
+      RoomModerationService,
+    );
     themeService = moduleFixture.get<RoomThemeService>(RoomThemeService);
-    scheduleService = moduleFixture.get<RoomScheduleService>(RoomScheduleService);
+    scheduleService =
+      moduleFixture.get<RoomScheduleService>(RoomScheduleService);
     permissionService = moduleFixture.get<PermissionService>(PermissionService);
     realtimeService = moduleFixture.get<RealtimeService>(RealtimeService);
     analyticsService = moduleFixture.get<AnalyticsService>(AnalyticsService);
@@ -63,35 +69,48 @@ describe('Advanced Features Integration Tests', () => {
       isPrivate: false,
       maxMembers: 10,
     });
-  });
+  }, 15000);
 
   afterAll(async () => {
-    await app.close();
-  });
+    if (app) {
+      await app.close();
+    }
+  }, 15000);
 
   describe('Complete Room Lifecycle with Advanced Features', () => {
     it('should handle complete room lifecycle with all advanced features', async () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            automationLevel: fc.constantFrom('basic', 'intermediate', 'advanced'),
-            themeCategory: fc.constantFrom('movie_genres', 'seasonal', 'minimal'),
+            automationLevel: fc.constantFrom(
+              'basic',
+              'intermediate',
+              'advanced',
+            ),
+            themeCategory: fc.constantFrom(
+              'movie_genres',
+              'seasonal',
+              'minimal',
+            ),
             scheduleRecurrence: fc.constantFrom('none', 'daily', 'weekly'),
             customRoleName: fc.string({ minLength: 3, maxLength: 20 }),
           }),
           async (testData) => {
             // 1. Configure room automation
-            const automationConfig = await automationService.createAutomationConfig(
-              testRoom.id,
-              testUser.user.id,
-              {
-                automationLevel: testData.automationLevel as any,
-                isEnabled: true,
-              }
-            );
+            const automationConfig =
+              await automationService.createAutomationConfig(
+                testRoom.id,
+                testUser.user.id,
+                {
+                  automationLevel: testData.automationLevel as any,
+                  isEnabled: true,
+                },
+              );
 
             expect(automationConfig).toBeDefined();
-            expect(automationConfig.automationLevel).toBe(testData.automationLevel);
+            expect(automationConfig.automationLevel).toBe(
+              testData.automationLevel,
+            );
 
             // 2. Apply room theme
             const theme = await themeService.createTheme(testUser.user.id, {
@@ -106,7 +125,11 @@ describe('Advanced Features Integration Tests', () => {
               },
             });
 
-            await themeService.applyThemeToRoom(testRoom.id, theme.id, testUser.user.id);
+            await themeService.applyThemeToRoom(
+              testRoom.id,
+              theme.id,
+              testUser.user.id,
+            );
 
             // 3. Create custom role and assign permissions
             const customRole = await moderationService.createCustomRole(
@@ -117,25 +140,28 @@ describe('Advanced Features Integration Tests', () => {
                 permissions: ['VOTE', 'CHAT', 'SUGGEST_CONTENT'],
                 color: '#FF6B6B',
                 priority: 5,
-              }
+              },
             );
 
             expect(customRole).toBeDefined();
             expect(customRole.name).toBe(testData.customRoleName);
 
             // 4. Create room schedule
-            const schedule = await scheduleService.createSchedule(testUser.user.id, {
-              roomId: testRoom.id,
-              title: 'Integration Test Session',
-              description: 'Automated test session',
-              startTime: new Date(Date.now() + 3600000), // 1 hour from now
-              duration: 60,
-              recurrence: {
-                type: testData.scheduleRecurrence as any,
-                interval: 1,
+            const schedule = await scheduleService.createSchedule(
+              testUser.user.id,
+              {
+                roomId: testRoom.id,
+                title: 'Integration Test Session',
+                description: 'Automated test session',
+                startTime: new Date(Date.now() + 3600000), // 1 hour from now
+                duration: 60,
+                recurrence: {
+                  type: testData.scheduleRecurrence as any,
+                  interval: 1,
+                },
+                timezone: 'UTC',
               },
-              timezone: 'UTC',
-            });
+            );
 
             expect(schedule).toBeDefined();
             expect(schedule.recurrence.type).toBe(testData.scheduleRecurrence);
@@ -144,36 +170,52 @@ describe('Advanced Features Integration Tests', () => {
             const hasPermission = await permissionService.checkPermission(
               testUser.user.id,
               testRoom.id,
-              'VOTE'
+              'VOTE',
             );
 
             expect(hasPermission).toBe(true);
 
             // 6. Test automation optimization
-            const optimizationDecisions = await automationService.optimizeRoom(testRoom.id);
+            const optimizationDecisions = await automationService.optimizeRoom(
+              testRoom.id,
+            );
             expect(Array.isArray(optimizationDecisions)).toBe(true);
 
             // 7. Generate smart recommendations
-            const recommendations = await automationService.generateSmartRecommendations(testRoom.id);
+            const recommendations =
+              await automationService.generateSmartRecommendations(testRoom.id);
             expect(Array.isArray(recommendations)).toBe(true);
 
             // 8. Verify analytics tracking
-            const roomAnalytics = await analyticsService.getRoomAnalytics(testRoom.id);
+            const roomAnalytics = await analyticsService.getRoomAnalytics(
+              testRoom.id,
+            );
             expect(roomAnalytics).toBeDefined();
 
             // 9. Test real-time notifications (mock)
-            const notificationSent = await realtimeService.notifyRoom(testRoom.id, 'test', {
-              message: 'Integration test notification',
-            });
+            const notificationSent = await realtimeService.notifyRoom(
+              testRoom.id,
+              'test',
+              {
+                message: 'Integration test notification',
+              },
+            );
             // Should not throw error even if WebSocket fails
 
             // Cleanup
             await scheduleService.deleteSchedule(schedule.id, testUser.user.id);
-            await themeService.removeThemeFromRoom(testRoom.id, testUser.user.id);
-            await moderationService.deleteCustomRole(testRoom.id, customRole.id, testUser.user.id);
-          }
+            await themeService.removeThemeFromRoom(
+              testRoom.id,
+              testUser.user.id,
+            );
+            await moderationService.deleteCustomRole(
+              testRoom.id,
+              customRole.id,
+              testUser.user.id,
+            );
+          },
         ),
-        { numRuns: 10, timeout: 30000 }
+        { numRuns: 10, timeout: 30000 },
       );
     });
   });
@@ -184,8 +226,12 @@ describe('Advanced Features Integration Tests', () => {
         fc.asyncProperty(
           fc.record({
             themeColors: fc.record({
-              primary: fc.hexaString({ minLength: 6, maxLength: 6 }).map(s => `#${s}`),
-              secondary: fc.hexaString({ minLength: 6, maxLength: 6 }).map(s => `#${s}`),
+              primary: fc
+                .hexaString({ minLength: 6, maxLength: 6 })
+                .map((s) => `#${s}`),
+              secondary: fc
+                .hexaString({ minLength: 6, maxLength: 6 })
+                .map((s) => `#${s}`),
             }),
             automationEnabled: fc.boolean(),
           }),
@@ -197,7 +243,7 @@ describe('Advanced Features Integration Tests', () => {
               {
                 isEnabled: testData.automationEnabled,
                 automationLevel: 'intermediate',
-              }
+              },
             );
 
             // Create and apply theme
@@ -213,24 +259,36 @@ describe('Advanced Features Integration Tests', () => {
               },
             });
 
-            await themeService.applyThemeToRoom(testRoom.id, theme.id, testUser.user.id);
+            await themeService.applyThemeToRoom(
+              testRoom.id,
+              theme.id,
+              testUser.user.id,
+            );
 
             // Verify theme is applied
             const roomTheme = await themeService.getRoomTheme(testRoom.id);
             expect(roomTheme).toBeDefined();
-            expect(roomTheme?.colorScheme.primary).toBe(testData.themeColors.primary);
+            expect(roomTheme?.colorScheme.primary).toBe(
+              testData.themeColors.primary,
+            );
 
             // If automation is enabled, it should still work with theme changes
             if (testData.automationEnabled) {
-              const recommendations = await automationService.generateSmartRecommendations(testRoom.id);
+              const recommendations =
+                await automationService.generateSmartRecommendations(
+                  testRoom.id,
+                );
               expect(Array.isArray(recommendations)).toBe(true);
             }
 
             // Cleanup
-            await themeService.removeThemeFromRoom(testRoom.id, testUser.user.id);
-          }
+            await themeService.removeThemeFromRoom(
+              testRoom.id,
+              testUser.user.id,
+            );
+          },
         ),
-        { numRuns: 15, timeout: 20000 }
+        { numRuns: 15, timeout: 20000 },
       );
     });
 
@@ -239,7 +297,10 @@ describe('Advanced Features Integration Tests', () => {
         fc.asyncProperty(
           fc.record({
             roleName: fc.string({ minLength: 3, maxLength: 15 }),
-            permissions: fc.shuffledSubarray(['VOTE', 'CHAT', 'SUGGEST_CONTENT', 'MODERATE'], { minLength: 1, maxLength: 3 }),
+            permissions: fc.shuffledSubarray(
+              ['VOTE', 'CHAT', 'SUGGEST_CONTENT', 'MODERATE'],
+              { minLength: 1, maxLength: 3 },
+            ),
             moderationAction: fc.constantFrom('warn', 'mute'),
           }),
           async (testData) => {
@@ -252,7 +313,7 @@ describe('Advanced Features Integration Tests', () => {
                 permissions: testData.permissions as any[],
                 color: '#FF0000',
                 priority: 3,
-              }
+              },
             );
 
             // Verify permissions
@@ -260,7 +321,7 @@ describe('Advanced Features Integration Tests', () => {
               const hasPermission = await permissionService.checkPermission(
                 testUser.user.id,
                 testRoom.id,
-                permission as any
+                permission as any,
               );
               expect(hasPermission).toBe(true);
             }
@@ -271,7 +332,7 @@ describe('Advanced Features Integration Tests', () => {
                 testRoom.id,
                 testUser.user.id,
                 testUser.user.id,
-                'Integration test warning'
+                'Integration test warning',
               );
               expect(warning).toBeDefined();
             } else if (testData.moderationAction === 'mute') {
@@ -279,16 +340,20 @@ describe('Advanced Features Integration Tests', () => {
                 testRoom.id,
                 testUser.user.id,
                 testUser.user.id,
-                30 // 30 minutes
+                30, // 30 minutes
               );
               expect(mute).toBeDefined();
             }
 
             // Cleanup
-            await moderationService.deleteCustomRole(testRoom.id, role.id, testUser.user.id);
-          }
+            await moderationService.deleteCustomRole(
+              testRoom.id,
+              role.id,
+              testUser.user.id,
+            );
+          },
         ),
-        { numRuns: 12, timeout: 25000 }
+        { numRuns: 12, timeout: 25000 },
       );
     });
 
@@ -297,48 +362,58 @@ describe('Advanced Features Integration Tests', () => {
         fc.asyncProperty(
           fc.record({
             sessionDuration: fc.integer({ min: 30, max: 180 }),
-            automationLevel: fc.constantFrom('basic', 'intermediate', 'advanced'),
+            automationLevel: fc.constantFrom(
+              'basic',
+              'intermediate',
+              'advanced',
+            ),
             reminderMinutes: fc.constantFrom(5, 15, 30, 60),
           }),
           async (testData) => {
             // Enable automation
-            const automationConfig = await automationService.createAutomationConfig(
-              testRoom.id,
-              testUser.user.id,
-              {
-                automationLevel: testData.automationLevel as any,
-                isEnabled: true,
-              }
-            );
+            const automationConfig =
+              await automationService.createAutomationConfig(
+                testRoom.id,
+                testUser.user.id,
+                {
+                  automationLevel: testData.automationLevel as any,
+                  isEnabled: true,
+                },
+              );
 
             // Create scheduled session
-            const schedule = await scheduleService.createSchedule(testUser.user.id, {
-              roomId: testRoom.id,
-              title: 'Automated Session Test',
-              description: 'Testing automation with scheduling',
-              startTime: new Date(Date.now() + 7200000), // 2 hours from now
-              duration: testData.sessionDuration,
-              recurrence: { type: 'none' },
-              timezone: 'UTC',
-              reminders: [testData.reminderMinutes],
-            });
+            const schedule = await scheduleService.createSchedule(
+              testUser.user.id,
+              {
+                roomId: testRoom.id,
+                title: 'Automated Session Test',
+                description: 'Testing automation with scheduling',
+                startTime: new Date(Date.now() + 7200000), // 2 hours from now
+                duration: testData.sessionDuration,
+                recurrence: { type: 'none' },
+                timezone: 'UTC',
+                reminders: [testData.reminderMinutes],
+              },
+            );
 
             expect(schedule).toBeDefined();
             expect(schedule.duration).toBe(testData.sessionDuration);
 
             // Verify automation still works with scheduled sessions
-            const recommendations = await automationService.generateSmartRecommendations(testRoom.id);
+            const recommendations =
+              await automationService.generateSmartRecommendations(testRoom.id);
             expect(Array.isArray(recommendations)).toBe(true);
 
             // Verify performance metrics are tracked
-            const performance = await automationService.getAutomationPerformance(testRoom.id);
+            const performance =
+              await automationService.getAutomationPerformance(testRoom.id);
             expect(performance).toBeDefined();
 
             // Cleanup
             await scheduleService.deleteSchedule(schedule.id, testUser.user.id);
-          }
+          },
         ),
-        { numRuns: 8, timeout: 20000 }
+        { numRuns: 8, timeout: 20000 },
       );
     });
   });
@@ -354,7 +429,7 @@ describe('Advanced Features Integration Tests', () => {
         {
           automationLevel: 'advanced',
           isEnabled: true,
-        }
+        },
       );
 
       const theme = await themeService.createTheme(testUser.user.id, {
@@ -369,7 +444,11 @@ describe('Advanced Features Integration Tests', () => {
         },
       });
 
-      await themeService.applyThemeToRoom(testRoom.id, theme.id, testUser.user.id);
+      await themeService.applyThemeToRoom(
+        testRoom.id,
+        theme.id,
+        testUser.user.id,
+      );
 
       const customRole = await moderationService.createCustomRole(
         testRoom.id,
@@ -379,7 +458,7 @@ describe('Advanced Features Integration Tests', () => {
           permissions: ['VOTE', 'CHAT', 'SUGGEST_CONTENT'],
           color: '#00FF00',
           priority: 4,
-        }
+        },
       );
 
       const schedule = await scheduleService.createSchedule(testUser.user.id, {
@@ -394,16 +473,20 @@ describe('Advanced Features Integration Tests', () => {
 
       // Measure performance of key operations
       const operationStartTime = Date.now();
-      
+
       const [
         recommendations,
         roomAnalytics,
         permissionCheck,
-        optimizationDecisions
+        optimizationDecisions,
       ] = await Promise.all([
         automationService.generateSmartRecommendations(testRoom.id),
         analyticsService.getRoomAnalytics(testRoom.id),
-        permissionService.checkPermission(testUser.user.id, testRoom.id, 'VOTE'),
+        permissionService.checkPermission(
+          testUser.user.id,
+          testRoom.id,
+          'VOTE',
+        ),
         automationService.optimizeRoom(testRoom.id),
       ]);
 
@@ -423,7 +506,11 @@ describe('Advanced Features Integration Tests', () => {
       await Promise.all([
         scheduleService.deleteSchedule(schedule.id, testUser.user.id),
         themeService.removeThemeFromRoom(testRoom.id, testUser.user.id),
-        moderationService.deleteCustomRole(testRoom.id, customRole.id, testUser.user.id),
+        moderationService.deleteCustomRole(
+          testRoom.id,
+          customRole.id,
+          testUser.user.id,
+        ),
       ]);
     });
 
@@ -436,7 +523,7 @@ describe('Advanced Features Integration Tests', () => {
 
             for (let i = 0; i < concurrentOperations; i++) {
               operations.push(
-                automationService.generateSmartRecommendations(testRoom.id)
+                automationService.generateSmartRecommendations(testRoom.id),
               );
             }
 
@@ -447,13 +534,13 @@ describe('Advanced Features Integration Tests', () => {
             // Should handle concurrent operations efficiently
             expect(executionTime).toBeLessThan(3000 * concurrentOperations); // Linear scaling tolerance
             expect(results).toHaveLength(concurrentOperations);
-            
-            results.forEach(result => {
+
+            results.forEach((result) => {
               expect(Array.isArray(result)).toBe(true);
             });
-          }
+          },
         ),
-        { numRuns: 5, timeout: 30000 }
+        { numRuns: 5, timeout: 30000 },
       );
     });
   });
@@ -474,21 +561,24 @@ describe('Advanced Features Integration Tests', () => {
       expect(roomDetails.name).toBe('Basic Compatibility Room');
 
       // Advanced features should gracefully handle rooms without configuration
-      const automationConfig = await automationService.getAutomationConfig(basicRoom.id);
+      const automationConfig = await automationService.getAutomationConfig(
+        basicRoom.id,
+      );
       expect(automationConfig).toBeNull();
 
       const roomTheme = await themeService.getRoomTheme(basicRoom.id);
       expect(roomTheme).toBeNull();
 
       // Should be able to add advanced features to existing rooms
-      const newAutomationConfig = await automationService.createAutomationConfig(
-        basicRoom.id,
-        testUser.user.id,
-        {
-          automationLevel: 'basic',
-          isEnabled: true,
-        }
-      );
+      const newAutomationConfig =
+        await automationService.createAutomationConfig(
+          basicRoom.id,
+          testUser.user.id,
+          {
+            automationLevel: 'basic',
+            isEnabled: true,
+          },
+        );
 
       expect(newAutomationConfig).toBeDefined();
       expect(newAutomationConfig.roomId).toBe(basicRoom.id);
@@ -541,28 +631,30 @@ describe('Advanced Features Integration Tests', () => {
           async (testData) => {
             // Test with invalid room ID
             await expect(
-              automationService.getAutomationConfig(testData.invalidRoomId)
+              automationService.getAutomationConfig(testData.invalidRoomId),
             ).resolves.toBeNull();
 
             await expect(
-              themeService.getRoomTheme(testData.invalidRoomId)
+              themeService.getRoomTheme(testData.invalidRoomId),
             ).resolves.toBeNull();
 
             // Test with invalid user ID for permission checks
             const hasPermission = await permissionService.checkPermission(
               testData.invalidUserId,
               testRoom.id,
-              'VOTE'
+              'VOTE',
             );
             expect(hasPermission).toBe(false);
 
             // Real-time service should handle failures gracefully
             await expect(
-              realtimeService.notifyRoom(testData.invalidRoomId, 'test', { message: 'test' })
+              realtimeService.notifyRoom(testData.invalidRoomId, 'test', {
+                message: 'test',
+              }),
             ).resolves.not.toThrow();
-          }
+          },
         ),
-        { numRuns: 10, timeout: 15000 }
+        { numRuns: 10, timeout: 15000 },
       );
     });
 
@@ -574,7 +666,7 @@ describe('Advanced Features Integration Tests', () => {
         {
           automationLevel: 'intermediate',
           isEnabled: true,
-        }
+        },
       );
 
       // Simulate partial failure scenario
@@ -592,10 +684,16 @@ describe('Advanced Features Integration Tests', () => {
           },
         });
 
-        await themeService.applyThemeToRoom(testRoom.id, theme.id, testUser.user.id);
+        await themeService.applyThemeToRoom(
+          testRoom.id,
+          theme.id,
+          testUser.user.id,
+        );
 
         // Verify both automation and theme are properly configured
-        const retrievedConfig = await automationService.getAutomationConfig(testRoom.id);
+        const retrievedConfig = await automationService.getAutomationConfig(
+          testRoom.id,
+        );
         const retrievedTheme = await themeService.getRoomTheme(testRoom.id);
 
         expect(retrievedConfig).toBeDefined();
@@ -607,7 +705,9 @@ describe('Advanced Features Integration Tests', () => {
         await themeService.removeThemeFromRoom(testRoom.id, testUser.user.id);
       } catch (error) {
         // Even if theme operations fail, automation should remain intact
-        const retrievedConfig = await automationService.getAutomationConfig(testRoom.id);
+        const retrievedConfig = await automationService.getAutomationConfig(
+          testRoom.id,
+        );
         expect(retrievedConfig).toBeDefined();
         expect(retrievedConfig?.id).toBe(automationConfig.id);
       }

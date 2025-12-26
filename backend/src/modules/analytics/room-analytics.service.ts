@@ -27,12 +27,15 @@ export class RoomAnalyticsService {
   /**
    * 📊 Get comprehensive advanced room analytics
    */
-  async getAdvancedRoomAnalytics(timeRange?: TimeRange): Promise<AdvancedRoomAnalytics> {
+  async getAdvancedRoomAnalytics(
+    timeRange?: TimeRange,
+  ): Promise<AdvancedRoomAnalytics> {
     try {
       this.logger.log('📊 Generating advanced room analytics...');
 
       const endDate = timeRange?.endDate || new Date();
-      const startDate = timeRange?.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Last 30 days
+      const startDate =
+        timeRange?.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Last 30 days
 
       const [
         templateAnalytics,
@@ -73,29 +76,41 @@ export class RoomAnalyticsService {
   /**
    * 📋 Get template analytics
    */
-  async getTemplateAnalytics(startDate: Date, endDate: Date): Promise<TemplateAnalytics> {
+  async getTemplateAnalytics(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<TemplateAnalytics> {
     try {
       this.logger.log('📋 Analyzing template usage and effectiveness...');
 
       // Get all template metrics in the time range
-      const templateMetrics = await this.getTemplateMetricsInRange(startDate, endDate);
-      
+      const templateMetrics = await this.getTemplateMetricsInRange(
+        startDate,
+        endDate,
+      );
+
       // Get template counts
       const totalTemplates = await this.getTotalTemplateCount();
       const publicTemplates = await this.getPublicTemplateCount();
       const privateTemplates = totalTemplates - publicTemplates;
 
       // Calculate usage statistics
-      const templateUsageStats = await this.calculateTemplateUsageStats(templateMetrics);
-      
+      const templateUsageStats =
+        await this.calculateTemplateUsageStats(templateMetrics);
+
       // Get category distribution
-      const templateCategoryDistribution = await this.getTemplateCategoryDistribution();
-      
+      const templateCategoryDistribution =
+        await this.getTemplateCategoryDistribution();
+
       // Calculate effectiveness metrics
-      const templateEffectiveness = await this.calculateTemplateEffectiveness(templateMetrics);
-      
+      const templateEffectiveness =
+        await this.calculateTemplateEffectiveness(templateMetrics);
+
       // Get creation trends
-      const templateCreationTrends = await this.getTemplateCreationTrends(startDate, endDate);
+      const templateCreationTrends = await this.getTemplateCreationTrends(
+        startDate,
+        endDate,
+      );
 
       const analytics: TemplateAnalytics = {
         totalTemplates,
@@ -107,7 +122,9 @@ export class RoomAnalyticsService {
         templateCreationTrends,
       };
 
-      this.logger.log(`📋 Template analytics completed: ${totalTemplates} templates analyzed`);
+      this.logger.log(
+        `📋 Template analytics completed: ${totalTemplates} templates analyzed`,
+      );
       return analytics;
     } catch (error) {
       this.logger.error('❌ Error analyzing templates:', error);
@@ -118,13 +135,19 @@ export class RoomAnalyticsService {
   /**
    * 🎨 Get theme analytics
    */
-  async getThemeAnalytics(startDate: Date, endDate: Date): Promise<ThemeAnalytics> {
+  async getThemeAnalytics(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<ThemeAnalytics> {
     try {
       this.logger.log('🎨 Analyzing theme usage and impact...');
 
       // Get all theme metrics in the time range
-      const themeMetrics = await this.getThemeMetricsInRange(startDate, endDate);
-      
+      const themeMetrics = await this.getThemeMetricsInRange(
+        startDate,
+        endDate,
+      );
+
       // Get theme counts
       const totalThemes = await this.getTotalThemeCount();
       const systemThemes = 5; // We have 5 system themes
@@ -132,13 +155,15 @@ export class RoomAnalyticsService {
 
       // Calculate usage statistics
       const themeUsageStats = await this.calculateThemeUsageStats(themeMetrics);
-      
+
       // Get category distribution
-      const themeCategoryDistribution = await this.getThemeCategoryDistribution();
-      
+      const themeCategoryDistribution =
+        await this.getThemeCategoryDistribution();
+
       // Calculate impact on engagement
-      const themeImpactOnEngagement = await this.calculateThemeImpactOnEngagement(themeMetrics);
-      
+      const themeImpactOnEngagement =
+        await this.calculateThemeImpactOnEngagement(themeMetrics);
+
       // Get rating distribution
       const themeRatingDistribution = await this.getThemeRatingDistribution();
 
@@ -152,7 +177,9 @@ export class RoomAnalyticsService {
         themeRatingDistribution,
       };
 
-      this.logger.log(`🎨 Theme analytics completed: ${totalThemes} themes analyzed`);
+      this.logger.log(
+        `🎨 Theme analytics completed: ${totalThemes} themes analyzed`,
+      );
       return analytics;
     } catch (error) {
       this.logger.error('❌ Error analyzing themes:', error);
@@ -163,32 +190,43 @@ export class RoomAnalyticsService {
   /**
    * 📅 Get schedule analytics
    */
-  async getScheduleAnalytics(startDate: Date, endDate: Date): Promise<ScheduleAnalytics> {
+  async getScheduleAnalytics(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<ScheduleAnalytics> {
     try {
       this.logger.log('📅 Analyzing schedule effectiveness and patterns...');
 
       // Get all schedule metrics in the time range
-      const scheduleMetrics = await this.getScheduleMetricsInRange(startDate, endDate);
-      
+      const scheduleMetrics = await this.getScheduleMetricsInRange(
+        startDate,
+        endDate,
+      );
+
       // Get schedule counts
       const totalSchedules = await this.getTotalScheduleCount();
       const activeSchedules = await this.getActiveScheduleCount();
       const recurringSchedules = await this.getRecurringScheduleCount();
 
       // Calculate attendance statistics
-      const scheduleAttendanceStats = await this.calculateScheduleAttendanceStats(scheduleMetrics);
-      
+      const scheduleAttendanceStats =
+        await this.calculateScheduleAttendanceStats(scheduleMetrics);
+
       // Get recurrence pattern distribution
-      const recurrencePatternDistribution = await this.getRecurrencePatternDistribution();
-      
+      const recurrencePatternDistribution =
+        await this.getRecurrencePatternDistribution();
+
       // Calculate effectiveness metrics
-      const scheduleEffectiveness = await this.calculateScheduleEffectiveness(scheduleMetrics);
-      
+      const scheduleEffectiveness =
+        await this.calculateScheduleEffectiveness(scheduleMetrics);
+
       // Get time slot analytics
-      const timeSlotAnalytics = await this.getTimeSlotAnalytics(scheduleMetrics);
-      
+      const timeSlotAnalytics =
+        await this.getTimeSlotAnalytics(scheduleMetrics);
+
       // Get notification effectiveness
-      const notificationEffectiveness = await this.getNotificationEffectiveness(scheduleMetrics);
+      const notificationEffectiveness =
+        await this.getNotificationEffectiveness(scheduleMetrics);
 
       const analytics: ScheduleAnalytics = {
         totalSchedules,
@@ -201,7 +239,9 @@ export class RoomAnalyticsService {
         notificationEffectiveness,
       };
 
-      this.logger.log(`📅 Schedule analytics completed: ${totalSchedules} schedules analyzed`);
+      this.logger.log(
+        `📅 Schedule analytics completed: ${totalSchedules} schedules analyzed`,
+      );
       return analytics;
     } catch (error) {
       this.logger.error('❌ Error analyzing schedules:', error);
@@ -212,26 +252,35 @@ export class RoomAnalyticsService {
   /**
    * 🛡️ Get moderation analytics
    */
-  async getModerationAnalytics(startDate: Date, endDate: Date): Promise<ModerationAnalytics> {
+  async getModerationAnalytics(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<ModerationAnalytics> {
     try {
       this.logger.log('🛡️ Analyzing moderation effectiveness and usage...');
 
       // Get all moderation metrics in the time range
-      const moderationMetrics = await this.getModerationMetricsInRange(startDate, endDate);
-      
+      const moderationMetrics = await this.getModerationMetricsInRange(
+        startDate,
+        endDate,
+      );
+
       // Get role statistics
       const totalCustomRoles = await this.getTotalCustomRoleCount();
       const averageRolesPerRoom = await this.getAverageRolesPerRoom();
       const roleUsageDistribution = await this.getRoleUsageDistribution();
 
       // Calculate moderation action statistics
-      const moderationActionStats = await this.calculateModerationActionStats(moderationMetrics);
-      
+      const moderationActionStats =
+        await this.calculateModerationActionStats(moderationMetrics);
+
       // Calculate permission check statistics
-      const permissionCheckStats = await this.calculatePermissionCheckStats(moderationMetrics);
-      
+      const permissionCheckStats =
+        await this.calculatePermissionCheckStats(moderationMetrics);
+
       // Calculate effectiveness metrics
-      const moderationEffectiveness = await this.calculateModerationEffectiveness(moderationMetrics);
+      const moderationEffectiveness =
+        await this.calculateModerationEffectiveness(moderationMetrics);
 
       const analytics: ModerationAnalytics = {
         totalCustomRoles,
@@ -242,7 +291,9 @@ export class RoomAnalyticsService {
         moderationEffectiveness,
       };
 
-      this.logger.log(`🛡️ Moderation analytics completed: ${totalCustomRoles} custom roles analyzed`);
+      this.logger.log(
+        `🛡️ Moderation analytics completed: ${totalCustomRoles} custom roles analyzed`,
+      );
       return analytics;
     } catch (error) {
       this.logger.error('❌ Error analyzing moderation:', error);
@@ -253,21 +304,30 @@ export class RoomAnalyticsService {
   /**
    * ⚙️ Get settings analytics
    */
-  async getSettingsAnalytics(startDate: Date, endDate: Date): Promise<SettingsAnalytics> {
+  async getSettingsAnalytics(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<SettingsAnalytics> {
     try {
       this.logger.log('⚙️ Analyzing advanced settings usage and impact...');
 
       // Get all settings metrics in the time range
-      const settingsMetrics = await this.getSettingsMetricsInRange(startDate, endDate);
-      
+      const settingsMetrics = await this.getSettingsMetricsInRange(
+        startDate,
+        endDate,
+      );
+
       // Calculate usage statistics
-      const settingsUsageStats = await this.calculateSettingsUsageStats(settingsMetrics);
-      
+      const settingsUsageStats =
+        await this.calculateSettingsUsageStats(settingsMetrics);
+
       // Calculate impact on performance
-      const settingsImpactOnPerformance = await this.calculateSettingsImpactOnPerformance(settingsMetrics);
-      
+      const settingsImpactOnPerformance =
+        await this.calculateSettingsImpactOnPerformance(settingsMetrics);
+
       // Get recommendation acceptance rate
-      const recommendationAcceptanceRate = await this.getRecommendationAcceptanceRate();
+      const recommendationAcceptanceRate =
+        await this.getRecommendationAcceptanceRate();
 
       const analytics: SettingsAnalytics = {
         settingsUsageStats,
@@ -286,21 +346,34 @@ export class RoomAnalyticsService {
   /**
    * 👥 Get member engagement analytics
    */
-  async getMemberEngagementAnalytics(startDate: Date, endDate: Date): Promise<MemberEngagementAnalytics> {
+  async getMemberEngagementAnalytics(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<MemberEngagementAnalytics> {
     try {
-      this.logger.log('👥 Analyzing member engagement with advanced features...');
+      this.logger.log(
+        '👥 Analyzing member engagement with advanced features...',
+      );
 
       // Calculate engagement score distribution
-      const engagementScoreDistribution = await this.calculateEngagementScoreDistribution(startDate, endDate);
-      
+      const engagementScoreDistribution =
+        await this.calculateEngagementScoreDistribution(startDate, endDate);
+
       // Calculate engagement factors
-      const engagementFactors = await this.calculateEngagementFactors(startDate, endDate);
-      
+      const engagementFactors = await this.calculateEngagementFactors(
+        startDate,
+        endDate,
+      );
+
       // Calculate retention by feature usage
-      const memberRetentionByFeatureUsage = await this.calculateMemberRetentionByFeatureUsage(startDate, endDate);
-      
+      const memberRetentionByFeatureUsage =
+        await this.calculateMemberRetentionByFeatureUsage(startDate, endDate);
+
       // Calculate feature adoption funnel
-      const featureAdoptionFunnel = await this.calculateFeatureAdoptionFunnel(startDate, endDate);
+      const featureAdoptionFunnel = await this.calculateFeatureAdoptionFunnel(
+        startDate,
+        endDate,
+      );
 
       const analytics: MemberEngagementAnalytics = {
         engagementScoreDistribution,
@@ -320,24 +393,40 @@ export class RoomAnalyticsService {
   /**
    * 🏆 Get room performance scoring
    */
-  async getRoomPerformanceScoring(startDate: Date, endDate: Date): Promise<RoomPerformanceScoring> {
+  async getRoomPerformanceScoring(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<RoomPerformanceScoring> {
     try {
       this.logger.log('🏆 Calculating room performance scores...');
 
       // Calculate overall performance score
-      const overallScore = await this.calculateOverallPerformanceScore(startDate, endDate);
-      
+      const overallScore = await this.calculateOverallPerformanceScore(
+        startDate,
+        endDate,
+      );
+
       // Calculate score components
-      const scoreComponents = await this.calculateScoreComponents(startDate, endDate);
-      
+      const scoreComponents = await this.calculateScoreComponents(
+        startDate,
+        endDate,
+      );
+
       // Get score distribution
-      const scoreDistribution = await this.getScoreDistribution(startDate, endDate);
-      
+      const scoreDistribution = await this.getScoreDistribution(
+        startDate,
+        endDate,
+      );
+
       // Get top performing rooms
-      const topPerformingRooms = await this.getTopPerformingRooms(startDate, endDate);
-      
+      const topPerformingRooms = await this.getTopPerformingRooms(
+        startDate,
+        endDate,
+      );
+
       // Generate improvement recommendations
-      const improvementRecommendations = await this.generateImprovementRecommendations(startDate, endDate);
+      const improvementRecommendations =
+        await this.generateImprovementRecommendations(startDate, endDate);
 
       const scoring: RoomPerformanceScoring = {
         overallScore,
@@ -347,7 +436,9 @@ export class RoomAnalyticsService {
         improvementRecommendations,
       };
 
-      this.logger.log(`🏆 Room performance scoring completed: ${overallScore} overall score`);
+      this.logger.log(
+        `🏆 Room performance scoring completed: ${overallScore} overall score`,
+      );
       return scoring;
     } catch (error) {
       this.logger.error('❌ Error calculating room performance scores:', error);
@@ -357,7 +448,10 @@ export class RoomAnalyticsService {
 
   // Private helper methods for template analytics
 
-  private async getTemplateMetricsInRange(startDate: Date, endDate: Date): Promise<TemplateMetrics[]> {
+  private async getTemplateMetricsInRange(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<TemplateMetrics[]> {
     // Mock implementation - in real scenario, query analytics tables
     return [
       {
@@ -388,11 +482,11 @@ export class RoomAnalyticsService {
   private async calculateTemplateUsageStats(metrics: TemplateMetrics[]) {
     const totalUsages = metrics.reduce((sum, m) => sum + m.usageCount, 0);
     const averageUsagesPerTemplate = totalUsages / metrics.length || 0;
-    
+
     const mostUsedTemplates = metrics
       .sort((a, b) => b.usageCount - a.usageCount)
       .slice(0, 5)
-      .map(m => ({
+      .map((m) => ({
         templateId: m.templateId,
         name: `Template ${m.templateId}`,
         usageCount: m.usageCount,
@@ -406,20 +500,24 @@ export class RoomAnalyticsService {
     };
   }
 
-  private async getTemplateCategoryDistribution(): Promise<Record<string, number>> {
+  private async getTemplateCategoryDistribution(): Promise<
+    Record<string, number>
+  > {
     // Mock implementation
     return {
       'Movie Night': 15,
       'TV Series': 12,
-      'Documentary': 8,
+      Documentary: 8,
       'Horror Night': 6,
       'Comedy Special': 4,
     };
   }
 
   private async calculateTemplateEffectiveness(metrics: TemplateMetrics[]) {
-    const averageRoomSuccessRate = metrics.reduce((sum, m) => sum + m.consensusRate, 0) / metrics.length || 0;
-    
+    const averageRoomSuccessRate =
+      metrics.reduce((sum, m) => sum + m.consensusRate, 0) / metrics.length ||
+      0;
+
     // Mock comparison data
     const templatedVsNonTemplatedRooms = {
       templated: {
@@ -451,7 +549,10 @@ export class RoomAnalyticsService {
 
   // Private helper methods for theme analytics
 
-  private async getThemeMetricsInRange(startDate: Date, endDate: Date): Promise<ThemeMetrics[]> {
+  private async getThemeMetricsInRange(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<ThemeMetrics[]> {
     // Mock implementation
     return [
       {
@@ -472,13 +573,16 @@ export class RoomAnalyticsService {
   }
 
   private async calculateThemeUsageStats(metrics: ThemeMetrics[]) {
-    const totalApplications = metrics.reduce((sum, m) => sum + m.applicationCount, 0);
+    const totalApplications = metrics.reduce(
+      (sum, m) => sum + m.applicationCount,
+      0,
+    );
     const averageApplicationsPerTheme = totalApplications / metrics.length || 0;
-    
+
     const mostPopularThemes = metrics
       .sort((a, b) => b.applicationCount - a.applicationCount)
       .slice(0, 5)
-      .map(m => ({
+      .map((m) => ({
         themeId: m.themeId,
         name: `Theme ${m.themeId}`,
         applicationCount: m.applicationCount,
@@ -492,13 +596,15 @@ export class RoomAnalyticsService {
     };
   }
 
-  private async getThemeCategoryDistribution(): Promise<Record<string, number>> {
+  private async getThemeCategoryDistribution(): Promise<
+    Record<string, number>
+  > {
     return {
       'Movie Genres': 12,
-      'Seasonal': 8,
-      'Minimal': 6,
-      'Colorful': 4,
-      'Custom': 2,
+      Seasonal: 8,
+      Minimal: 6,
+      Colorful: 4,
+      Custom: 2,
     };
   }
 
@@ -528,7 +634,10 @@ export class RoomAnalyticsService {
   // Continue with other private helper methods...
   // (Implementation continues with similar patterns for schedule, moderation, settings, engagement, and performance scoring)
 
-  private async getScheduleMetricsInRange(startDate: Date, endDate: Date): Promise<ScheduleMetrics[]> {
+  private async getScheduleMetricsInRange(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<ScheduleMetrics[]> {
     // Mock implementation
     return [];
   }
@@ -554,13 +663,15 @@ export class RoomAnalyticsService {
     };
   }
 
-  private async getRecurrencePatternDistribution(): Promise<Record<string, number>> {
+  private async getRecurrencePatternDistribution(): Promise<
+    Record<string, number>
+  > {
     return {
-      'None': 10,
-      'Daily': 2,
-      'Weekly': 12,
-      'Monthly': 4,
-      'Custom': 3,
+      None: 10,
+      Daily: 2,
+      Weekly: 12,
+      Monthly: 4,
+      Custom: 3,
     };
   }
 
@@ -601,7 +712,10 @@ export class RoomAnalyticsService {
   }
 
   // Moderation analytics helpers
-  private async getModerationMetricsInRange(startDate: Date, endDate: Date): Promise<ModerationMetrics[]> {
+  private async getModerationMetricsInRange(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<ModerationMetrics[]> {
     return [];
   }
 
@@ -615,7 +729,7 @@ export class RoomAnalyticsService {
 
   private async getRoleUsageDistribution(): Promise<Record<string, number>> {
     return {
-      'Moderator': 15,
+      Moderator: 15,
       'VIP Member': 8,
       'Content Curator': 5,
       'Custom Role': 12,
@@ -626,9 +740,9 @@ export class RoomAnalyticsService {
     return {
       totalActions: 45,
       actionTypeDistribution: {
-        'warn': 25,
-        'mute': 12,
-        'ban': 8,
+        warn: 25,
+        mute: 12,
+        ban: 8,
       },
       averageActionsPerRoom: 1.2,
     };
@@ -660,7 +774,10 @@ export class RoomAnalyticsService {
   }
 
   // Settings analytics helpers
-  private async getSettingsMetricsInRange(startDate: Date, endDate: Date): Promise<SettingsMetrics[]> {
+  private async getSettingsMetricsInRange(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<SettingsMetrics[]> {
     return [];
   }
 
@@ -668,18 +785,43 @@ export class RoomAnalyticsService {
     return {
       roomsWithAdvancedSettings: 35,
       mostModifiedSettings: [
-        { settingName: 'consensusThreshold', modificationCount: 28, averageValue: 0.75 },
-        { settingName: 'privacyLevel', modificationCount: 22, averageValue: 'private' },
+        {
+          settingName: 'consensusThreshold',
+          modificationCount: 28,
+          averageValue: 0.75,
+        },
+        {
+          settingName: 'privacyLevel',
+          modificationCount: 22,
+          averageValue: 'private',
+        },
       ],
     };
   }
 
-  private async calculateSettingsImpactOnPerformance(metrics: SettingsMetrics[]) {
+  private async calculateSettingsImpactOnPerformance(
+    metrics: SettingsMetrics[],
+  ) {
     return {
       consensusThresholdAnalysis: [
-        { threshold: 0.5, roomCount: 8, averageConsensusTime: 1200, successRate: 0.95 },
-        { threshold: 0.75, roomCount: 15, averageConsensusTime: 1800, successRate: 0.82 },
-        { threshold: 1.0, roomCount: 5, averageConsensusTime: 3600, successRate: 0.65 },
+        {
+          threshold: 0.5,
+          roomCount: 8,
+          averageConsensusTime: 1200,
+          successRate: 0.95,
+        },
+        {
+          threshold: 0.75,
+          roomCount: 15,
+          averageConsensusTime: 1800,
+          successRate: 0.82,
+        },
+        {
+          threshold: 1.0,
+          roomCount: 5,
+          averageConsensusTime: 3600,
+          successRate: 0.65,
+        },
       ],
       privacySettingsImpact: {
         publicRooms: { joinRate: 0.85, completionRate: 0.72 },
@@ -693,7 +835,10 @@ export class RoomAnalyticsService {
   }
 
   // Engagement analytics helpers
-  private async calculateEngagementScoreDistribution(startDate: Date, endDate: Date): Promise<Record<string, number>> {
+  private async calculateEngagementScoreDistribution(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<Record<string, number>> {
     return {
       'Low (0-2)': 15,
       'Medium (2-4)': 45,
@@ -710,7 +855,10 @@ export class RoomAnalyticsService {
     };
   }
 
-  private async calculateMemberRetentionByFeatureUsage(startDate: Date, endDate: Date) {
+  private async calculateMemberRetentionByFeatureUsage(
+    startDate: Date,
+    endDate: Date,
+  ) {
     return {
       templateUsers: { day7: 0.82, day30: 0.65 },
       themeUsers: { day7: 0.78, day30: 0.62 },
@@ -730,7 +878,10 @@ export class RoomAnalyticsService {
   }
 
   // Performance scoring helpers
-  private async calculateOverallPerformanceScore(startDate: Date, endDate: Date): Promise<number> {
+  private async calculateOverallPerformanceScore(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<number> {
     return 4.2;
   }
 
@@ -744,7 +895,10 @@ export class RoomAnalyticsService {
     };
   }
 
-  private async getScoreDistribution(startDate: Date, endDate: Date): Promise<Record<string, number>> {
+  private async getScoreDistribution(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<Record<string, number>> {
     return {
       'Excellent (4.5-5.0)': 12,
       'Good (3.5-4.5)': 28,
@@ -758,17 +912,28 @@ export class RoomAnalyticsService {
       {
         roomId: 'room-123',
         score: 4.8,
-        keySuccessFactors: ['High template usage', 'Active moderation', 'Regular scheduling'],
+        keySuccessFactors: [
+          'High template usage',
+          'Active moderation',
+          'Regular scheduling',
+        ],
       },
       {
         roomId: 'room-456',
         score: 4.6,
-        keySuccessFactors: ['Custom themes', 'Engaged members', 'Efficient consensus'],
+        keySuccessFactors: [
+          'Custom themes',
+          'Engaged members',
+          'Efficient consensus',
+        ],
       },
     ];
   }
 
-  private async generateImprovementRecommendations(startDate: Date, endDate: Date) {
+  private async generateImprovementRecommendations(
+    startDate: Date,
+    endDate: Date,
+  ) {
     return [
       {
         category: 'Template Usage',
@@ -778,7 +943,8 @@ export class RoomAnalyticsService {
       },
       {
         category: 'Member Engagement',
-        recommendation: 'Implement gamification features for active participation',
+        recommendation:
+          'Implement gamification features for active participation',
         potentialImpact: 0.22,
         implementationDifficulty: 'medium' as const,
       },

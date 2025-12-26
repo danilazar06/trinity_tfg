@@ -34,19 +34,21 @@ export class MediaService implements OnModuleInit {
       // Operación principal: TMDB API
       async () => {
         const results = await this.tmdbService.discoverContent(tmdbFilters);
-        
+
         // Cachear resultados exitosos de forma asíncrona
         this.cacheMoviesAsync(results);
-        
+
         this.logger.log(`Fetched ${results.length} movies from TMDB`);
         return results;
       },
       // Fallback: Caché local (Trinity_MoviesCache)
       async () => {
         const cachedResults = await this.getCachedMovies(filters);
-        this.logger.warn(`Using cached content, returned ${cachedResults.length} items`);
+        this.logger.warn(
+          `Using cached content, returned ${cachedResults.length} items`,
+        );
         return cachedResults;
-      }
+      },
     );
   }
 
@@ -61,10 +63,10 @@ export class MediaService implements OnModuleInit {
         const tmdbMovie = await this.tmdbService.getMovieDetails(tmdbId);
         if (tmdbMovie && tmdbMovie.id) {
           const mediaItem = this.tmdbService.convertToMediaItem(tmdbMovie);
-          
+
           // Cachear el resultado
           await this.multiTableService.cacheMovie(mediaItem);
-          
+
           return mediaItem;
         }
         return null;
@@ -72,7 +74,7 @@ export class MediaService implements OnModuleInit {
       // Fallback: Caché local
       async () => {
         return this.getCachedMovie(tmdbId);
-      }
+      },
     );
   }
 
@@ -89,19 +91,19 @@ export class MediaService implements OnModuleInit {
       // Operación principal: TMDB API
       async () => {
         const response = await this.tmdbService.searchMovies({ query, page });
-        const mediaItems = response.results.map(movie => 
-          this.tmdbService.convertToMediaItem(movie)
+        const mediaItems = response.results.map((movie) =>
+          this.tmdbService.convertToMediaItem(movie),
         );
-        
+
         // Cachear resultados de búsqueda
         this.cacheMoviesAsync(mediaItems);
-        
+
         return mediaItems;
       },
       // Fallback: Búsqueda en caché local
       async () => {
         return this.searchCachedMovies(query);
-      }
+      },
     );
   }
 
@@ -112,8 +114,8 @@ export class MediaService implements OnModuleInit {
     try {
       // Cachear de forma asíncrona para no bloquear la respuesta
       Promise.all(
-        movies.map(movie => this.multiTableService.cacheMovie(movie))
-      ).catch(error => {
+        movies.map((movie) => this.multiTableService.cacheMovie(movie)),
+      ).catch((error) => {
         this.logger.error(`Error caching movies: ${error.message}`);
       });
     } catch (error) {
@@ -143,8 +145,8 @@ export class MediaService implements OnModuleInit {
     try {
       // Búsqueda simple en caché por título
       const allCached = await this.multiTableService.searchCachedMovies({});
-      return allCached.filter(movie => 
-        movie.title.toLowerCase().includes(query.toLowerCase())
+      return allCached.filter((movie) =>
+        movie.title.toLowerCase().includes(query.toLowerCase()),
       );
     } catch (error) {
       this.logger.error(`Error searching cached movies: ${error.message}`);
@@ -178,8 +180,12 @@ export class MediaService implements OnModuleInit {
   getCircuitBreakerStats() {
     return {
       tmdb: this.circuitBreakerService.getCircuitStats(this.CIRCUIT_NAME),
-      details: this.circuitBreakerService.getCircuitStats(`${this.CIRCUIT_NAME}-details`),
-      search: this.circuitBreakerService.getCircuitStats(`${this.CIRCUIT_NAME}-search`),
+      details: this.circuitBreakerService.getCircuitStats(
+        `${this.CIRCUIT_NAME}-details`,
+      ),
+      search: this.circuitBreakerService.getCircuitStats(
+        `${this.CIRCUIT_NAME}-search`,
+      ),
     };
   }
 }

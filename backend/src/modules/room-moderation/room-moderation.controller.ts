@@ -1,16 +1,16 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Put, 
-  Delete, 
-  Body, 
-  Param, 
-  Query, 
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
   UseGuards,
   Request,
   HttpStatus,
-  HttpCode
+  HttpCode,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RoomModerationService } from './room-moderation.service';
@@ -44,12 +44,12 @@ export class RoomModerationController {
   async createCustomRole(
     @Param('roomId') roomId: string,
     @Body() createRoleDto: CreateCustomRoleDto,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<CustomRoleResponseDto> {
     const role = await this.roomModerationService.createCustomRole(
       roomId,
       req.user.id,
-      createRoleDto
+      createRoleDto,
     );
 
     return {
@@ -73,18 +73,18 @@ export class RoomModerationController {
   @Get('roles')
   async getRoomRoles(
     @Param('roomId') roomId: string,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<CustomRoleResponseDto[]> {
     // Verificar acceso básico a la sala
     await this.roomModerationService.checkPermission(
-      roomId, 
-      req.user.id, 
-      RoomPermission.VIEW_ROOM
+      roomId,
+      req.user.id,
+      RoomPermission.VIEW_ROOM,
     );
 
     const roles = await this.roomModerationService.getRoomRoles(roomId);
-    
-    return roles.map(role => ({
+
+    return roles.map((role) => ({
       id: role.id,
       name: role.name,
       description: role.description,
@@ -107,13 +107,13 @@ export class RoomModerationController {
     @Param('roomId') roomId: string,
     @Param('roleId') roleId: string,
     @Body() updateRoleDto: UpdateCustomRoleDto,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<CustomRoleResponseDto> {
     const role = await this.roomModerationService.updateCustomRole(
       roomId,
       roleId,
       req.user.id,
-      updateRoleDto
+      updateRoleDto,
     );
 
     return {
@@ -139,12 +139,12 @@ export class RoomModerationController {
   async deleteCustomRole(
     @Param('roomId') roomId: string,
     @Param('roleId') roleId: string,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<void> {
     await this.roomModerationService.deleteCustomRole(
       roomId,
       roleId,
-      req.user.id
+      req.user.id,
     );
   }
 
@@ -157,18 +157,18 @@ export class RoomModerationController {
     @Param('roomId') roomId: string,
     @Param('userId') userId: string,
     @Body() assignRoleDto: AssignRoleDto,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<{ success: boolean; message: string }> {
     await this.roomModerationService.assignRole(
       roomId,
       userId,
       assignRoleDto,
-      req.user.id
+      req.user.id,
     );
 
     return {
       success: true,
-      message: 'Rol asignado exitosamente'
+      message: 'Rol asignado exitosamente',
     };
   }
 
@@ -181,13 +181,13 @@ export class RoomModerationController {
     @Param('roomId') roomId: string,
     @Param('userId') userId: string,
     @Param('roleId') roleId: string,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<void> {
     await this.roomModerationService.removeRole(
       roomId,
       userId,
       roleId,
-      req.user.id
+      req.user.id,
     );
   }
 
@@ -199,12 +199,12 @@ export class RoomModerationController {
   async warnMember(
     @Param('roomId') roomId: string,
     @Body() warnDto: WarnMemberDto,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<ModerationActionResponseDto> {
     const action = await this.roomModerationService.warnMember(
       roomId,
       warnDto,
-      req.user.id
+      req.user.id,
     );
 
     return {
@@ -230,12 +230,12 @@ export class RoomModerationController {
   async muteMember(
     @Param('roomId') roomId: string,
     @Body() muteDto: MuteMemberDto,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<ModerationActionResponseDto> {
     const action = await this.roomModerationService.muteMember(
       roomId,
       muteDto,
-      req.user.id
+      req.user.id,
     );
 
     return {
@@ -261,12 +261,12 @@ export class RoomModerationController {
   async banMember(
     @Param('roomId') roomId: string,
     @Body() banDto: BanMemberDto,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<ModerationActionResponseDto> {
     const action = await this.roomModerationService.banMember(
       roomId,
       banDto,
-      req.user.id
+      req.user.id,
     );
 
     return {
@@ -292,20 +292,23 @@ export class RoomModerationController {
     @Param('roomId') roomId: string,
     @Query('permission') permission: RoomPermission,
     @Query('userId') userId: string,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<PermissionCheckResponseDto> {
     // Si no se especifica userId, verificar permisos del usuario actual
     const targetUserId = userId || req.user.id;
-    
+
     const result = await this.roomModerationService.checkPermission(
       roomId,
       targetUserId,
-      permission
+      permission,
     );
 
     // Obtener roles del usuario para la respuesta
-    const userRoles = await this.roomModerationService.getUserRoles(roomId, targetUserId);
-    const permissions = userRoles.flatMap(role => role.permissions);
+    const userRoles = await this.roomModerationService.getUserRoles(
+      roomId,
+      targetUserId,
+    );
+    const permissions = userRoles.flatMap((role) => role.permissions);
 
     return {
       hasPermission: result.hasPermission,
@@ -323,15 +326,15 @@ export class RoomModerationController {
   async getModerationHistory(
     @Param('roomId') roomId: string,
     @Query() filters: ModerationActionFiltersDto,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<ModerationActionResponseDto[]> {
     const actions = await this.roomModerationService.getModerationHistory(
       roomId,
       req.user.id,
-      filters
+      filters,
     );
 
-    return actions.map(action => ({
+    return actions.map((action) => ({
       id: action.id,
       roomId: action.roomId,
       targetUserId: action.targetUserId,
@@ -353,17 +356,20 @@ export class RoomModerationController {
   async getMemberModerationStatus(
     @Param('roomId') roomId: string,
     @Param('userId') userId: string,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<MemberModerationStatusResponseDto> {
     const status = await this.roomModerationService.getMemberModerationStatus(
       roomId,
       userId,
-      req.user.id
+      req.user.id,
     );
 
     // Obtener roles del usuario
-    const userRoles = await this.roomModerationService.getUserRoles(roomId, userId);
-    const roles = userRoles.map(role => ({
+    const userRoles = await this.roomModerationService.getUserRoles(
+      roomId,
+      userId,
+    );
+    const roles = userRoles.map((role) => ({
       id: role.id,
       name: role.name,
       description: role.description,
@@ -397,13 +403,13 @@ export class RoomModerationController {
   @Get('moderation/stats')
   async getRoomModerationStats(
     @Param('roomId') roomId: string,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<RoomModerationStatsResponseDto> {
     // Verificar permisos para ver estadísticas
     await this.roomModerationService.checkPermission(
       roomId,
       req.user.id,
-      RoomPermission.VIEW_MODERATION_LOG
+      RoomPermission.VIEW_MODERATION_LOG,
     );
 
     // Por ahora retornamos estadísticas básicas
@@ -411,27 +417,35 @@ export class RoomModerationController {
     const actions = await this.roomModerationService.getModerationHistory(
       roomId,
       req.user.id,
-      { limit: 1000 }
+      { limit: 1000 },
     );
 
-    const actionsByType = actions.reduce((acc, action) => {
-      acc[action.actionType] = (acc[action.actionType] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const actionsByType = actions.reduce(
+      (acc, action) => {
+        acc[action.actionType] = (acc[action.actionType] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
-    const activeMutes = actions.filter(action => 
-      action.actionType === 'mute' && 
-      action.isActive && 
-      (!action.expiresAt || action.expiresAt > new Date())
+    const activeMutes = actions.filter(
+      (action) =>
+        action.actionType === 'mute' &&
+        action.isActive &&
+        (!action.expiresAt || action.expiresAt > new Date()),
     ).length;
 
-    const activeBans = actions.filter(action => 
-      (action.actionType === 'temporary_ban' || action.actionType === 'permanent_ban') && 
-      action.isActive && 
-      (!action.expiresAt || action.expiresAt > new Date())
+    const activeBans = actions.filter(
+      (action) =>
+        (action.actionType === 'temporary_ban' ||
+          action.actionType === 'permanent_ban') &&
+        action.isActive &&
+        (!action.expiresAt || action.expiresAt > new Date()),
     ).length;
 
-    const totalWarnings = actions.filter(action => action.actionType === 'warn').length;
+    const totalWarnings = actions.filter(
+      (action) => action.actionType === 'warn',
+    ).length;
 
     return {
       roomId,
@@ -454,20 +468,20 @@ export class RoomModerationController {
     @Param('roomId') roomId: string,
     @Param('actionId') actionId: string,
     @Body('reason') reason: string,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<{ success: boolean; message: string }> {
     // Verificar permisos de moderación
     await this.roomModerationService.checkPermission(
       roomId,
       req.user.id,
-      RoomPermission.MUTE_MEMBERS // O el permiso apropiado
+      RoomPermission.MUTE_MEMBERS, // O el permiso apropiado
     );
 
     // Por ahora retornamos éxito
     // En una implementación completa, esto desactivaría la acción de moderación
     return {
       success: true,
-      message: 'Acción de moderación deshecha exitosamente'
+      message: 'Acción de moderación deshecha exitosamente',
     };
   }
 }

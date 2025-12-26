@@ -2,10 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 // Import AWS SDK v3 for AppSync
-import { 
-  AppSyncClient, 
+import {
+  AppSyncClient,
   EvaluateMappingTemplateCommand,
-  GetGraphqlApiCommand 
+  GetGraphqlApiCommand,
 } from '@aws-sdk/client-appsync';
 
 // Import GraphQL client for mutations
@@ -23,7 +23,7 @@ import {
   ThemeChangeNotification,
   RoomSettingsNotification,
   ChatMessageNotification,
-  ContentSuggestionNotification
+  ContentSuggestionNotification,
 } from './realtime.service';
 
 interface AppSyncConfig {
@@ -59,7 +59,9 @@ export class AppSyncPublisher {
       region: this.config.region,
     });
 
-    this.logger.log(`🚀 AppSync Publisher initialized with API: ${this.config.apiUrl}`);
+    this.logger.log(
+      `🚀 AppSync Publisher initialized with API: ${this.config.apiUrl}`,
+    );
   }
 
   /**
@@ -72,7 +74,10 @@ export class AppSyncPublisher {
   /**
    * Execute GraphQL mutation with error handling
    */
-  private async executeMutation(mutation: string, variables: any): Promise<any> {
+  private async executeMutation(
+    mutation: string,
+    variables: any,
+  ): Promise<any> {
     try {
       const result = await this.graphqlClient.request(mutation, variables);
       return result;
@@ -85,10 +90,15 @@ export class AppSyncPublisher {
   /**
    * Publish vote update event
    */
-  async publishVoteUpdate(roomId: string, voteData: VoteNotification): Promise<void> {
+  async publishVoteUpdate(
+    roomId: string,
+    voteData: VoteNotification,
+  ): Promise<void> {
     try {
-      this.logger.log(`🗳️ Publishing vote update to room ${roomId}: ${voteData.userId} voted ${voteData.voteType} on ${voteData.mediaId}`);
-      
+      this.logger.log(
+        `🗳️ Publishing vote update to room ${roomId}: ${voteData.userId} voted ${voteData.voteType} on ${voteData.mediaId}`,
+      );
+
       const mutation = `
         mutation PublishVoteEvent($roomId: ID!, $voteData: AWSJSON!) {
           publishVoteEvent(roomId: $roomId, voteData: $voteData) {
@@ -109,8 +119,8 @@ export class AppSyncPublisher {
           userId: voteData.userId,
           mediaId: voteData.mediaId,
           voteType: voteData.voteType.toUpperCase(),
-          progress: voteData.progress
-        }
+          progress: voteData.progress,
+        },
       };
 
       await this.executeMutation(mutation, variables);
@@ -124,10 +134,15 @@ export class AppSyncPublisher {
   /**
    * Publish match found event
    */
-  async publishMatchFound(roomId: string, matchData: MatchNotification): Promise<void> {
+  async publishMatchFound(
+    roomId: string,
+    matchData: MatchNotification,
+  ): Promise<void> {
     try {
-      this.logger.log(`🎯 Publishing match found to room ${roomId}: ${matchData.mediaTitle}`);
-      
+      this.logger.log(
+        `🎯 Publishing match found to room ${roomId}: ${matchData.mediaTitle}`,
+      );
+
       const mutation = `
         mutation PublishMatchEvent($roomId: ID!, $matchData: AWSJSON!) {
           publishMatchEvent(roomId: $roomId, matchData: $matchData) {
@@ -151,8 +166,8 @@ export class AppSyncPublisher {
           mediaId: matchData.mediaId,
           mediaTitle: matchData.mediaTitle,
           participants: matchData.participants,
-          consensusType: matchData.matchType.toUpperCase()
-        }
+          consensusType: matchData.matchType.toUpperCase(),
+        },
       };
 
       await this.executeMutation(mutation, variables);
@@ -166,10 +181,15 @@ export class AppSyncPublisher {
   /**
    * Publish room state change event
    */
-  async publishRoomStateChange(roomId: string, stateData: RoomStateNotification): Promise<void> {
+  async publishRoomStateChange(
+    roomId: string,
+    stateData: RoomStateNotification,
+  ): Promise<void> {
     try {
-      this.logger.log(`🏠 Publishing room state change for ${roomId}: ${stateData.status}`);
-      
+      this.logger.log(
+        `🏠 Publishing room state change for ${roomId}: ${stateData.status}`,
+      );
+
       const mutation = `
         mutation PublishRoomEvent($roomId: ID!, $eventType: String!, $data: AWSJSON!) {
           publishRoomEvent(roomId: $roomId, eventType: $eventType, data: $data) {
@@ -189,14 +209,16 @@ export class AppSyncPublisher {
           status: stateData.status,
           currentMediaId: stateData.currentMediaId,
           queueLength: stateData.queueLength,
-          activeMembers: stateData.activeMembers
-        }
+          activeMembers: stateData.activeMembers,
+        },
       };
 
       await this.executeMutation(mutation, variables);
       this.logger.log(`✅ Room state change published successfully`);
     } catch (error) {
-      this.logger.error(`Failed to publish room state change: ${error.message}`);
+      this.logger.error(
+        `Failed to publish room state change: ${error.message}`,
+      );
       // Don't throw - real-time notifications are not critical
     }
   }
@@ -204,10 +226,15 @@ export class AppSyncPublisher {
   /**
    * Publish member status change event
    */
-  async publishMemberStatusChange(roomId: string, memberData: MemberStatusNotification): Promise<void> {
+  async publishMemberStatusChange(
+    roomId: string,
+    memberData: MemberStatusNotification,
+  ): Promise<void> {
     try {
-      this.logger.log(`👤 Publishing member status change for room ${roomId}: ${memberData.userId} is ${memberData.status}`);
-      
+      this.logger.log(
+        `👤 Publishing member status change for room ${roomId}: ${memberData.userId} is ${memberData.status}`,
+      );
+
       const mutation = `
         mutation PublishMemberEvent($roomId: ID!, $memberData: AWSJSON!) {
           publishMemberEvent(roomId: $roomId, memberData: $memberData) {
@@ -230,15 +257,17 @@ export class AppSyncPublisher {
           memberCount: 0, // This should be calculated by the calling service
           memberData: {
             status: memberData.status,
-            lastActivity: memberData.lastActivity
-          }
-        }
+            lastActivity: memberData.lastActivity,
+          },
+        },
       };
 
       await this.executeMutation(mutation, variables);
       this.logger.log(`✅ Member status change published successfully`);
     } catch (error) {
-      this.logger.error(`Failed to publish member status change: ${error.message}`);
+      this.logger.error(
+        `Failed to publish member status change: ${error.message}`,
+      );
       // Don't throw - real-time notifications are not critical
     }
   }
@@ -246,10 +275,15 @@ export class AppSyncPublisher {
   /**
    * Publish role assignment event
    */
-  async publishRoleAssignment(roomId: string, roleData: RoleAssignmentNotification): Promise<void> {
+  async publishRoleAssignment(
+    roomId: string,
+    roleData: RoleAssignmentNotification,
+  ): Promise<void> {
     try {
-      this.logger.log(`👑 Publishing role assignment for room ${roomId}: ${roleData.action} role ${roleData.roleName} to ${roleData.targetUserId}`);
-      
+      this.logger.log(
+        `👑 Publishing role assignment for room ${roomId}: ${roleData.action} role ${roleData.roleName} to ${roleData.targetUserId}`,
+      );
+
       const mutation = `
         mutation PublishRoleEvent($roomId: ID!, $roleData: AWSJSON!) {
           publishRoleEvent(roomId: $roomId, roleData: $roleData) {
@@ -273,8 +307,8 @@ export class AppSyncPublisher {
           roleId: roleData.roleId,
           roleName: roleData.roleName,
           assignedBy: roleData.assignedBy,
-          action: roleData.action.toUpperCase()
-        }
+          action: roleData.action.toUpperCase(),
+        },
       };
 
       await this.executeMutation(mutation, variables);
@@ -288,10 +322,15 @@ export class AppSyncPublisher {
   /**
    * Publish moderation action event
    */
-  async publishModerationAction(roomId: string, moderationData: ModerationActionNotification): Promise<void> {
+  async publishModerationAction(
+    roomId: string,
+    moderationData: ModerationActionNotification,
+  ): Promise<void> {
     try {
-      this.logger.log(`🛡️ Publishing moderation action for room ${roomId}: ${moderationData.actionType} on ${moderationData.targetUserId}`);
-      
+      this.logger.log(
+        `🛡️ Publishing moderation action for room ${roomId}: ${moderationData.actionType} on ${moderationData.targetUserId}`,
+      );
+
       const mutation = `
         mutation PublishModerationEvent($roomId: ID!, $moderationData: AWSJSON!) {
           publishModerationEvent(roomId: $roomId, moderationData: $moderationData) {
@@ -317,14 +356,16 @@ export class AppSyncPublisher {
           actionType: moderationData.actionType,
           reason: moderationData.reason,
           duration: moderationData.duration,
-          expiresAt: moderationData.expiresAt
-        }
+          expiresAt: moderationData.expiresAt,
+        },
       };
 
       await this.executeMutation(mutation, variables);
       this.logger.log(`✅ Moderation action published successfully`);
     } catch (error) {
-      this.logger.error(`Failed to publish moderation action: ${error.message}`);
+      this.logger.error(
+        `Failed to publish moderation action: ${error.message}`,
+      );
       // Don't throw - real-time notifications are not critical
     }
   }
@@ -332,10 +373,15 @@ export class AppSyncPublisher {
   /**
    * Publish schedule event
    */
-  async publishScheduleEvent(roomId: string, scheduleData: ScheduleNotification): Promise<void> {
+  async publishScheduleEvent(
+    roomId: string,
+    scheduleData: ScheduleNotification,
+  ): Promise<void> {
     try {
-      this.logger.log(`📅 Publishing schedule event for room ${roomId}: ${scheduleData.action} - ${scheduleData.title}`);
-      
+      this.logger.log(
+        `📅 Publishing schedule event for room ${roomId}: ${scheduleData.action} - ${scheduleData.title}`,
+      );
+
       const mutation = `
         mutation PublishScheduleEvent($roomId: ID!, $scheduleData: AWSJSON!) {
           publishScheduleEvent(roomId: $roomId, scheduleData: $scheduleData) {
@@ -361,8 +407,8 @@ export class AppSyncPublisher {
           action: scheduleData.action.toUpperCase(),
           startTime: scheduleData.startTime,
           endTime: scheduleData.endTime,
-          message: scheduleData.message
-        }
+          message: scheduleData.message,
+        },
       };
 
       await this.executeMutation(mutation, variables);
@@ -376,10 +422,15 @@ export class AppSyncPublisher {
   /**
    * Publish theme change event
    */
-  async publishThemeChange(roomId: string, themeData: ThemeChangeNotification): Promise<void> {
+  async publishThemeChange(
+    roomId: string,
+    themeData: ThemeChangeNotification,
+  ): Promise<void> {
     try {
-      this.logger.log(`🎨 Publishing theme change for room ${roomId}: ${themeData.action} - ${themeData.themeName || 'theme'}`);
-      
+      this.logger.log(
+        `🎨 Publishing theme change for room ${roomId}: ${themeData.action} - ${themeData.themeName || 'theme'}`,
+      );
+
       const mutation = `
         mutation PublishThemeEvent($roomId: ID!, $themeData: AWSJSON!) {
           publishThemeEvent(roomId: $roomId, themeData: $themeData) {
@@ -403,8 +454,8 @@ export class AppSyncPublisher {
           themeName: themeData.themeName,
           action: themeData.action.toUpperCase(),
           appliedBy: themeData.appliedBy,
-          customizations: themeData.customizations
-        }
+          customizations: themeData.customizations,
+        },
       };
 
       await this.executeMutation(mutation, variables);
@@ -418,10 +469,15 @@ export class AppSyncPublisher {
   /**
    * Publish room settings change event
    */
-  async publishRoomSettingsChange(roomId: string, settingsData: RoomSettingsNotification): Promise<void> {
+  async publishRoomSettingsChange(
+    roomId: string,
+    settingsData: RoomSettingsNotification,
+  ): Promise<void> {
     try {
-      this.logger.log(`⚙️ Publishing room settings change for ${roomId}: ${settingsData.settingKey} changed by ${settingsData.changedBy}`);
-      
+      this.logger.log(
+        `⚙️ Publishing room settings change for ${roomId}: ${settingsData.settingKey} changed by ${settingsData.changedBy}`,
+      );
+
       const mutation = `
         mutation PublishSettingsEvent($roomId: ID!, $settingsData: AWSJSON!) {
           publishSettingsEvent(roomId: $roomId, settingsData: $settingsData) {
@@ -445,14 +501,16 @@ export class AppSyncPublisher {
           oldValue: settingsData.oldValue,
           newValue: settingsData.newValue,
           changedBy: settingsData.changedBy,
-          category: settingsData.category.toUpperCase()
-        }
+          category: settingsData.category.toUpperCase(),
+        },
       };
 
       await this.executeMutation(mutation, variables);
       this.logger.log(`✅ Room settings change published successfully`);
     } catch (error) {
-      this.logger.error(`Failed to publish room settings change: ${error.message}`);
+      this.logger.error(
+        `Failed to publish room settings change: ${error.message}`,
+      );
       // Don't throw - real-time notifications are not critical
     }
   }
@@ -460,10 +518,15 @@ export class AppSyncPublisher {
   /**
    * Publish chat message event
    */
-  async publishChatMessage(roomId: string, chatData: ChatMessageNotification): Promise<void> {
+  async publishChatMessage(
+    roomId: string,
+    chatData: ChatMessageNotification,
+  ): Promise<void> {
     try {
-      this.logger.log(`💬 Publishing chat message for room ${roomId}: ${chatData.type} from ${chatData.username}`);
-      
+      this.logger.log(
+        `💬 Publishing chat message for room ${roomId}: ${chatData.type} from ${chatData.username}`,
+      );
+
       const mutation = `
         mutation PublishChatEvent($roomId: ID!, $chatData: AWSJSON!) {
           publishChatEvent(roomId: $roomId, chatData: $chatData) {
@@ -491,8 +554,8 @@ export class AppSyncPublisher {
           content: chatData.message?.content || chatData.data?.content,
           messageType: 'TEXT',
           action: chatData.type.toUpperCase(),
-          metadata: chatData.data
-        }
+          metadata: chatData.data,
+        },
       };
 
       await this.executeMutation(mutation, variables);
@@ -506,10 +569,15 @@ export class AppSyncPublisher {
   /**
    * Publish content suggestion event
    */
-  async publishContentSuggestion(roomId: string, suggestionData: ContentSuggestionNotification): Promise<void> {
+  async publishContentSuggestion(
+    roomId: string,
+    suggestionData: ContentSuggestionNotification,
+  ): Promise<void> {
     try {
-      this.logger.log(`💡 Publishing content suggestion for room ${roomId}: ${suggestionData.type} by ${suggestionData.username}`);
-      
+      this.logger.log(
+        `💡 Publishing content suggestion for room ${roomId}: ${suggestionData.type} by ${suggestionData.username}`,
+      );
+
       const mutation = `
         mutation PublishSuggestionEvent($roomId: ID!, $suggestionData: AWSJSON!) {
           publishSuggestionEvent(roomId: $roomId, suggestionData: $suggestionData) {
@@ -537,14 +605,16 @@ export class AppSyncPublisher {
           action: suggestionData.type.toUpperCase(),
           suggestion: suggestionData.suggestion,
           vote: suggestionData.vote,
-          comment: suggestionData.comment
-        }
+          comment: suggestionData.comment,
+        },
       };
 
       await this.executeMutation(mutation, variables);
       this.logger.log(`✅ Content suggestion published successfully`);
     } catch (error) {
-      this.logger.error(`Failed to publish content suggestion: ${error.message}`);
+      this.logger.error(
+        `Failed to publish content suggestion: ${error.message}`,
+      );
       // Don't throw - real-time notifications are not critical
     }
   }
@@ -556,9 +626,9 @@ export class AppSyncPublisher {
     try {
       // Try to get API information to verify connection
       const command = new GetGraphqlApiCommand({
-        apiId: this.extractApiIdFromUrl(this.config.apiUrl)
+        apiId: this.extractApiIdFromUrl(this.config.apiUrl),
       });
-      
+
       await this.appSyncClient.send(command);
       return true;
     } catch (error) {

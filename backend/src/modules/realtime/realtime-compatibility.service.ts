@@ -13,7 +13,7 @@ import {
   ThemeChangeNotification,
   RoomSettingsNotification,
   ChatMessageNotification,
-  ContentSuggestionNotification
+  ContentSuggestionNotification,
 } from './realtime.service';
 
 /**
@@ -25,7 +25,9 @@ export class RealtimeCompatibilityService {
   private readonly logger = new Logger(RealtimeCompatibilityService.name);
 
   constructor(private readonly appSyncPublisher: AppSyncPublisher) {
-    this.logger.log('🔄 RealtimeCompatibilityService initialized with AppSync backend');
+    this.logger.log(
+      '🔄 RealtimeCompatibilityService initialized with AppSync backend',
+    );
   }
 
   /**
@@ -45,34 +47,45 @@ export class RealtimeCompatibilityService {
   /**
    * Notificar cambio de estado de sala
    */
-  async notifyRoomStateChange(roomId: string, stateData: RoomStateNotification) {
+  async notifyRoomStateChange(
+    roomId: string,
+    stateData: RoomStateNotification,
+  ) {
     return this.appSyncPublisher.publishRoomStateChange(roomId, stateData);
   }
 
   /**
    * Notificar cambio de estado de miembro
    */
-  async notifyMemberStatusChange(roomId: string, memberData: MemberStatusNotification) {
+  async notifyMemberStatusChange(
+    roomId: string,
+    memberData: MemberStatusNotification,
+  ) {
     return this.appSyncPublisher.publishMemberStatusChange(roomId, memberData);
   }
 
   /**
    * Notificar progreso de cola
    */
-  async notifyQueueProgress(roomId: string, progressData: {
-    currentPosition: number;
-    totalItems: number;
-    currentMediaId: string;
-    nextMediaId?: string;
-  }) {
-    this.logger.log(`📊 Notifying queue progress for room ${roomId}: ${progressData.currentPosition}/${progressData.totalItems}`);
-    
+  async notifyQueueProgress(
+    roomId: string,
+    progressData: {
+      currentPosition: number;
+      totalItems: number;
+      currentMediaId: string;
+      nextMediaId?: string;
+    },
+  ) {
+    this.logger.log(
+      `📊 Notifying queue progress for room ${roomId}: ${progressData.currentPosition}/${progressData.totalItems}`,
+    );
+
     // Convert to room state change format
     const stateData: RoomStateNotification = {
       status: 'active',
       currentMediaId: progressData.currentMediaId,
       queueLength: progressData.totalItems,
-      activeMembers: 0 // This should be provided by the calling service
+      activeMembers: 0, // This should be provided by the calling service
     };
 
     return this.appSyncPublisher.publishRoomStateChange(roomId, stateData);
@@ -81,19 +94,24 @@ export class RealtimeCompatibilityService {
   /**
    * Notificar nueva recomendación de IA
    */
-  async notifyAIRecommendation(roomId: string, recommendationData: {
-    mediaIds: string[];
-    reasoning: string;
-    emotionalState: string;
-    confidence: number;
-  }) {
-    this.logger.log(`🧠 Notifying AI recommendation for room ${roomId}: ${recommendationData.mediaIds.length} recommendations`);
-    
+  async notifyAIRecommendation(
+    roomId: string,
+    recommendationData: {
+      mediaIds: string[];
+      reasoning: string;
+      emotionalState: string;
+      confidence: number;
+    },
+  ) {
+    this.logger.log(
+      `🧠 Notifying AI recommendation for room ${roomId}: ${recommendationData.mediaIds.length} recommendations`,
+    );
+
     // Convert to room state change format
     const stateData: RoomStateNotification = {
       status: 'active',
       queueLength: 0, // This should be provided by the calling service
-      activeMembers: 0 // This should be provided by the calling service
+      activeMembers: 0, // This should be provided by the calling service
     };
 
     return this.appSyncPublisher.publishRoomStateChange(roomId, stateData);
@@ -102,21 +120,33 @@ export class RealtimeCompatibilityService {
   /**
    * Notificar asignación/remoción de rol
    */
-  async notifyRoleAssignment(roomId: string, roleData: RoleAssignmentNotification) {
+  async notifyRoleAssignment(
+    roomId: string,
+    roleData: RoleAssignmentNotification,
+  ) {
     return this.appSyncPublisher.publishRoleAssignment(roomId, roleData);
   }
 
   /**
    * Notificar acción de moderación
    */
-  async notifyModerationAction(roomId: string, moderationData: ModerationActionNotification) {
-    return this.appSyncPublisher.publishModerationAction(roomId, moderationData);
+  async notifyModerationAction(
+    roomId: string,
+    moderationData: ModerationActionNotification,
+  ) {
+    return this.appSyncPublisher.publishModerationAction(
+      roomId,
+      moderationData,
+    );
   }
 
   /**
    * Notificar evento de programación
    */
-  async notifyScheduleEvent(roomId: string, scheduleData: ScheduleNotification) {
+  async notifyScheduleEvent(
+    roomId: string,
+    scheduleData: ScheduleNotification,
+  ) {
     return this.appSyncPublisher.publishScheduleEvent(roomId, scheduleData);
   }
 
@@ -130,8 +160,14 @@ export class RealtimeCompatibilityService {
   /**
    * Notificar cambio de configuración de sala
    */
-  async notifyRoomSettingsChange(roomId: string, settingsData: RoomSettingsNotification) {
-    return this.appSyncPublisher.publishRoomSettingsChange(roomId, settingsData);
+  async notifyRoomSettingsChange(
+    roomId: string,
+    settingsData: RoomSettingsNotification,
+  ) {
+    return this.appSyncPublisher.publishRoomSettingsChange(
+      roomId,
+      settingsData,
+    );
   }
 
   /**
@@ -144,15 +180,23 @@ export class RealtimeCompatibilityService {
   /**
    * Notificar sugerencia de contenido
    */
-  async notifyContentSuggestion(roomId: string, suggestionData: ContentSuggestionNotification) {
-    return this.appSyncPublisher.publishContentSuggestion(roomId, suggestionData);
+  async notifyContentSuggestion(
+    roomId: string,
+    suggestionData: ContentSuggestionNotification,
+  ) {
+    return this.appSyncPublisher.publishContentSuggestion(
+      roomId,
+      suggestionData,
+    );
   }
 
   /**
    * Get connected members (placeholder - AppSync doesn't track connections the same way)
    */
   getConnectedMembers(roomId: string): string[] {
-    this.logger.warn('getConnectedMembers is not supported with AppSync subscriptions');
+    this.logger.warn(
+      'getConnectedMembers is not supported with AppSync subscriptions',
+    );
     return [];
   }
 
@@ -160,7 +204,9 @@ export class RealtimeCompatibilityService {
    * Verificar si un usuario está conectado (placeholder)
    */
   isUserConnected(userId: string): boolean {
-    this.logger.warn('isUserConnected is not supported with AppSync subscriptions');
+    this.logger.warn(
+      'isUserConnected is not supported with AppSync subscriptions',
+    );
     return false;
   }
 
@@ -174,8 +220,13 @@ export class RealtimeCompatibilityService {
   /**
    * Broadcast a todos los usuarios conectados (not supported with AppSync)
    */
-  async broadcastSystemMessage(message: string, type: 'info' | 'warning' | 'maintenance' = 'info') {
-    this.logger.warn('broadcastSystemMessage is not supported with AppSync subscriptions');
+  async broadcastSystemMessage(
+    message: string,
+    type: 'info' | 'warning' | 'maintenance' = 'info',
+  ) {
+    this.logger.warn(
+      'broadcastSystemMessage is not supported with AppSync subscriptions',
+    );
     this.logger.log(`📢 System message (not broadcasted): ${message}`);
   }
 
@@ -183,7 +234,9 @@ export class RealtimeCompatibilityService {
    * Enviar mensaje privado a un usuario específico (not supported with AppSync)
    */
   async sendPrivateMessage(userId: string, message: any) {
-    this.logger.warn('sendPrivateMessage is not supported with AppSync subscriptions');
+    this.logger.warn(
+      'sendPrivateMessage is not supported with AppSync subscriptions',
+    );
     this.logger.log(`💬 Private message (not sent) to user ${userId}`);
     return false;
   }

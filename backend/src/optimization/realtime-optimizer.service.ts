@@ -72,8 +72,10 @@ export class RealtimeOptimizerService {
     const roomOptimization = await this.optimizeRoomBroadcasting();
     optimizations.push(roomOptimization);
 
-    this.logger.log(`✅ Real-time optimization completed. ${optimizations.length} optimizations applied.`);
-    
+    this.logger.log(
+      `✅ Real-time optimization completed. ${optimizations.length} optimizations applied.`,
+    );
+
     return optimizations;
   }
 
@@ -239,14 +241,16 @@ export class RealtimeOptimizerService {
     return [
       {
         strategy: 'Connection Pooling',
-        description: 'Reuse WebSocket connections and implement efficient connection lifecycle management',
+        description:
+          'Reuse WebSocket connections and implement efficient connection lifecycle management',
         expectedLatencyReduction: 40,
         memoryReduction: 25,
         complexity: 'medium',
       },
       {
         strategy: 'Message Batching',
-        description: 'Batch multiple messages together to reduce network overhead',
+        description:
+          'Batch multiple messages together to reduce network overhead',
         expectedLatencyReduction: 35,
         memoryReduction: 15,
         complexity: 'low',
@@ -267,14 +271,16 @@ export class RealtimeOptimizerService {
       },
       {
         strategy: 'Message Compression',
-        description: 'Compress messages before transmission to reduce bandwidth',
+        description:
+          'Compress messages before transmission to reduce bandwidth',
         expectedLatencyReduction: 25,
         memoryReduction: 30,
         complexity: 'low',
       },
       {
         strategy: 'Priority Queuing',
-        description: 'Implement priority-based message queuing for critical events',
+        description:
+          'Implement priority-based message queuing for critical events',
         expectedLatencyReduction: 45,
         memoryReduction: 5,
         complexity: 'high',
@@ -288,7 +294,8 @@ export class RealtimeOptimizerService {
       },
       {
         strategy: 'Memory Pooling',
-        description: 'Reuse memory buffers to reduce garbage collection pressure',
+        description:
+          'Reuse memory buffers to reduce garbage collection pressure',
         expectedLatencyReduction: 20,
         memoryReduction: 40,
         complexity: 'medium',
@@ -316,7 +323,7 @@ export class RealtimeOptimizerService {
    */
   trackLatency(latency: number): void {
     this.latencyMetrics.push(latency);
-    
+
     // Keep only last 10000 measurements
     if (this.latencyMetrics.length > 10000) {
       this.latencyMetrics.shift();
@@ -336,7 +343,12 @@ export class RealtimeOptimizerService {
   /**
    * Update message metrics
    */
-  updateMessageMetrics(sent: number, received: number, failed: number = 0, totalSize: number = 0): void {
+  updateMessageMetrics(
+    sent: number,
+    received: number,
+    failed: number = 0,
+    totalSize: number = 0,
+  ): void {
     this.messageMetrics.sent += sent;
     this.messageMetrics.received += received;
     this.messageMetrics.failed += failed;
@@ -447,14 +459,18 @@ export class RealtimeOptimizerService {
   // Private metric calculation methods
   private calculateAverageLatency(): number {
     if (this.latencyMetrics.length === 0) return 75; // Default baseline
-    const average = this.latencyMetrics.reduce((sum, latency) => sum + latency, 0) / this.latencyMetrics.length;
+    const average =
+      this.latencyMetrics.reduce((sum, latency) => sum + latency, 0) /
+      this.latencyMetrics.length;
     // Only apply optimization effect if we have sufficient data (> 30 measurements)
-    return this.latencyMetrics.length > 30 ? Math.max(average * 0.5, 35) : average;
+    return this.latencyMetrics.length > 30
+      ? Math.max(average * 0.5, 35)
+      : average;
   }
 
   private calculatePercentileLatency(percentile: number): number {
     if (this.latencyMetrics.length === 0) return 150; // Default baseline
-    
+
     const sorted = [...this.latencyMetrics].sort((a, b) => a - b);
     const index = Math.floor(sorted.length * percentile);
     return sorted[index] || sorted[sorted.length - 1];
@@ -467,12 +483,18 @@ export class RealtimeOptimizerService {
 
   private calculateConnectionDropRate(): number {
     if (this.connectionMetrics.total === 0) return 0;
-    return Math.min(this.connectionMetrics.dropped / this.connectionMetrics.total, 0.05); // Cap at 5%
+    return Math.min(
+      this.connectionMetrics.dropped / this.connectionMetrics.total,
+      0.05,
+    ); // Cap at 5%
   }
 
   private calculateMemoryUsage(): number {
     // Simulate memory usage calculation (MB)
-    return this.connectionMetrics.active * 0.5 + (this.messageMetrics.totalSize / 1024 / 1024);
+    return (
+      this.connectionMetrics.active * 0.5 +
+      this.messageMetrics.totalSize / 1024 / 1024
+    );
   }
 
   /**
@@ -486,9 +508,15 @@ export class RealtimeOptimizerService {
   }> {
     const currentMetrics = await this.collectRealtimeMetrics();
     const optimizations = this.getConnectionOptimizations();
-    
-    const potentialLatencyReduction = optimizations.reduce((total, opt) => total + opt.expectedLatencyReduction, 0) / optimizations.length;
-    const potentialMemoryReduction = optimizations.reduce((total, opt) => total + opt.memoryReduction, 0) / optimizations.length;
+
+    const potentialLatencyReduction =
+      optimizations.reduce(
+        (total, opt) => total + opt.expectedLatencyReduction,
+        0,
+      ) / optimizations.length;
+    const potentialMemoryReduction =
+      optimizations.reduce((total, opt) => total + opt.memoryReduction, 0) /
+      optimizations.length;
 
     return {
       currentMetrics,

@@ -48,7 +48,7 @@ export class SemanticAnalysisService {
 
       // Obtener todos los votos positivos de la sala
       const positiveVotes = await this.getPositiveVotesForRoom(roomId);
-      
+
       if (positiveVotes.length === 0) {
         return this.getDefaultPattern();
       }
@@ -58,12 +58,15 @@ export class SemanticAnalysisService {
 
       // Analizar patrones
       const patterns = this.extractPatterns(likedContent);
-      
-      this.logger.log(`📊 Found patterns: ${JSON.stringify(patterns, null, 2)}`);
-      return patterns;
 
+      this.logger.log(
+        `📊 Found patterns: ${JSON.stringify(patterns, null, 2)}`,
+      );
+      return patterns;
     } catch (error) {
-      this.logger.error(`Error analyzing preference patterns: ${error.message}`);
+      this.logger.error(
+        `Error analyzing preference patterns: ${error.message}`,
+      );
       return this.getDefaultPattern();
     }
   }
@@ -80,8 +83,9 @@ export class SemanticAnalysisService {
 
     for (const candidate of candidateContent) {
       const similarity = this.computeSimilarityScore(targetContent, candidate);
-      
-      if (similarity.similarityScore > 0.3) { // Umbral mínimo de similitud
+
+      if (similarity.similarityScore > 0.3) {
+        // Umbral mínimo de similitud
         similarities.push(similarity);
       }
     }
@@ -103,7 +107,7 @@ export class SemanticAnalysisService {
 
       // Verificar si se debe inyectar contenido
       const shouldInject = await this.shouldInjectContent(roomId);
-      
+
       if (!shouldInject) {
         const patterns = await this.analyzePreferencePatterns(roomId);
         return {
@@ -111,23 +115,27 @@ export class SemanticAnalysisService {
           analysisMetadata: {
             patternsFound: patterns,
             totalPositiveVotes: await this.countPositiveVotes(roomId),
-            injectionReason: 'Room does not meet injection criteria (sufficient recent matches or insufficient voting data)',
+            injectionReason:
+              'Room does not meet injection criteria (sufficient recent matches or insufficient voting data)',
           },
         };
       }
 
       // Analizar patrones de preferencias
       const patterns = await this.analyzePreferencePatterns(roomId);
-      
+
       // Buscar contenido candidato basado en patrones
       const candidateContent = await this.findCandidateContent(patterns);
-      
+
       // Identificar contenido puente (Requisito 5.4)
-      const bridgeContent = await this.identifyBridgeContent(roomId, candidateContent);
-      
+      const bridgeContent = await this.identifyBridgeContent(
+        roomId,
+        candidateContent,
+      );
+
       // Seleccionar los mejores candidatos
       const selectedContent = bridgeContent.slice(0, maxInjections);
-      
+
       // Actualizar listas desordenadas (Requisito 5.5)
       await this.updateShuffledLists(roomId, selectedContent);
 
@@ -136,13 +144,15 @@ export class SemanticAnalysisService {
         analysisMetadata: {
           patternsFound: patterns,
           totalPositiveVotes: await this.countPositiveVotes(roomId),
-          injectionReason: 'Semantic analysis based on positive voting patterns',
+          injectionReason:
+            'Semantic analysis based on positive voting patterns',
         },
       };
 
-      this.logger.log(`✅ Injected ${selectedContent.length} semantic content items`);
+      this.logger.log(
+        `✅ Injected ${selectedContent.length} semantic content items`,
+      );
       return result;
-
     } catch (error) {
       this.logger.error(`Error injecting semantic content: ${error.message}`);
       throw error;
@@ -157,20 +167,22 @@ export class SemanticAnalysisService {
       // Obtener estadísticas de matches recientes
       const recentMatches = await this.getRecentMatches(roomId, 7); // Últimos 7 días
       const totalVotes = await this.countTotalVotes(roomId);
-      
+
       // Criterios para inyección:
       // 1. Pocos matches recientes (< 2 en 7 días)
       // 2. Suficientes votos para análisis (> 20)
       // 3. Ratio de matches bajo (< 5%)
-      
-      const shouldInject = recentMatches.length < 2 && 
-                          totalVotes > 20 && 
-                          (recentMatches.length / totalVotes) < 0.05;
 
-      this.logger.log(`📈 Room ${roomId} injection analysis: matches=${recentMatches.length}, votes=${totalVotes}, shouldInject=${shouldInject}`);
-      
+      const shouldInject =
+        recentMatches.length < 2 &&
+        totalVotes > 20 &&
+        recentMatches.length / totalVotes < 0.05;
+
+      this.logger.log(
+        `📈 Room ${roomId} injection analysis: matches=${recentMatches.length}, votes=${totalVotes}, shouldInject=${shouldInject}`,
+      );
+
       return shouldInject;
-
     } catch (error) {
       this.logger.error(`Error checking injection criteria: ${error.message}`);
       return false;
@@ -188,7 +200,7 @@ export class SemanticAnalysisService {
 
   private async getContentDetailsForVotes(votes: Vote[]): Promise<MediaItem[]> {
     const contentDetails: MediaItem[] = [];
-    
+
     for (const vote of votes) {
       try {
         const content = await this.mediaService.getMovieDetails(vote.mediaId);
@@ -199,7 +211,7 @@ export class SemanticAnalysisService {
         this.logger.warn(`Could not get details for media ${vote.mediaId}`);
       }
     }
-    
+
     return contentDetails;
   }
 
@@ -247,13 +259,16 @@ export class SemanticAnalysisService {
   private extractCommonKeywords(content: MediaItem[]): string[] {
     // Extraer palabras clave comunes de títulos y descripciones
     const wordCounts: { [word: string]: number } = {};
-    
+
     for (const item of content) {
-      const words = [...item.title.toLowerCase().split(/\s+/), 
-                     ...item.overview.toLowerCase().split(/\s+/)];
-      
+      const words = [
+        ...item.title.toLowerCase().split(/\s+/),
+        ...item.overview.toLowerCase().split(/\s+/),
+      ];
+
       for (const word of words) {
-        if (word.length > 3) { // Filtrar palabras muy cortas
+        if (word.length > 3) {
+          // Filtrar palabras muy cortas
           wordCounts[word] = (wordCounts[word] || 0) + 1;
         }
       }
@@ -261,20 +276,28 @@ export class SemanticAnalysisService {
 
     // Retornar las 10 palabras más comunes
     return Object.entries(wordCounts)
-      .sort(([,a], [,b]) => b - a)
+      .sort(([, a], [, b]) => b - a)
       .slice(0, 10)
       .map(([word]) => word);
   }
 
-  private computeSimilarityScore(target: MediaItem, candidate: MediaItem): SemanticSimilarity {
+  private computeSimilarityScore(
+    target: MediaItem,
+    candidate: MediaItem,
+  ): SemanticSimilarity {
     let score = 0;
     const matchingFactors: string[] = [];
 
     // Similitud de géneros (peso: 40%)
-    const genreOverlap = this.calculateGenreOverlap(target.genres, candidate.genres);
+    const genreOverlap = this.calculateGenreOverlap(
+      target.genres,
+      candidate.genres,
+    );
     score += genreOverlap * 0.4;
     if (genreOverlap > 0.5) {
-      matchingFactors.push(`Genre similarity: ${(genreOverlap * 100).toFixed(1)}%`);
+      matchingFactors.push(
+        `Genre similarity: ${(genreOverlap * 100).toFixed(1)}%`,
+      );
     }
 
     // Similitud de rating (peso: 20%)
@@ -282,12 +305,15 @@ export class SemanticAnalysisService {
     const ratingSimilarity = Math.max(0, 1 - ratingDiff / 10);
     score += ratingSimilarity * 0.2;
     if (ratingSimilarity > 0.7) {
-      matchingFactors.push(`Rating similarity: ${(ratingSimilarity * 100).toFixed(1)}%`);
+      matchingFactors.push(
+        `Rating similarity: ${(ratingSimilarity * 100).toFixed(1)}%`,
+      );
     }
 
     // Similitud de popularidad (peso: 15%)
-    const popularityRatio = Math.min(target.popularity, candidate.popularity) / 
-                           Math.max(target.popularity, candidate.popularity);
+    const popularityRatio =
+      Math.min(target.popularity, candidate.popularity) /
+      Math.max(target.popularity, candidate.popularity);
     score += popularityRatio * 0.15;
 
     // Similitud de año de lanzamiento (peso: 15%)
@@ -298,7 +324,10 @@ export class SemanticAnalysisService {
     score += yearSimilarity * 0.15;
 
     // Similitud de texto (peso: 10%)
-    const textSimilarity = this.calculateTextSimilarity(target.overview, candidate.overview);
+    const textSimilarity = this.calculateTextSimilarity(
+      target.overview,
+      candidate.overview,
+    );
     score += textSimilarity * 0.1;
 
     return {
@@ -310,12 +339,12 @@ export class SemanticAnalysisService {
 
   private calculateGenreOverlap(genres1: string[], genres2: string[]): number {
     if (genres1.length === 0 || genres2.length === 0) return 0;
-    
+
     const set1 = new Set(genres1);
     const set2 = new Set(genres2);
-    const intersection = new Set([...set1].filter(x => set2.has(x)));
+    const intersection = new Set([...set1].filter((x) => set2.has(x)));
     const union = new Set([...set1, ...set2]);
-    
+
     return intersection.size / union.size; // Jaccard similarity
   }
 
@@ -323,23 +352,25 @@ export class SemanticAnalysisService {
     // Similitud simple basada en palabras comunes
     const words1 = new Set(text1.toLowerCase().split(/\s+/));
     const words2 = new Set(text2.toLowerCase().split(/\s+/));
-    
-    const intersection = new Set([...words1].filter(x => words2.has(x)));
+
+    const intersection = new Set([...words1].filter((x) => words2.has(x)));
     const union = new Set([...words1, ...words2]);
-    
+
     return intersection.size / union.size;
   }
 
-  private async findCandidateContent(patterns: PreferencePattern): Promise<MediaItem[]> {
+  private async findCandidateContent(
+    patterns: PreferencePattern,
+  ): Promise<MediaItem[]> {
     // Buscar contenido basado en los patrones identificados
     const topGenres = Object.entries(patterns.genres)
-      .sort(([,a], [,b]) => b - a)
+      .sort(([, a], [, b]) => b - a)
       .slice(0, 3)
       .map(([genre]) => genre);
 
     // Usar MediaService para buscar contenido similar
     const candidates: MediaItem[] = [];
-    
+
     for (const genre of topGenres) {
       try {
         const genreContent = await this.mediaService.fetchMovies({
@@ -348,29 +379,34 @@ export class SemanticAnalysisService {
           releaseYearFrom: patterns.releaseYearRange.min,
           releaseYearTo: patterns.releaseYearRange.max,
         });
-        
+
         candidates.push(...genreContent.slice(0, 20)); // Limitar por género
       } catch (error) {
-        this.logger.warn(`Error fetching content for genre ${genre}: ${error.message}`);
+        this.logger.warn(
+          `Error fetching content for genre ${genre}: ${error.message}`,
+        );
       }
     }
 
     return candidates;
   }
 
-  private async identifyBridgeContent(roomId: string, candidates: MediaItem[]): Promise<MediaItem[]> {
+  private async identifyBridgeContent(
+    roomId: string,
+    candidates: MediaItem[],
+  ): Promise<MediaItem[]> {
     // Identificar contenido que actúe como puente entre gustos divergentes
     // Requisito 5.4: Priorizar contenido puente
-    
+
     // Por ahora, usar un algoritmo simple que prioriza contenido con:
     // 1. Múltiples géneros (más probable que conecte gustos diversos)
     // 2. Ratings altos (más probable que guste a todos)
     // 3. Popularidad moderada (no demasiado mainstream ni nicho)
-    
+
     const bridgeContent = candidates
-      .filter(item => item.genres.length >= 2) // Múltiples géneros
-      .filter(item => item.voteAverage >= 7.0) // Rating alto
-      .filter(item => item.popularity >= 50 && item.popularity <= 500) // Popularidad moderada
+      .filter((item) => item.genres.length >= 2) // Múltiples géneros
+      .filter((item) => item.voteAverage >= 7.0) // Rating alto
+      .filter((item) => item.popularity >= 50 && item.popularity <= 500) // Popularidad moderada
       .sort((a, b) => {
         // Priorizar por diversidad de géneros y rating
         const scoreA = a.genres.length * a.voteAverage;
@@ -379,51 +415,63 @@ export class SemanticAnalysisService {
       });
 
     // Eliminar duplicados basándose en tmdbId
-    const uniqueBridgeContent = bridgeContent.filter((item, index, array) => 
-      array.findIndex(other => other.tmdbId === item.tmdbId) === index
+    const uniqueBridgeContent = bridgeContent.filter(
+      (item, index, array) =>
+        array.findIndex((other) => other.tmdbId === item.tmdbId) === index,
     );
 
     return uniqueBridgeContent;
   }
 
-  private async updateShuffledLists(roomId: string, newContent: MediaItem[]): Promise<void> {
+  private async updateShuffledLists(
+    roomId: string,
+    newContent: MediaItem[],
+  ): Promise<void> {
     // Requisito 5.5: Actualizar listas desordenadas manteniendo aleatorización
     try {
       // Obtener miembros de la sala
       const members = await this.getRoomMembers(roomId);
-      
+
       for (const member of members) {
         // Para cada miembro, inyectar el contenido en posiciones aleatorias
-        await this.injectContentIntoMemberQueue(member.userId, roomId, newContent);
+        await this.injectContentIntoMemberQueue(
+          member.userId,
+          roomId,
+          newContent,
+        );
       }
-      
-      this.logger.log(`📝 Updated shuffled lists for ${members.length} members`);
+
+      this.logger.log(
+        `📝 Updated shuffled lists for ${members.length} members`,
+      );
     } catch (error) {
       this.logger.error(`Error updating shuffled lists: ${error.message}`);
     }
   }
 
   private async injectContentIntoMemberQueue(
-    userId: string, 
-    roomId: string, 
-    content: MediaItem[]
+    userId: string,
+    roomId: string,
+    content: MediaItem[],
   ): Promise<void> {
     // Inyectar contenido en posiciones aleatorias de la cola del usuario
     // Mantener el principio de aleatorización
-    
+
     for (const item of content) {
       // Generar posición aleatoria en la cola
       const randomPosition = Math.floor(Math.random() * 50) + 10; // Entre posición 10-60
-      
+
       // Aquí se implementaría la lógica para insertar en la cola del usuario
       // Por ahora, solo loggeamos la acción
-      this.logger.debug(`Injecting ${item.title} at position ${randomPosition} for user ${userId}`);
+      this.logger.debug(
+        `Injecting ${item.title} at position ${randomPosition} for user ${userId}`,
+      );
     }
   }
 
   private getDefaultPattern(): PreferencePattern {
     return {
-      genres: { 'Action': 1, 'Comedy': 1, 'Drama': 1 },
+      genres: { Action: 1, Comedy: 1, Drama: 1 },
       averageRating: 7.0,
       popularityRange: { min: 50, max: 500 },
       releaseYearRange: { min: 2015, max: 2024 },

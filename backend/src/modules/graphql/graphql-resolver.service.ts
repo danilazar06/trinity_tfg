@@ -46,8 +46,10 @@ export class GraphQLResolverService {
    */
   async getMyHistory(context: GraphQLContext): Promise<any[]> {
     try {
-      const history = await this.multiTableService.getUserHistory(context.userId);
-      
+      const history = await this.multiTableService.getUserHistory(
+        context.userId,
+      );
+
       // Enriquecer con datos de las salas
       const enrichedHistory = await Promise.all(
         history.map(async (entry) => {
@@ -56,7 +58,7 @@ export class GraphQLResolverService {
             ...entry,
             room,
           };
-        })
+        }),
       );
 
       return enrichedHistory;
@@ -69,15 +71,20 @@ export class GraphQLResolverService {
   /**
    * Query: getChatRecommendations
    */
-  async getChatRecommendations(userText: string, context: GraphQLContext): Promise<any> {
+  async getChatRecommendations(
+    userText: string,
+    context: GraphQLContext,
+  ): Promise<any> {
     try {
       const recommendation = await this.aliaService.getChatRecommendations({
         userText,
         userId: context.userId,
       });
 
-      this.logger.log(`Salamandra recommendations for user ${context.userId}: ${recommendation.recommendations.join(', ')}`);
-      
+      this.logger.log(
+        `Salamandra recommendations for user ${context.userId}: ${recommendation.recommendations.join(', ')}`,
+      );
+
       return recommendation;
     } catch (error) {
       this.logger.error(`Error getting chat recommendations: ${error.message}`);
@@ -97,7 +104,7 @@ export class GraphQLResolverService {
 
       // Enriquecer con miembros
       const members = await this.multiTableService.getRoomMembers(roomId);
-      
+
       return {
         ...room,
         members,
@@ -112,10 +119,13 @@ export class GraphQLResolverService {
   /**
    * Mutation: createRoom
    */
-  async createRoom(input: CreateRoomInput, context: GraphQLContext): Promise<any> {
+  async createRoom(
+    input: CreateRoomInput,
+    context: GraphQLContext,
+  ): Promise<any> {
     try {
       const roomId = this.generateRoomId();
-      
+
       const room = {
         roomId,
         hostId: context.userId,
@@ -126,9 +136,13 @@ export class GraphQLResolverService {
       };
 
       await this.multiTableService.createRoom(room);
-      
+
       // Agregar al host como miembro
-      await this.multiTableService.addRoomMember(roomId, context.userId, 'HOST');
+      await this.multiTableService.addRoomMember(
+        roomId,
+        context.userId,
+        'HOST',
+      );
 
       // Generar código de unión simple
       const joinCode = roomId.substring(0, 6).toUpperCase();
@@ -160,16 +174,24 @@ export class GraphQLResolverService {
 
       // Verificar si ya es miembro
       const members = await this.multiTableService.getRoomMembers(input.roomId);
-      const isAlreadyMember = members.some(member => member.userId === context.userId);
+      const isAlreadyMember = members.some(
+        (member) => member.userId === context.userId,
+      );
 
       if (isAlreadyMember) {
         throw new Error('Ya eres miembro de esta sala');
       }
 
       // Agregar como miembro
-      await this.multiTableService.addRoomMember(input.roomId, context.userId, 'MEMBER');
+      await this.multiTableService.addRoomMember(
+        input.roomId,
+        context.userId,
+        'MEMBER',
+      );
 
-      const updatedMembers = await this.multiTableService.getRoomMembers(input.roomId);
+      const updatedMembers = await this.multiTableService.getRoomMembers(
+        input.roomId,
+      );
 
       this.logger.log(`User ${context.userId} joined room ${input.roomId}`);
 
@@ -203,7 +225,9 @@ export class GraphQLResolverService {
         userId: context.userId,
       });
 
-      this.logger.log(`Vote processed: ${context.userId} -> ${input.voteType} on ${input.movieId} in ${input.roomId}`);
+      this.logger.log(
+        `Vote processed: ${context.userId} -> ${input.voteType} on ${input.movieId} in ${input.roomId}`,
+      );
 
       if (result.matchFound) {
         this.logger.log(`🎉 MATCH FOUND in room ${input.roomId}!`);
@@ -235,7 +259,9 @@ export class GraphQLResolverService {
       const updatedRoom = await this.multiTableService.getRoom(roomId);
       const members = await this.multiTableService.getRoomMembers(roomId);
 
-      this.logger.log(`Voting started in room ${roomId} by host ${context.userId}`);
+      this.logger.log(
+        `Voting started in room ${roomId} by host ${context.userId}`,
+      );
 
       return {
         ...updatedRoom,

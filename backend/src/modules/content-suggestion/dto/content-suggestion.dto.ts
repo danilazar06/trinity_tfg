@@ -1,9 +1,20 @@
-import { IsString, IsOptional, IsBoolean, IsNumber, IsArray, IsEnum, IsDateString, Min, Max, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsNumber,
+  IsArray,
+  IsEnum,
+  IsDateString,
+  Min,
+  Max,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { 
-  ContentSuggestionType, 
-  ContentSuggestionStatus 
+import {
+  ContentSuggestionType,
+  ContentSuggestionStatus,
 } from '../../../domain/entities/content-suggestion.entity';
 
 /**
@@ -14,7 +25,10 @@ export class CreateSuggestionDto {
   @IsString()
   title: string;
 
-  @ApiProperty({ enum: ContentSuggestionType, description: 'Tipo de contenido' })
+  @ApiProperty({
+    enum: ContentSuggestionType,
+    description: 'Tipo de contenido',
+  })
   @IsEnum(ContentSuggestionType)
   type: ContentSuggestionType;
 
@@ -80,7 +94,11 @@ export class CreateSuggestionDto {
   @IsString({ each: true })
   tags?: string[];
 
-  @ApiPropertyOptional({ description: 'Prioridad (1-5)', minimum: 1, maximum: 5 })
+  @ApiPropertyOptional({
+    description: 'Prioridad (1-5)',
+    minimum: 1,
+    maximum: 5,
+  })
   @IsOptional()
   @IsNumber()
   @Min(1)
@@ -117,7 +135,11 @@ export class UpdateSuggestionDto {
   @IsString({ each: true })
   tags?: string[];
 
-  @ApiPropertyOptional({ description: 'Prioridad (1-5)', minimum: 1, maximum: 5 })
+  @ApiPropertyOptional({
+    description: 'Prioridad (1-5)',
+    minimum: 1,
+    maximum: 5,
+  })
   @IsOptional()
   @IsNumber()
   @Min(1)
@@ -166,7 +188,10 @@ export class CommentSuggestionDto {
  * DTO para revisar sugerencia
  */
 export class ReviewSuggestionDto {
-  @ApiProperty({ enum: [ContentSuggestionStatus.APPROVED, ContentSuggestionStatus.REJECTED], description: 'Estado de revisión' })
+  @ApiProperty({
+    enum: [ContentSuggestionStatus.APPROVED, ContentSuggestionStatus.REJECTED],
+    description: 'Estado de revisión',
+  })
   @IsEnum([ContentSuggestionStatus.APPROVED, ContentSuggestionStatus.REJECTED])
   status: ContentSuggestionStatus.APPROVED | ContentSuggestionStatus.REJECTED;
 
@@ -185,12 +210,18 @@ export class SuggestionFiltersDto {
   @IsString()
   suggestedBy?: string;
 
-  @ApiPropertyOptional({ enum: ContentSuggestionType, description: 'Tipo de contenido' })
+  @ApiPropertyOptional({
+    enum: ContentSuggestionType,
+    description: 'Tipo de contenido',
+  })
   @IsOptional()
   @IsEnum(ContentSuggestionType)
   type?: ContentSuggestionType;
 
-  @ApiPropertyOptional({ enum: ContentSuggestionStatus, description: 'Estado de la sugerencia' })
+  @ApiPropertyOptional({
+    enum: ContentSuggestionStatus,
+    description: 'Estado de la sugerencia',
+  })
   @IsOptional()
   @IsEnum(ContentSuggestionStatus)
   status?: ContentSuggestionStatus;
@@ -236,17 +267,27 @@ export class SuggestionFiltersDto {
   @Min(0)
   minVotes?: number;
 
-  @ApiPropertyOptional({ enum: ['createdAt', 'voteScore', 'totalVotes', 'priority'], description: 'Campo para ordenar' })
+  @ApiPropertyOptional({
+    enum: ['createdAt', 'voteScore', 'totalVotes', 'priority'],
+    description: 'Campo para ordenar',
+  })
   @IsOptional()
   @IsEnum(['createdAt', 'voteScore', 'totalVotes', 'priority'])
   sortBy?: 'createdAt' | 'voteScore' | 'totalVotes' | 'priority';
 
-  @ApiPropertyOptional({ enum: ['asc', 'desc'], description: 'Orden de clasificación' })
+  @ApiPropertyOptional({
+    enum: ['asc', 'desc'],
+    description: 'Orden de clasificación',
+  })
   @IsOptional()
   @IsEnum(['asc', 'desc'])
   sortOrder?: 'asc' | 'desc';
 
-  @ApiPropertyOptional({ description: 'Límite de resultados', minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({
+    description: 'Límite de resultados',
+    minimum: 1,
+    maximum: 100,
+  })
   @IsOptional()
   @IsNumber()
   @Min(1)
@@ -263,73 +304,110 @@ export class SuggestionFiltersDto {
  * DTO para crear configuración de sugerencias
  */
 export class CreateSuggestionConfigDto {
-  @ApiPropertyOptional({ description: 'Habilitar sugerencias en la sala', default: true })
+  @ApiPropertyOptional({
+    description: 'Habilitar sugerencias en la sala',
+    default: true,
+  })
   @IsOptional()
   @IsBoolean()
   isEnabled?: boolean;
 
-  @ApiPropertyOptional({ description: 'Requerir aprobación para sugerencias', default: true })
+  @ApiPropertyOptional({
+    description: 'Requerir aprobación para sugerencias',
+    default: true,
+  })
   @IsOptional()
   @IsBoolean()
   requireApproval?: boolean;
 
-  @ApiPropertyOptional({ description: 'Permitir votación en sugerencias', default: true })
+  @ApiPropertyOptional({
+    description: 'Permitir votación en sugerencias',
+    default: true,
+  })
   @IsOptional()
   @IsBoolean()
   allowVoting?: boolean;
 
-  @ApiPropertyOptional({ description: 'Permitir comentarios en sugerencias', default: true })
+  @ApiPropertyOptional({
+    description: 'Permitir comentarios en sugerencias',
+    default: true,
+  })
   @IsOptional()
   @IsBoolean()
   allowComments?: boolean;
 
-  @ApiPropertyOptional({ description: 'Votos mínimos para aprobación', default: 3 })
+  @ApiPropertyOptional({
+    description: 'Votos mínimos para aprobación',
+    default: 3,
+  })
   @IsOptional()
   @IsNumber()
   @Min(1)
   @Max(20)
   minVotesToApprove?: number;
 
-  @ApiPropertyOptional({ description: 'Puntuación mínima para aprobación', default: 2 })
+  @ApiPropertyOptional({
+    description: 'Puntuación mínima para aprobación',
+    default: 2,
+  })
   @IsOptional()
   @IsNumber()
   @Min(1)
   @Max(50)
   minScoreToApprove?: number;
 
-  @ApiPropertyOptional({ description: 'Máximo sugerencias por usuario por día', default: 5 })
+  @ApiPropertyOptional({
+    description: 'Máximo sugerencias por usuario por día',
+    default: 5,
+  })
   @IsOptional()
   @IsNumber()
   @Min(1)
   @Max(20)
   maxSuggestionsPerUser?: number;
 
-  @ApiPropertyOptional({ description: 'Máximo sugerencias pendientes en sala', default: 20 })
+  @ApiPropertyOptional({
+    description: 'Máximo sugerencias pendientes en sala',
+    default: 20,
+  })
   @IsOptional()
   @IsNumber()
   @Min(5)
   @Max(100)
   maxPendingSuggestions?: number;
 
-  @ApiPropertyOptional({ description: 'Auto-implementar sugerencias con alta puntuación', default: false })
+  @ApiPropertyOptional({
+    description: 'Auto-implementar sugerencias con alta puntuación',
+    default: false,
+  })
   @IsOptional()
   @IsBoolean()
   autoImplementHighScored?: boolean;
 
-  @ApiPropertyOptional({ description: 'Umbral para auto-implementación', default: 5 })
+  @ApiPropertyOptional({
+    description: 'Umbral para auto-implementación',
+    default: 5,
+  })
   @IsOptional()
   @IsNumber()
   @Min(1)
   @Max(20)
   autoImplementThreshold?: number;
 
-  @ApiPropertyOptional({ enum: ContentSuggestionType, isArray: true, description: 'Tipos de contenido permitidos' })
+  @ApiPropertyOptional({
+    enum: ContentSuggestionType,
+    isArray: true,
+    description: 'Tipos de contenido permitidos',
+  })
   @IsOptional()
   @IsArray()
   @IsEnum(ContentSuggestionType, { each: true })
   allowedTypes?: ContentSuggestionType[];
 
-  @ApiPropertyOptional({ description: 'Requerir razón para sugerencias', default: false })
+  @ApiPropertyOptional({
+    description: 'Requerir razón para sugerencias',
+    default: false,
+  })
   @IsOptional()
   @IsBoolean()
   requireReason?: boolean;
@@ -357,7 +435,10 @@ export class CreateSuggestionTemplateDto {
   @IsString()
   description: string;
 
-  @ApiProperty({ enum: ContentSuggestionType, description: 'Tipo de contenido' })
+  @ApiProperty({
+    enum: ContentSuggestionType,
+    description: 'Tipo de contenido',
+  })
   @IsEnum(ContentSuggestionType)
   type: ContentSuggestionType;
 
@@ -385,7 +466,10 @@ export class TemplateFieldDto {
   @IsString()
   label: string;
 
-  @ApiProperty({ enum: ['text', 'number', 'select', 'multiselect', 'textarea'], description: 'Tipo de campo' })
+  @ApiProperty({
+    enum: ['text', 'number', 'select', 'multiselect', 'textarea'],
+    description: 'Tipo de campo',
+  })
   @IsEnum(['text', 'number', 'select', 'multiselect', 'textarea'])
   type: 'text' | 'number' | 'select' | 'multiselect' | 'textarea';
 
@@ -393,7 +477,10 @@ export class TemplateFieldDto {
   @IsBoolean()
   required: boolean;
 
-  @ApiPropertyOptional({ description: 'Opciones para select/multiselect', type: [String] })
+  @ApiPropertyOptional({
+    description: 'Opciones para select/multiselect',
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -409,7 +496,10 @@ export class TemplateFieldDto {
  * DTO para actualizar configuración de notificaciones
  */
 export class UpdateNotificationConfigDto {
-  @ApiPropertyOptional({ description: 'Notificar nuevas sugerencias', default: true })
+  @ApiPropertyOptional({
+    description: 'Notificar nuevas sugerencias',
+    default: true,
+  })
   @IsOptional()
   @IsBoolean()
   notifyOnNewSuggestion?: boolean;
@@ -429,17 +519,26 @@ export class UpdateNotificationConfigDto {
   @IsBoolean()
   notifyOnApproval?: boolean;
 
-  @ApiPropertyOptional({ description: 'Notificar implementaciones', default: true })
+  @ApiPropertyOptional({
+    description: 'Notificar implementaciones',
+    default: true,
+  })
   @IsOptional()
   @IsBoolean()
   notifyOnImplementation?: boolean;
 
-  @ApiPropertyOptional({ description: 'Notificar solo mis sugerencias', default: false })
+  @ApiPropertyOptional({
+    description: 'Notificar solo mis sugerencias',
+    default: false,
+  })
   @IsOptional()
   @IsBoolean()
   notifyOnMySuggestions?: boolean;
 
-  @ApiPropertyOptional({ description: 'Notificaciones por email', default: false })
+  @ApiPropertyOptional({
+    description: 'Notificaciones por email',
+    default: false,
+  })
   @IsOptional()
   @IsBoolean()
   emailNotifications?: boolean;
@@ -479,7 +578,10 @@ export class WorkflowStepDto {
   @Min(1)
   order: number;
 
-  @ApiProperty({ enum: ['vote', 'review', 'automatic'], description: 'Tipo de paso' })
+  @ApiProperty({
+    enum: ['vote', 'review', 'automatic'],
+    description: 'Tipo de paso',
+  })
   @IsEnum(['vote', 'review', 'automatic'])
   type: 'vote' | 'review' | 'automatic';
 
@@ -521,12 +623,18 @@ export class SuggestionStatsQueryDto {
   @IsDateString()
   dateTo?: Date;
 
-  @ApiPropertyOptional({ description: 'Incluir detalles por usuario', default: false })
+  @ApiPropertyOptional({
+    description: 'Incluir detalles por usuario',
+    default: false,
+  })
   @IsOptional()
   @IsBoolean()
   includeUserDetails?: boolean;
 
-  @ApiPropertyOptional({ description: 'Incluir tendencias por género', default: false })
+  @ApiPropertyOptional({
+    description: 'Incluir tendencias por género',
+    default: false,
+  })
   @IsOptional()
   @IsBoolean()
   includeGenreTrends?: boolean;

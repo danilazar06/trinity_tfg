@@ -1,21 +1,32 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
 import { DynamoDBKeys } from '../../infrastructure/database/dynamodb.constants';
-import { 
-  RoomTemplate, 
-  TemplateCategory, 
-  TemplateFilters, 
-  TemplateSortBy, 
+import {
+  RoomTemplate,
+  TemplateCategory,
+  TemplateFilters,
+  TemplateSortBy,
   TemplateValidationResult,
   TemplateUsageStats,
   PopularTemplate,
   AdvancedRoomSettings,
   ConsensusType,
-  RoomPrivacy
+  RoomPrivacy,
 } from '../../domain/entities/room-template.entity';
 import { Room, CreateRoomDto } from '../../domain/entities/room.entity';
-import { CreateTemplateDto, UpdateTemplateDto, RateTemplateDto, CreateRoomFromTemplateDto } from './dto/create-template.dto';
+import {
+  CreateTemplateDto,
+  UpdateTemplateDto,
+  RateTemplateDto,
+  CreateRoomFromTemplateDto,
+} from './dto/create-template.dto';
 import { RoomService } from '../room/room.service';
 import { EventTracker } from '../analytics/event-tracker.service';
 import { EventType } from '../analytics/interfaces/analytics.interfaces';
@@ -33,11 +44,18 @@ export class RoomTemplateService {
   /**
    * Crear una nueva plantilla de sala
    */
-  async createTemplate(creatorId: string, templateData: CreateTemplateDto): Promise<RoomTemplate> {
+  async createTemplate(
+    creatorId: string,
+    templateData: CreateTemplateDto,
+  ): Promise<RoomTemplate> {
     // Validar configuración de plantilla
-    const validationResult = await this.validateTemplateConfiguration(templateData.configuration);
+    const validationResult = await this.validateTemplateConfiguration(
+      templateData.configuration,
+    );
     if (!validationResult.isValid) {
-      throw new BadRequestException(`Configuración de plantilla inválida: ${validationResult.errors.join(', ')}`);
+      throw new BadRequestException(
+        `Configuración de plantilla inválida: ${validationResult.errors.join(', ')}`,
+      );
     }
 
     const templateId = uuidv4();
@@ -84,7 +102,7 @@ export class RoomTemplateService {
       {
         source: 'room_template_service',
         userAgent: 'backend',
-      }
+      },
     );
 
     this.logger.log(`Plantilla creada: ${templateId} por usuario ${creatorId}`);
@@ -107,7 +125,9 @@ export class RoomTemplateService {
 
       return item as RoomTemplate;
     } catch (error) {
-      this.logger.error(`Error getting template ${templateId}: ${error.message}`);
+      this.logger.error(
+        `Error getting template ${templateId}: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -115,18 +135,28 @@ export class RoomTemplateService {
   /**
    * Actualizar plantilla existente
    */
-  async updateTemplate(templateId: string, userId: string, updates: UpdateTemplateDto): Promise<RoomTemplate> {
+  async updateTemplate(
+    templateId: string,
+    userId: string,
+    updates: UpdateTemplateDto,
+  ): Promise<RoomTemplate> {
     const template = await this.getTemplate(templateId);
 
     if (template.creatorId !== userId) {
-      throw new ForbiddenException('Solo el creador puede actualizar la plantilla');
+      throw new ForbiddenException(
+        'Solo el creador puede actualizar la plantilla',
+      );
     }
 
     // Validar nueva configuración si se proporciona
     if (updates.configuration) {
-      const validationResult = await this.validateTemplateConfiguration(updates.configuration);
+      const validationResult = await this.validateTemplateConfiguration(
+        updates.configuration,
+      );
       if (!validationResult.isValid) {
-        throw new BadRequestException(`Configuración inválida: ${validationResult.errors.join(', ')}`);
+        throw new BadRequestException(
+          `Configuración inválida: ${validationResult.errors.join(', ')}`,
+        );
       }
     }
 
@@ -158,7 +188,9 @@ export class RoomTemplateService {
     const template = await this.getTemplate(templateId);
 
     if (template.creatorId !== userId) {
-      throw new ForbiddenException('Solo el creador puede eliminar la plantilla');
+      throw new ForbiddenException(
+        'Solo el creador puede eliminar la plantilla',
+      );
     }
 
     await this.dynamoDBService.deleteItem(
@@ -174,7 +206,7 @@ export class RoomTemplateService {
    */
   async getPublicTemplates(filters?: TemplateFilters): Promise<RoomTemplate[]> {
     try {
-      let queryParams: any = {
+      const queryParams: any = {
         FilterExpression: 'isPublic = :isPublic',
         ExpressionAttributeValues: {
           ':isPublic': true,
@@ -185,7 +217,8 @@ export class RoomTemplateService {
       if (filters?.category) {
         queryParams.IndexName = 'GSI2';
         queryParams.KeyConditionExpression = 'GSI2PK = :gsi2pk';
-        queryParams.ExpressionAttributeValues[':gsi2pk'] = DynamoDBKeys.templateGSI2PK(filters.category);
+        queryParams.ExpressionAttributeValues[':gsi2pk'] =
+          DynamoDBKeys.templateGSI2PK(filters.category);
       }
 
       if (filters?.minRating) {
@@ -194,7 +227,9 @@ export class RoomTemplateService {
       }
 
       if (filters?.tags && filters.tags.length > 0) {
-        const tagConditions = filters.tags.map((_, index) => `contains(tags, :tag${index})`).join(' OR ');
+        const tagConditions = filters.tags
+          .map((_, index) => `contains(tags, :tag${index})`)
+          .join(' OR ');
         queryParams.FilterExpression += ` AND (${tagConditions})`;
         filters.tags.forEach((tag, index) => {
           queryParams.ExpressionAttributeValues[`:tag${index}`] = tag;
@@ -206,7 +241,11 @@ export class RoomTemplateService {
 
       // Aplicar ordenamiento
       if (filters?.sortBy) {
-        templates = this.sortTemplates(templates, filters.sortBy as TemplateSortBy, filters.sortOrder || 'desc');
+        templates = this.sortTemplates(
+          templates,
+          filters.sortBy,
+          filters.sortOrder || 'desc',
+        );
       }
 
       // Aplicar paginación
@@ -238,7 +277,9 @@ export class RoomTemplateService {
 
       return items as RoomTemplate[];
     } catch (error) {
-      this.logger.error(`Error getting user templates for ${userId}: ${error.message}`);
+      this.logger.error(
+        `Error getting user templates for ${userId}: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -261,10 +302,10 @@ export class RoomTemplateService {
       });
 
       let templates = items as RoomTemplate[];
-      
+
       // Ordenar por popularidad (usageCount + rating)
       templates = templates
-        .map(template => ({
+        .map((template) => ({
           ...template,
           stats: this.calculateTemplateStats(template),
           isRecommended: this.isTemplateRecommended(template),
@@ -283,16 +324,20 @@ export class RoomTemplateService {
   /**
    * Buscar plantillas por texto
    */
-  async searchTemplates(query: string, filters?: TemplateFilters): Promise<RoomTemplate[]> {
+  async searchTemplates(
+    query: string,
+    filters?: TemplateFilters,
+  ): Promise<RoomTemplate[]> {
     try {
       // Obtener todas las plantillas públicas primero
       const allTemplates = await this.getPublicTemplates(filters);
 
       // Filtrar por texto de búsqueda
       const searchTerms = query.toLowerCase().split(' ');
-      const filteredTemplates = allTemplates.filter(template => {
-        const searchableText = `${template.name} ${template.description} ${template.tags.join(' ')}`.toLowerCase();
-        return searchTerms.every(term => searchableText.includes(term));
+      const filteredTemplates = allTemplates.filter((template) => {
+        const searchableText =
+          `${template.name} ${template.description} ${template.tags.join(' ')}`.toLowerCase();
+        return searchTerms.every((term) => searchableText.includes(term));
       });
 
       return filteredTemplates;
@@ -306,9 +351,9 @@ export class RoomTemplateService {
    * Crear sala desde plantilla
    */
   async createRoomFromTemplate(
-    templateId: string, 
-    userId: string, 
-    overrides?: CreateRoomFromTemplateDto
+    templateId: string,
+    userId: string,
+    overrides?: CreateRoomFromTemplateDto,
   ): Promise<Room> {
     const template = await this.getTemplate(templateId);
 
@@ -319,8 +364,12 @@ export class RoomTemplateService {
 
     // Preparar datos para crear sala
     const roomData: CreateRoomDto = {
-      name: overrides?.roomName || `${template.name} - ${new Date().toLocaleDateString()}`,
-      filters: overrides?.configurationOverrides?.filters || template.configuration.filters,
+      name:
+        overrides?.roomName ||
+        `${template.name} - ${new Date().toLocaleDateString()}`,
+      filters:
+        overrides?.configurationOverrides?.filters ||
+        template.configuration.filters,
     };
 
     // Crear la sala usando el RoomService existente
@@ -343,10 +392,12 @@ export class RoomTemplateService {
       {
         source: 'room_template_service',
         userAgent: 'backend',
-      }
+      },
     );
 
-    this.logger.log(`Sala creada desde plantilla: ${room.id} desde plantilla ${templateId}`);
+    this.logger.log(
+      `Sala creada desde plantilla: ${room.id} desde plantilla ${templateId}`,
+    );
     return room;
   }
 
@@ -367,7 +418,9 @@ export class RoomTemplateService {
         },
       );
     } catch (error) {
-      this.logger.error(`Error incrementing usage count for template ${templateId}: ${error.message}`);
+      this.logger.error(
+        `Error incrementing usage count for template ${templateId}: ${error.message}`,
+      );
       // No lanzar error, es una operación de background
     }
   }
@@ -375,12 +428,17 @@ export class RoomTemplateService {
   /**
    * Calificar plantilla
    */
-  async rateTemplate(templateId: string, userId: string, rating: number): Promise<void> {
+  async rateTemplate(
+    templateId: string,
+    userId: string,
+    rating: number,
+  ): Promise<void> {
     const template = await this.getTemplate(templateId);
 
     // Calcular nueva calificación promedio
     const newRatingCount = template.ratingCount + 1;
-    const newRating = ((template.rating * template.ratingCount) + rating) / newRatingCount;
+    const newRating =
+      (template.rating * template.ratingCount + rating) / newRatingCount;
 
     await this.dynamoDBService.conditionalUpdate(
       DynamoDBKeys.templatePK(templateId),
@@ -409,16 +467,20 @@ export class RoomTemplateService {
       {
         source: 'room_template_service',
         userAgent: 'backend',
-      }
+      },
     );
 
-    this.logger.log(`Plantilla calificada: ${templateId} con ${rating} estrellas por usuario ${userId}`);
+    this.logger.log(
+      `Plantilla calificada: ${templateId} con ${rating} estrellas por usuario ${userId}`,
+    );
   }
 
   /**
    * Validar configuración de plantilla
    */
-  private async validateTemplateConfiguration(configuration: any): Promise<TemplateValidationResult> {
+  private async validateTemplateConfiguration(
+    configuration: any,
+  ): Promise<TemplateValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -426,48 +488,73 @@ export class RoomTemplateService {
       const settings = configuration.settings as AdvancedRoomSettings;
 
       // Validar configuración de consenso
-      if (settings.consensusThreshold === ConsensusType.CUSTOM && !settings.customThreshold) {
-        errors.push('customThreshold es requerido cuando consensusThreshold es CUSTOM');
+      if (
+        settings.consensusThreshold === ConsensusType.CUSTOM &&
+        !settings.customThreshold
+      ) {
+        errors.push(
+          'customThreshold es requerido cuando consensusThreshold es CUSTOM',
+        );
       }
 
-      if (settings.customThreshold && (settings.customThreshold < 50 || settings.customThreshold > 100)) {
+      if (
+        settings.customThreshold &&
+        (settings.customThreshold < 50 || settings.customThreshold > 100)
+      ) {
         errors.push('customThreshold debe estar entre 50 y 100');
       }
 
       // Validar timeouts
-      if (settings.votingTimeout && (settings.votingTimeout < 30 || settings.votingTimeout > 300)) {
+      if (
+        settings.votingTimeout &&
+        (settings.votingTimeout < 30 || settings.votingTimeout > 300)
+      ) {
         errors.push('votingTimeout debe estar entre 30 y 300 segundos');
       }
 
-      if (settings.sessionTimeout && (settings.sessionTimeout < 15 || settings.sessionTimeout > 480)) {
+      if (
+        settings.sessionTimeout &&
+        (settings.sessionTimeout < 15 || settings.sessionTimeout > 480)
+      ) {
         errors.push('sessionTimeout debe estar entre 15 y 480 minutos');
       }
 
       // Validar capacidad de sala
-      if (settings.maxMembers && (settings.maxMembers < 2 || settings.maxMembers > 50)) {
+      if (
+        settings.maxMembers &&
+        (settings.maxMembers < 2 || settings.maxMembers > 50)
+      ) {
         errors.push('maxMembers debe estar entre 2 y 50');
       }
 
       // Validar frecuencia de inyección
       if (settings.contentInjectionEnabled && settings.injectionFrequency) {
-        if (settings.injectionFrequency < 5 || settings.injectionFrequency > 50) {
+        if (
+          settings.injectionFrequency < 5 ||
+          settings.injectionFrequency > 50
+        ) {
           errors.push('injectionFrequency debe estar entre 5 y 50');
         }
       }
 
       // Advertencias para configuraciones subóptimas
       if (settings.votingTimeout && settings.votingTimeout < 60) {
-        warnings.push('Un timeout de votación muy corto puede afectar la experiencia del usuario');
+        warnings.push(
+          'Un timeout de votación muy corto puede afectar la experiencia del usuario',
+        );
       }
 
       if (settings.maxMembers && settings.maxMembers > 20) {
-        warnings.push('Salas con muchos miembros pueden tener dificultades para encontrar consenso');
+        warnings.push(
+          'Salas con muchos miembros pueden tener dificultades para encontrar consenso',
+        );
       }
 
       if (settings.anonymousVoting && settings.showVotingProgress) {
-        warnings.push('Mostrar progreso de votación puede comprometer el anonimato');
+        warnings.push(
+          'Mostrar progreso de votación puede comprometer el anonimato',
+        );
       }
-
     } catch (error) {
       errors.push(`Error validando configuración: ${error.message}`);
     }
@@ -482,16 +569,22 @@ export class RoomTemplateService {
   /**
    * Ordenar plantillas por criterio
    */
-  private sortTemplates(templates: RoomTemplate[], sortBy: TemplateSortBy, sortOrder: 'asc' | 'desc'): RoomTemplate[] {
+  private sortTemplates(
+    templates: RoomTemplate[],
+    sortBy: TemplateSortBy,
+    sortOrder: 'asc' | 'desc',
+  ): RoomTemplate[] {
     return templates.sort((a, b) => {
       let comparison = 0;
 
       switch (sortBy) {
         case TemplateSortBy.CREATED_AT:
-          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          comparison =
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           break;
         case TemplateSortBy.UPDATED_AT:
-          comparison = new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+          comparison =
+            new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
           break;
         case TemplateSortBy.USAGE_COUNT:
           comparison = a.usageCount - b.usageCount;

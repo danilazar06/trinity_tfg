@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { RoomService } from '../room.service';
 
 @Injectable()
@@ -15,13 +20,15 @@ export class RoomCreatorGuard implements CanActivate {
     }
 
     const room = await this.roomService.getRoomById(roomId);
-    
+
     if (!room) {
       throw new ForbiddenException('Sala no encontrada');
     }
 
     if (room.creatorId !== userId) {
-      throw new ForbiddenException('Solo el creador de la sala puede realizar esta acción');
+      throw new ForbiddenException(
+        'Solo el creador de la sala puede realizar esta acción',
+      );
     }
 
     return true;

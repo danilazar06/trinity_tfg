@@ -24,7 +24,9 @@ interface AuthenticatedSocket extends Socket {
   },
   namespace: '/realtime',
 })
-export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class RealtimeGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -35,11 +37,11 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   async handleConnection(client: AuthenticatedSocket) {
     try {
       this.logger.log(`🔌 Client attempting to connect: ${client.id}`);
-      
+
       // En producción, aquí validarías el JWT token
       // const token = client.handshake.auth.token;
       // const user = await this.validateToken(token);
-      
+
       // Por ahora, simulamos autenticación
       const userId = client.handshake.query.userId as string;
       if (!userId) {
@@ -50,15 +52,14 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       client.userId = userId;
       this.connectedUsers.set(userId, client);
-      
+
       this.logger.log(`✅ User connected: ${userId} (socket: ${client.id})`);
-      
+
       // Notificar al cliente que está conectado
       client.emit('connected', {
         userId,
         timestamp: new Date().toISOString(),
       });
-
     } catch (error) {
       this.logger.error(`❌ Connection error: ${error.message}`);
       client.disconnect();
@@ -71,12 +72,12 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
 
     if (userId) {
       this.connectedUsers.delete(userId);
-      
+
       // Remover de la sala si estaba en una
       if (roomId) {
         this.leaveRoom(userId, roomId);
       }
-      
+
       this.logger.log(`👋 User disconnected: ${userId} (socket: ${client.id})`);
     }
   }
@@ -133,7 +134,6 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
         members: connectedMembers,
         count: connectedMembers.length,
       });
-
     } catch (error) {
       this.logger.error(`❌ Error joining room: ${error.message}`);
       client.emit('error', { message: 'Failed to join room' });
@@ -185,7 +185,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   }
 
   // Métodos públicos para ser llamados desde otros servicios
-  
+
   /**
    * Notificar voto en tiempo real
    */
@@ -298,7 +298,9 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
    * Notificar mensaje de chat
    */
   notifyChatMessage(roomId: string, chatData: any) {
-    this.logger.log(`💬 Broadcasting chat message to room ${roomId}: ${chatData.eventType}`);
+    this.logger.log(
+      `💬 Broadcasting chat message to room ${roomId}: ${chatData.eventType}`,
+    );
     this.server.to(roomId).emit('chatMessage', {
       roomId,
       ...chatData,
@@ -310,7 +312,9 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
    * Notificar sugerencia de contenido
    */
   notifyContentSuggestion(roomId: string, suggestionData: any) {
-    this.logger.log(`💡 Broadcasting content suggestion to room ${roomId}: ${suggestionData.eventType}`);
+    this.logger.log(
+      `💡 Broadcasting content suggestion to room ${roomId}: ${suggestionData.eventType}`,
+    );
     this.server.to(roomId).emit('contentSuggestion', {
       roomId,
       ...suggestionData,
@@ -335,11 +339,13 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     return {
       totalConnections: this.connectedUsers.size,
       activeRooms: this.roomMembers.size,
-      roomStats: Array.from(this.roomMembers.entries()).map(([roomId, members]) => ({
-        roomId,
-        memberCount: members.size,
-        members: Array.from(members),
-      })),
+      roomStats: Array.from(this.roomMembers.entries()).map(
+        ([roomId, members]) => ({
+          roomId,
+          memberCount: members.size,
+          members: Array.from(members),
+        }),
+      ),
     };
   }
 }

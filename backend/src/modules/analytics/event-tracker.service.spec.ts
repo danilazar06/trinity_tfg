@@ -37,7 +37,7 @@ describe('EventTracker', () => {
     /**
      * Property 1: Event Tracking Completeness
      * Validates: Requirements 1.1, 1.3, 1.4
-     * 
+     *
      * Property: All tracked events should have required fields and be stored properly
      */
     it('should track all events with complete required fields', async () => {
@@ -72,34 +72,36 @@ describe('EventTracker', () => {
                 context: expect.any(Object),
                 processed: false,
                 ttl: expect.any(Number),
-              })
+              }),
             );
 
             // Property: Event ID should be unique and valid UUID format
             const storedEvent = multiTableService.putItem.mock.calls[
               multiTableService.putItem.mock.calls.length - 1
             ][1] as AnalyticsEvent;
-            
+
             expect(storedEvent.eventId).toMatch(
-              /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+              /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
             );
 
             // Property: TTL should be set based on event type
-            expect(storedEvent.ttl).toBeGreaterThan(Math.floor(Date.now() / 1000));
+            expect(storedEvent.ttl).toBeGreaterThan(
+              Math.floor(Date.now() / 1000),
+            );
 
             // Property: Session ID should be generated if not provided
             expect(storedEvent.sessionId).toBeTruthy();
             expect(typeof storedEvent.sessionId).toBe('string');
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
     /**
      * Property 2: User Action Tracking Consistency
      * Validates: Requirements 1.1, 1.3
-     * 
+     *
      * Property: User actions should be tracked with consistent structure
      */
     it('should track user actions with consistent structure', async () => {
@@ -114,7 +116,12 @@ describe('EventTracker', () => {
           }), // context
           async (userId, actionType, properties, context) => {
             // Act: Track user action
-            await service.trackUserAction(userId, actionType, properties, context);
+            await service.trackUserAction(
+              userId,
+              actionType,
+              properties,
+              context,
+            );
 
             // Assert: Event should be tracked with user action category
             expect(multiTableService.putItem).toHaveBeenCalledWith(
@@ -127,18 +134,18 @@ describe('EventTracker', () => {
                   actionCategory: 'user_action',
                 }),
                 context: expect.objectContaining(context),
-              })
+              }),
             );
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
     /**
      * Property 3: Room Event Tracking Consistency
      * Validates: Requirements 2.1, 2.2, 2.7
-     * 
+     *
      * Property: Room events should be tracked with room context
      */
     it('should track room events with consistent room context', async () => {
@@ -163,18 +170,18 @@ describe('EventTracker', () => {
                   ...properties,
                   eventCategory: 'room_event',
                 }),
-              })
+              }),
             );
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
     /**
      * Property 4: Content Interaction Tracking Consistency
      * Validates: Requirements 1.1, 2.1
-     * 
+     *
      * Property: Content interactions should be tracked with content context
      */
     it('should track content interactions with consistent content context', async () => {
@@ -192,7 +199,7 @@ describe('EventTracker', () => {
               roomId,
               contentId,
               interactionType,
-              properties
+              properties,
             );
 
             // Assert: Event should be tracked with content interaction category
@@ -207,18 +214,18 @@ describe('EventTracker', () => {
                   interactionType: interactionType,
                   eventCategory: 'content_interaction',
                 }),
-              })
+              }),
             );
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
     /**
      * Property 5: Batch Event Tracking Consistency
      * Validates: Requirements 1.3, 6.1
-     * 
+     *
      * Property: Batch events should maintain individual event integrity
      */
     it('should maintain event integrity in batch operations', async () => {
@@ -231,7 +238,7 @@ describe('EventTracker', () => {
               roomId: fc.option(fc.string({ minLength: 1, maxLength: 50 })),
               properties: fc.dictionary(fc.string(), fc.anything()),
             }),
-            { minLength: 1, maxLength: 10 }
+            { minLength: 1, maxLength: 10 },
           ),
           async (events) => {
             // Act: Batch track events
@@ -252,32 +259,32 @@ describe('EventTracker', () => {
                     sessionId: expect.any(String),
                     processed: false,
                     ttl: expect.any(Number),
-                  })
-                )
-              )
+                  }),
+                ),
+              ),
             );
 
             // Property: Batch should contain exactly the same number of events
             const batchedEvents = multiTableService.batchWriteItems.mock.calls[
               multiTableService.batchWriteItems.mock.calls.length - 1
             ][1] as AnalyticsEvent[];
-            
+
             expect(batchedEvents).toHaveLength(events.length);
 
             // Property: Each event should have unique ID
-            const eventIds = batchedEvents.map(e => e.eventId);
+            const eventIds = batchedEvents.map((e) => e.eventId);
             const uniqueIds = new Set(eventIds);
             expect(uniqueIds.size).toBe(eventIds.length);
-          }
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
     /**
      * Property 6: Event TTL Calculation Consistency
      * Validates: Requirements 6.2, 6.3
-     * 
+     *
      * Property: TTL should be calculated consistently based on event type
      */
     it('should calculate TTL consistently based on event type', async () => {
@@ -300,34 +307,40 @@ describe('EventTracker', () => {
             expect(ttl).toBeGreaterThan(now);
 
             // Property: TTL should be within reasonable bounds based on event type
-            const maxTTL = now + (365 * 24 * 60 * 60); // 1 year max
-            const minTTL = now + (7 * 24 * 60 * 60); // 7 days min
-            
+            const maxTTL = now + 365 * 24 * 60 * 60; // 1 year max
+            const minTTL = now + 7 * 24 * 60 * 60; // 7 days min
+
             expect(ttl).toBeLessThanOrEqual(maxTTL);
             expect(ttl).toBeGreaterThanOrEqual(minTTL);
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
     /**
      * Property 7: Event Statistics Consistency
      * Validates: Requirements 1.5, 5.1
-     * 
+     *
      * Property: Event statistics should be consistent and accurate
      */
     it('should provide consistent event statistics', async () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            startDate: fc.date({ min: new Date('2023-01-01'), max: new Date() }),
+            startDate: fc.date({
+              min: new Date('2023-01-01'),
+              max: new Date(),
+            }),
             endDate: fc.date({ min: new Date('2023-01-01'), max: new Date() }),
           }),
           async (timeRange) => {
             // Ensure endDate is after startDate
             if (timeRange.endDate < timeRange.startDate) {
-              [timeRange.startDate, timeRange.endDate] = [timeRange.endDate, timeRange.startDate];
+              [timeRange.startDate, timeRange.endDate] = [
+                timeRange.endDate,
+                timeRange.startDate,
+              ];
             }
 
             // Act: Get event statistics
@@ -353,13 +366,13 @@ describe('EventTracker', () => {
 
             // Property: Events by type should sum to reasonable total
             const eventsByTypeSum = Object.values(stats.eventsByType).reduce(
-              (sum, count) => sum + (count as number),
-              0
+              (sum, count) => sum + count,
+              0,
             );
             expect(eventsByTypeSum).toBeGreaterThanOrEqual(0);
-          }
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
   });
@@ -386,7 +399,7 @@ describe('EventTracker', () => {
             aiEventType: aiEventType,
             eventCategory: 'ai_interaction',
           }),
-        })
+        }),
       );
     });
 
@@ -404,7 +417,7 @@ describe('EventTracker', () => {
             ...properties,
             eventCategory: 'system_event',
           }),
-        })
+        }),
       );
     });
 
@@ -413,7 +426,7 @@ describe('EventTracker', () => {
 
       // Should not throw error - analytics failures shouldn't break main functionality
       await expect(
-        service.trackEvent({ eventType: EventType.USER_LOGIN })
+        service.trackEvent({ eventType: EventType.USER_LOGIN }),
       ).resolves.not.toThrow();
     });
 
@@ -422,7 +435,9 @@ describe('EventTracker', () => {
 
       for (let i = 0; i < 10; i++) {
         await service.trackEvent({ eventType: EventType.USER_LOGIN });
-        const storedEvent = multiTableService.putItem.mock.calls[i][1] as AnalyticsEvent;
+        const storedEvent = multiTableService.putItem.mock.calls[
+          i
+        ][1] as AnalyticsEvent;
         sessionIds.add(storedEvent.sessionId);
       }
 

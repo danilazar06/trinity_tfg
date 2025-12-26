@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Min, Max, ValidateNested } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  Max,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import {
   AutomationLevel,
@@ -15,17 +24,28 @@ export class SmartInjectionDto {
   @IsBoolean()
   enabled: boolean;
 
-  @ApiProperty({ description: 'Injection frequency', enum: ['low', 'medium', 'high', 'adaptive'] })
+  @ApiProperty({
+    description: 'Injection frequency',
+    enum: ['low', 'medium', 'high', 'adaptive'],
+  })
   @IsEnum(['low', 'medium', 'high', 'adaptive'])
   frequency: 'low' | 'medium' | 'high' | 'adaptive';
 
-  @ApiProperty({ description: 'Weight for user preferences (0-1)', minimum: 0, maximum: 1 })
+  @ApiProperty({
+    description: 'Weight for user preferences (0-1)',
+    minimum: 0,
+    maximum: 1,
+  })
   @IsNumber()
   @Min(0)
   @Max(1)
   preferenceWeight: number;
 
-  @ApiProperty({ description: 'Weight for content diversity (0-1)', minimum: 0, maximum: 1 })
+  @ApiProperty({
+    description: 'Weight for content diversity (0-1)',
+    minimum: 0,
+    maximum: 1,
+  })
   @IsNumber()
   @Min(0)
   @Max(1)
@@ -128,7 +148,11 @@ export class SessionManagementDto {
   @IsBoolean()
   autoResumeOnActivity: boolean;
 
-  @ApiProperty({ description: 'Inactivity threshold in minutes', minimum: 5, maximum: 60 })
+  @ApiProperty({
+    description: 'Inactivity threshold in minutes',
+    minimum: 5,
+    maximum: 60,
+  })
   @IsNumber()
   @Min(5)
   @Max(60)
@@ -231,7 +255,11 @@ export class InactiveMemberHandlingDto {
   @IsBoolean()
   sendReengagementNotifications: boolean;
 
-  @ApiProperty({ description: 'Grace period in minutes', minimum: 10, maximum: 120 })
+  @ApiProperty({
+    description: 'Grace period in minutes',
+    minimum: 10,
+    maximum: 120,
+  })
   @IsNumber()
   @Min(10)
   @Max(120)
@@ -271,13 +299,21 @@ export class LearningSettingsDto {
   @Max(1)
   learningRate: number;
 
-  @ApiProperty({ description: 'Memory decay rate (0-1)', minimum: 0, maximum: 1 })
+  @ApiProperty({
+    description: 'Memory decay rate (0-1)',
+    minimum: 0,
+    maximum: 1,
+  })
   @IsNumber()
   @Min(0)
   @Max(1)
   memoryDecay: number;
 
-  @ApiProperty({ description: 'Confidence threshold (0-1)', minimum: 0, maximum: 1 })
+  @ApiProperty({
+    description: 'Confidence threshold (0-1)',
+    minimum: 0,
+    maximum: 1,
+  })
   @IsNumber()
   @Min(0)
   @Max(1)
@@ -348,10 +384,10 @@ export class CreateAutomationConfigDto {
   @IsBoolean()
   isEnabled?: boolean;
 
-  @ApiPropertyOptional({ 
-    description: 'Automation level', 
+  @ApiPropertyOptional({
+    description: 'Automation level',
     enum: AutomationLevel,
-    default: AutomationLevel.BASIC 
+    default: AutomationLevel.BASIC,
   })
   @IsOptional()
   @IsEnum(AutomationLevel)
@@ -388,7 +424,10 @@ export class UpdateAutomationConfigDto {
   @IsBoolean()
   isEnabled?: boolean;
 
-  @ApiPropertyOptional({ description: 'Automation level', enum: AutomationLevel })
+  @ApiPropertyOptional({
+    description: 'Automation level',
+    enum: AutomationLevel,
+  })
   @IsOptional()
   @IsEnum(AutomationLevel)
   automationLevel?: AutomationLevel;

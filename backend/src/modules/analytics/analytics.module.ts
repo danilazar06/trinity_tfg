@@ -19,10 +19,7 @@ import { DatabaseModule } from '../../infrastructure/database/database.module';
     InsightEngine,
     PerformanceMonitor,
   ],
-  controllers: [
-    AnalyticsController,
-    RoomAnalyticsController,
-  ],
+  controllers: [AnalyticsController, RoomAnalyticsController],
   exports: [
     AnalyticsService,
     RoomAnalyticsService,

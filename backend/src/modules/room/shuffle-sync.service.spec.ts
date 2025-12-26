@@ -6,7 +6,13 @@ import { DynamoDBService } from '../../infrastructure/database/dynamodb.service'
 import { MediaService } from '../media/media.service';
 import { MemberService } from './member.service';
 import { RoomService } from './room.service';
-import { Room, Member, MemberRole, MemberStatus, ContentFilters } from '../../domain/entities/room.entity';
+import {
+  Room,
+  Member,
+  MemberRole,
+  MemberStatus,
+  ContentFilters,
+} from '../../domain/entities/room.entity';
 import { MediaItem } from '../../domain/entities/media.entity';
 
 describe('ShuffleSyncService', () => {
@@ -75,9 +81,9 @@ describe('ShuffleSyncService', () => {
     /**
      * **Feature: trinity-mvp, Property 2: Consistencia de shuffle y sync**
      * **Valida: Requisitos 1.5**
-     * 
-     * Para cualquier sala con múltiples miembros, cada miembro debe recibir un orden aleatorio único 
-     * de la misma lista maestra subyacente, asegurando diversidad de contenido mientras mantiene 
+     *
+     * Para cualquier sala con múltiples miembros, cada miembro debe recibir un orden aleatorio único
+     * de la misma lista maestra subyacente, asegurando diversidad de contenido mientras mantiene
      * integridad de consenso
      */
     it('should maintain shuffle and sync consistency across all members', async () => {
@@ -85,8 +91,14 @@ describe('ShuffleSyncService', () => {
         fc.asyncProperty(
           // Generadores
           fc.string({ minLength: 1, maxLength: 50 }), // roomId
-          fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 5, maxLength: 50 }), // masterList
-          fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 2, maxLength: 10 }), // userIds
+          fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+            minLength: 5,
+            maxLength: 50,
+          }), // masterList
+          fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+            minLength: 2,
+            maxLength: 10,
+          }), // userIds
           async (roomId, masterList, userIds) => {
             // Arrange: Crear sala mock y miembros
             const mockRoom: Room = {
@@ -112,7 +124,7 @@ describe('ShuffleSyncService', () => {
               joinedAt: new Date(),
             }));
 
-            const mockMediaItems: MediaItem[] = masterList.map(id => ({
+            const mockMediaItems: MediaItem[] = masterList.map((id) => ({
               tmdbId: id,
               title: `Movie ${id}`,
               overview: `Overview for ${id}`,
@@ -133,11 +145,14 @@ describe('ShuffleSyncService', () => {
             roomService.getRoomById.mockResolvedValue(mockRoom);
             mediaService.fetchMovies.mockResolvedValue(mockMediaItems);
             memberService.getRoomMembers.mockResolvedValue(mockMembers);
-            memberService.generateShuffledListsForAllMembers.mockResolvedValue(userIds.length);
+            memberService.generateShuffledListsForAllMembers.mockResolvedValue(
+              userIds.length,
+            );
             roomService.updateMasterList.mockResolvedValue();
 
             // Act: Generar listas desordenadas
-            const result = await service.generateMasterListAndShuffledLists(roomId);
+            const result =
+              await service.generateMasterListAndShuffledLists(roomId);
 
             // Assert: Verificar que se generaron listas para todos los miembros
             expect(result.masterListUpdated).toBe(true);
@@ -146,12 +161,19 @@ describe('ShuffleSyncService', () => {
 
             // Verificar que se llamaron los métodos correctos
             expect(roomService.getRoomById).toHaveBeenCalledWith(roomId);
-            expect(mediaService.fetchMovies).toHaveBeenCalledWith(mockRoom.filters);
-            expect(roomService.updateMasterList).toHaveBeenCalledWith(roomId, masterList);
-            expect(memberService.generateShuffledListsForAllMembers).toHaveBeenCalledWith(roomId, masterList);
-          }
+            expect(mediaService.fetchMovies).toHaveBeenCalledWith(
+              mockRoom.filters,
+            );
+            expect(roomService.updateMasterList).toHaveBeenCalledWith(
+              roomId,
+              masterList,
+            );
+            expect(
+              memberService.generateShuffledListsForAllMembers,
+            ).toHaveBeenCalledWith(roomId, masterList);
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -159,8 +181,14 @@ describe('ShuffleSyncService', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.string({ minLength: 1, maxLength: 50 }), // roomId
-          fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 10, maxLength: 30 }), // masterList
-          fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 3, maxLength: 8 }), // userIds
+          fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+            minLength: 10,
+            maxLength: 30,
+          }), // masterList
+          fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+            minLength: 3,
+            maxLength: 8,
+          }), // userIds
           async (roomId, masterList, userIds) => {
             // Arrange: Crear sala y miembros con listas desordenadas simuladas
             const mockRoom: Room = {
@@ -179,8 +207,10 @@ describe('ShuffleSyncService', () => {
             const mockMembers: Member[] = userIds.map((userId, index) => {
               // Crear una versión desordenada de la lista maestra usando el userId como seed
               const shuffled = [...masterList];
-              let seed = userId.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-              
+              let seed = userId
+                .split('')
+                .reduce((a, b) => a + b.charCodeAt(0), 0);
+
               // Fisher-Yates shuffle con seed
               for (let i = shuffled.length - 1; i > 0; i--) {
                 seed = (seed * 9301 + 49297) % 233280;
@@ -205,13 +235,14 @@ describe('ShuffleSyncService', () => {
             memberService.getRoomMembers.mockResolvedValue(mockMembers);
 
             // Act: Verificar consistencia
-            const consistencyResult = await service.verifyShuffleSyncConsistency(roomId);
+            const consistencyResult =
+              await service.verifyShuffleSyncConsistency(roomId);
 
             // Assert: Verificar propiedades de consistencia
             expect(consistencyResult.isConsistent).toBe(true);
             expect(consistencyResult.masterListSize).toBe(masterList.length);
             expect(consistencyResult.memberListSizes).toEqual(
-              new Array(userIds.length).fill(masterList.length)
+              new Array(userIds.length).fill(masterList.length),
             );
             expect(consistencyResult.issues).toHaveLength(0);
 
@@ -222,23 +253,23 @@ describe('ShuffleSyncService', () => {
 
             // Verificar que cada lista de miembro contiene exactamente los mismos elementos
             const masterSet = new Set(masterList);
-            mockMembers.forEach(member => {
+            mockMembers.forEach((member) => {
               const memberSet = new Set(member.shuffledList);
               expect(memberSet.size).toBe(masterSet.size);
-              
+
               // Verificar que todos los elementos de la lista maestra están en la lista del miembro
-              masterList.forEach(mediaId => {
+              masterList.forEach((mediaId) => {
                 expect(memberSet.has(mediaId)).toBe(true);
               });
-              
+
               // Verificar que no hay elementos extra en la lista del miembro
-              member.shuffledList.forEach(mediaId => {
+              member.shuffledList.forEach((mediaId) => {
                 expect(masterSet.has(mediaId)).toBe(true);
               });
             });
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -246,12 +277,23 @@ describe('ShuffleSyncService', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.string({ minLength: 1, maxLength: 50 }), // roomId
-          fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 5, maxLength: 20 }), // originalMasterList
-          fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 1, maxLength: 10 }), // newMediaIds
-          fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 2, maxLength: 5 }), // userIds
+          fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+            minLength: 5,
+            maxLength: 20,
+          }), // originalMasterList
+          fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+            minLength: 1,
+            maxLength: 10,
+          }), // newMediaIds
+          fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+            minLength: 2,
+            maxLength: 5,
+          }), // userIds
           async (roomId, originalMasterList, newMediaIds, userIds) => {
             // Ensure no duplicates between original and new content
-            const uniqueNewIds = newMediaIds.filter(id => !originalMasterList.includes(id));
+            const uniqueNewIds = newMediaIds.filter(
+              (id) => !originalMasterList.includes(id),
+            );
             if (uniqueNewIds.length === 0) return; // Skip if no unique new content
 
             // Reset mocks for this test iteration
@@ -276,7 +318,9 @@ describe('ShuffleSyncService', () => {
               role: index === 0 ? MemberRole.CREATOR : MemberRole.MEMBER,
               status: MemberStatus.ACTIVE,
               shuffledList: [...originalMasterList], // Simular lista existente
-              currentIndex: Math.floor(Math.random() * originalMasterList.length),
+              currentIndex: Math.floor(
+                Math.random() * originalMasterList.length,
+              ),
               lastActivityAt: new Date(),
               joinedAt: new Date(),
             }));
@@ -292,18 +336,25 @@ describe('ShuffleSyncService', () => {
 
             // Assert: Verificar que se actualizó la lista maestra
             expect(result.masterListUpdated).toBe(true);
-            expect(result.totalMediaItems).toBe(originalMasterList.length + uniqueNewIds.length);
+            expect(result.totalMediaItems).toBe(
+              originalMasterList.length + uniqueNewIds.length,
+            );
 
             // Verificar que se llamó updateMasterList con la lista combinada
             const expectedMasterList = [...originalMasterList, ...uniqueNewIds];
-            expect(roomService.updateMasterList).toHaveBeenCalledWith(roomId, expectedMasterList);
+            expect(roomService.updateMasterList).toHaveBeenCalledWith(
+              roomId,
+              expectedMasterList,
+            );
 
             // Verificar que se actualizaron las listas de todos los miembros
             // El número de llamadas debe ser igual al número de miembros
-            expect(memberService.updateMemberShuffledList).toHaveBeenCalledTimes(userIds.length);
-          }
+            expect(
+              memberService.updateMemberShuffledList,
+            ).toHaveBeenCalledTimes(userIds.length);
+          },
         ),
-        { numRuns: 50 } // Reducir el número de runs para evitar problemas de mock
+        { numRuns: 50 }, // Reducir el número de runs para evitar problemas de mock
       );
     });
 
@@ -311,8 +362,14 @@ describe('ShuffleSyncService', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.string({ minLength: 1, maxLength: 50 }), // roomId
-          fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 5, maxLength: 25 }), // masterList
-          fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 2, maxLength: 6 }), // userIds
+          fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+            minLength: 5,
+            maxLength: 25,
+          }), // masterList
+          fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+            minLength: 2,
+            maxLength: 6,
+          }), // userIds
           async (roomId, masterList, userIds) => {
             // Arrange: Crear sala con lista maestra existente
             const mockRoom: Room = {
@@ -329,7 +386,9 @@ describe('ShuffleSyncService', () => {
 
             // Mock service responses
             roomService.getRoomById.mockResolvedValue(mockRoom);
-            memberService.generateShuffledListsForAllMembers.mockResolvedValue(userIds.length);
+            memberService.generateShuffledListsForAllMembers.mockResolvedValue(
+              userIds.length,
+            );
 
             // Act: Regenerar listas desordenadas
             const result = await service.regenerateShuffledLists(roomId);
@@ -340,13 +399,15 @@ describe('ShuffleSyncService', () => {
             expect(result.totalMediaItems).toBe(masterList.length);
 
             // Verificar que se regeneraron las listas usando la lista maestra existente
-            expect(memberService.generateShuffledListsForAllMembers).toHaveBeenCalledWith(roomId, masterList);
-            
+            expect(
+              memberService.generateShuffledListsForAllMembers,
+            ).toHaveBeenCalledWith(roomId, masterList);
+
             // Verificar que NO se llamó updateMasterList
             expect(roomService.updateMasterList).not.toHaveBeenCalled();
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
   });
@@ -385,8 +446,9 @@ describe('ShuffleSyncService', () => {
       roomService.getRoomById.mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.generateMasterListAndShuffledLists(roomId))
-        .rejects.toThrow('Sala no encontrada');
+      await expect(
+        service.generateMasterListAndShuffledLists(roomId),
+      ).rejects.toThrow('Sala no encontrada');
     });
 
     it('should get shuffle sync stats correctly', async () => {

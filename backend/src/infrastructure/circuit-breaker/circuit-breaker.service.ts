@@ -2,15 +2,15 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 export enum CircuitState {
-  CLOSED = 'CLOSED',     // Normal operation
-  OPEN = 'OPEN',         // Circuit is open, calls fail fast
-  HALF_OPEN = 'HALF_OPEN' // Testing if service is back
+  CLOSED = 'CLOSED', // Normal operation
+  OPEN = 'OPEN', // Circuit is open, calls fail fast
+  HALF_OPEN = 'HALF_OPEN', // Testing if service is back
 }
 
 export interface CircuitBreakerConfig {
-  failureThreshold: number;    // Number of failures before opening
-  timeoutMs: number;          // Timeout for operations
-  resetTimeoutMs: number;     // Time to wait before trying again
+  failureThreshold: number; // Number of failures before opening
+  timeoutMs: number; // Timeout for operations
+  resetTimeoutMs: number; // Time to wait before trying again
   monitoringPeriodMs: number; // Period to monitor failures
 }
 
@@ -30,10 +30,19 @@ export class CircuitBreakerService {
 
   constructor(private configService: ConfigService) {
     this.config = {
-      failureThreshold: this.configService.get('CIRCUIT_BREAKER_FAILURE_THRESHOLD', 5),
+      failureThreshold: this.configService.get(
+        'CIRCUIT_BREAKER_FAILURE_THRESHOLD',
+        5,
+      ),
       timeoutMs: this.configService.get('CIRCUIT_BREAKER_TIMEOUT_MS', 60000),
-      resetTimeoutMs: this.configService.get('CIRCUIT_BREAKER_RESET_TIMEOUT_MS', 30000),
-      monitoringPeriodMs: this.configService.get('CIRCUIT_BREAKER_MONITORING_PERIOD_MS', 60000),
+      resetTimeoutMs: this.configService.get(
+        'CIRCUIT_BREAKER_RESET_TIMEOUT_MS',
+        30000,
+      ),
+      monitoringPeriodMs: this.configService.get(
+        'CIRCUIT_BREAKER_MONITORING_PERIOD_MS',
+        60000,
+      ),
     };
   }
 
@@ -60,16 +69,21 @@ export class CircuitBreakerService {
 
     try {
       // Ejecutar operación con timeout
-      const result = await this.executeWithTimeout(operation, this.config.timeoutMs);
-      
+      const result = await this.executeWithTimeout(
+        operation,
+        this.config.timeoutMs,
+      );
+
       // Operación exitosa
       this.onSuccess(circuitName, circuit);
       return result;
     } catch (error) {
       // Operación falló
       this.onFailure(circuitName, circuit, error);
-      
-      this.logger.warn(`Circuit ${circuitName} operation failed, using fallback: ${error.message}`);
+
+      this.logger.warn(
+        `Circuit ${circuitName} operation failed, using fallback: ${error.message}`,
+      );
       return fallback();
     }
   }
@@ -114,36 +128,46 @@ export class CircuitBreakerService {
    */
   private onSuccess(circuitName: string, circuit: CircuitBreakerStats): void {
     circuit.successCount++;
-    
+
     if (circuit.state === CircuitState.HALF_OPEN) {
       // Si estábamos en HALF_OPEN y la operación fue exitosa, cerrar el circuito
       circuit.state = CircuitState.CLOSED;
       circuit.failureCount = 0;
       circuit.lastFailureTime = undefined;
       circuit.nextAttemptTime = undefined;
-      this.logger.log(`Circuit ${circuitName} recovered, moved to CLOSED state`);
+      this.logger.log(
+        `Circuit ${circuitName} recovered, moved to CLOSED state`,
+      );
     }
   }
 
   /**
    * Manejar fallo de operación
    */
-  private onFailure(circuitName: string, circuit: CircuitBreakerStats, error: Error): void {
+  private onFailure(
+    circuitName: string,
+    circuit: CircuitBreakerStats,
+    error: Error,
+  ): void {
     circuit.failureCount++;
     circuit.lastFailureTime = new Date();
 
     // Si alcanzamos el umbral de fallos, abrir el circuito
     if (circuit.failureCount >= this.config.failureThreshold) {
       circuit.state = CircuitState.OPEN;
-      circuit.nextAttemptTime = new Date(Date.now() + this.config.resetTimeoutMs);
-      
+      circuit.nextAttemptTime = new Date(
+        Date.now() + this.config.resetTimeoutMs,
+      );
+
       this.logger.error(
         `Circuit ${circuitName} opened due to ${circuit.failureCount} failures. ` +
-        `Next attempt at ${circuit.nextAttemptTime.toISOString()}`
+          `Next attempt at ${circuit.nextAttemptTime.toISOString()}`,
       );
     }
 
-    this.logger.warn(`Circuit ${circuitName} failure ${circuit.failureCount}/${this.config.failureThreshold}: ${error.message}`);
+    this.logger.warn(
+      `Circuit ${circuitName} failure ${circuit.failureCount}/${this.config.failureThreshold}: ${error.message}`,
+    );
   }
 
   /**

@@ -9,12 +9,22 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { RoomService } from './room.service';
 import { MemberService } from './member.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
-import { RequirePermissions, RequireOwner, RequireAdmin, RequireMember } from '../../common/decorators/permissions.decorator';
+import {
+  RequirePermissions,
+  RequireOwner,
+  RequireAdmin,
+  RequireMember,
+} from '../../common/decorators/permissions.decorator';
 import { RoomMemberGuard } from './guards/room-member.guard';
 import { RoomCreatorGuard } from './guards/room-creator.guard';
 import { CreateRoomDto } from './dto/create-room.dto';
@@ -63,7 +73,10 @@ export class RoomController {
   @ApiOperation({ summary: 'Obtener estadísticas de la sala' })
   @ApiResponse({ status: 200, description: 'Estadísticas de la sala' })
   @ApiResponse({ status: 404, description: 'Sala no encontrada' })
-  @ApiResponse({ status: 403, description: 'No tienes permisos para ver estadísticas' })
+  @ApiResponse({
+    status: 403,
+    description: 'No tienes permisos para ver estadísticas',
+  })
   async getRoomStats(@Request() req, @Param('id') roomId: string) {
     return this.roomService.getRoomStats(roomId);
   }
@@ -84,12 +97,15 @@ export class RoomController {
   @ApiResponse({ status: 200, description: 'Siguiente elemento multimedia' })
   @ApiResponse({ status: 204, description: 'No hay más elementos' })
   async getNextMedia(@Request() req, @Param('id') roomId: string) {
-    const nextMediaId = await this.memberService.getNextMediaForMember(roomId, req.user.sub);
-    
+    const nextMediaId = await this.memberService.getNextMediaForMember(
+      roomId,
+      req.user.sub,
+    );
+
     if (!nextMediaId) {
       return { message: 'No hay más elementos para votar', completed: true };
     }
-    
+
     return { mediaId: nextMediaId, completed: false };
   }
 
@@ -117,15 +133,25 @@ export class RoomController {
   @RequirePermissions(RoomPermission.MODIFY_SETTINGS)
   @UseGuards(PermissionGuard)
   @ApiOperation({ summary: 'Actualizar filtros de la sala' })
-  @ApiResponse({ status: 200, description: 'Filtros actualizados exitosamente' })
-  @ApiResponse({ status: 403, description: 'No tienes permisos para modificar configuración' })
+  @ApiResponse({
+    status: 200,
+    description: 'Filtros actualizados exitosamente',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'No tienes permisos para modificar configuración',
+  })
   @ApiResponse({ status: 404, description: 'Sala no encontrada' })
   async updateRoomFilters(
     @Request() req,
     @Param('id') roomId: string,
     @Body() updateFiltersDto: UpdateFiltersDto,
   ) {
-    return this.roomService.updateRoomFilters(req.user.sub, roomId, updateFiltersDto.filters);
+    return this.roomService.updateRoomFilters(
+      req.user.sub,
+      roomId,
+      updateFiltersDto.filters,
+    );
   }
 
   @Post(':id/regenerate-invite')
@@ -133,10 +159,16 @@ export class RoomController {
   @UseGuards(PermissionGuard)
   @ApiOperation({ summary: 'Regenerar código de invitación' })
   @ApiResponse({ status: 200, description: 'Código regenerado exitosamente' })
-  @ApiResponse({ status: 403, description: 'No tienes permisos para gestionar invitaciones' })
+  @ApiResponse({
+    status: 403,
+    description: 'No tienes permisos para gestionar invitaciones',
+  })
   @ApiResponse({ status: 404, description: 'Sala no encontrada' })
   async regenerateInviteCode(@Request() req, @Param('id') roomId: string) {
-    const newCode = await this.roomService.regenerateInviteCode(req.user.sub, roomId);
+    const newCode = await this.roomService.regenerateInviteCode(
+      req.user.sub,
+      roomId,
+    );
     return { inviteCode: newCode, message: 'Código de invitación regenerado' };
   }
 
@@ -145,7 +177,10 @@ export class RoomController {
   @UseGuards(PermissionGuard)
   @ApiOperation({ summary: 'Eliminar sala (solo propietario)' })
   @ApiResponse({ status: 200, description: 'Sala eliminada exitosamente' })
-  @ApiResponse({ status: 403, description: 'Solo el propietario puede eliminar la sala' })
+  @ApiResponse({
+    status: 403,
+    description: 'Solo el propietario puede eliminar la sala',
+  })
   @ApiResponse({ status: 404, description: 'Sala no encontrada' })
   async deleteRoom(@Request() req, @Param('id') roomId: string) {
     await this.roomService.deleteRoom(req.user.sub, roomId);

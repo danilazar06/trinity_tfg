@@ -1,22 +1,26 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RoomChatService } from './room-chat.service';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
-import { RealtimeService } from '../realtime/realtime.service';
+import { RealtimeCompatibilityService } from '../realtime/realtime-compatibility.service';
 import { PermissionService } from '../permission/permission.service';
-import { 
-  ChatMessage, 
-  ChatMessageType, 
-  ChatMessageStatus, 
-  RoomChatConfig 
+import {
+  ChatMessage,
+  ChatMessageType,
+  ChatMessageStatus,
+  RoomChatConfig,
 } from '../../domain/entities/room-chat.entity';
 import { RoomPermission } from '../../domain/entities/room-moderation.entity';
-import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import * as fc from 'fast-check';
 
 describe('RoomChatService', () => {
   let service: RoomChatService;
   let dynamoDBService: jest.Mocked<DynamoDBService>;
-  let realtimeService: jest.Mocked<RealtimeService>;
+  let realtimeService: jest.Mocked<RealtimeCompatibilityService>;
   let permissionService: jest.Mocked<PermissionService>;
 
   beforeEach(async () => {
@@ -29,6 +33,8 @@ describe('RoomChatService', () => {
 
     const mockRealtimeService = {
       notifyChatMessage: jest.fn(),
+      publishEvent: jest.fn(),
+      subscribeToRoom: jest.fn(),
     };
 
     const mockPermissionService = {
@@ -40,14 +46,17 @@ describe('RoomChatService', () => {
       providers: [
         RoomChatService,
         { provide: DynamoDBService, useValue: mockDynamoDBService },
-        { provide: RealtimeService, useValue: mockRealtimeService },
+        {
+          provide: RealtimeCompatibilityService,
+          useValue: mockRealtimeService,
+        },
         { provide: PermissionService, useValue: mockPermissionService },
       ],
     }).compile();
 
     service = module.get<RoomChatService>(RoomChatService);
     dynamoDBService = module.get(DynamoDBService);
-    realtimeService = module.get(RealtimeService);
+    realtimeService = module.get(RealtimeCompatibilityService);
     permissionService = module.get(PermissionService);
   });
 
@@ -96,7 +105,12 @@ describe('RoomChatService', () => {
             };
 
             // Act
-            const result = await service.sendMessage(roomId, userId, username, sendMessageDto);
+            const result = await service.sendMessage(
+              roomId,
+              userId,
+              username,
+              sendMessageDto,
+            );
 
             // Assert
             expect(result).toBeDefined();
@@ -106,12 +120,16 @@ describe('RoomChatService', () => {
             expect(result.roomId).toBe(roomId);
             expect(result.type).toBe(ChatMessageType.TEXT);
             expect(result.status).toBe(ChatMessageStatus.ACTIVE);
-            expect(permissionService.checkPermission).toHaveBeenCalledWith(roomId, userId, RoomPermission.CHAT);
+            expect(permissionService.checkPermission).toHaveBeenCalledWith(
+              roomId,
+              userId,
+              RoomPermission.CHAT,
+            );
             expect(dynamoDBService.putItem).toHaveBeenCalled();
             expect(realtimeService.notifyChatMessage).toHaveBeenCalled();
-          }
+          },
         ),
-        { numRuns: 30 }
+        { numRuns: 30 },
       );
     });
 
@@ -157,11 +175,11 @@ describe('RoomChatService', () => {
 
             // Act & Assert
             await expect(
-              service.sendMessage(roomId, userId, username, sendMessageDto)
+              service.sendMessage(roomId, userId, username, sendMessageDto),
             ).rejects.toThrow(BadRequestException);
-          }
+          },
         ),
-        { numRuns: 20 }
+        { numRuns: 20 },
       );
     });
 
@@ -207,11 +225,11 @@ describe('RoomChatService', () => {
 
             // Act & Assert
             await expect(
-              service.sendMessage(roomId, userId, username, sendMessageDto)
+              service.sendMessage(roomId, userId, username, sendMessageDto),
             ).rejects.toThrow(ForbiddenException);
-          }
+          },
         ),
-        { numRuns: 20 }
+        { numRuns: 20 },
       );
     });
 
@@ -225,7 +243,9 @@ describe('RoomChatService', () => {
           async (roomId, userId, username, content) => {
             // Arrange
             permissionService.checkPermission.mockRejectedValue(
-              new ForbiddenException('No tienes permisos para realizar esta acción: CHAT')
+              new ForbiddenException(
+                'No tienes permisos para realizar esta acción: CHAT',
+              ),
             );
 
             const sendMessageDto = {
@@ -235,11 +255,11 @@ describe('RoomChatService', () => {
 
             // Act & Assert
             await expect(
-              service.sendMessage(roomId, userId, username, sendMessageDto)
+              service.sendMessage(roomId, userId, username, sendMessageDto),
             ).rejects.toThrow(ForbiddenException);
-          }
+          },
         ),
-        { numRuns: 20 }
+        { numRuns: 20 },
       );
     });
   });
@@ -275,7 +295,12 @@ describe('RoomChatService', () => {
             const editMessageDto = { content: newContent };
 
             // Act
-            const result = await service.editMessage(roomId, messageId, userId, editMessageDto);
+            const result = await service.editMessage(
+              roomId,
+              messageId,
+              userId,
+              editMessageDto,
+            );
 
             // Assert
             expect(result).toBeDefined();
@@ -285,9 +310,9 @@ describe('RoomChatService', () => {
             expect(result.editedAt).toBeDefined();
             expect(dynamoDBService.putItem).toHaveBeenCalled();
             expect(realtimeService.notifyChatMessage).toHaveBeenCalled();
-          }
+          },
         ),
-        { numRuns: 30 }
+        { numRuns: 30 },
       );
     });
 
@@ -300,7 +325,14 @@ describe('RoomChatService', () => {
           fc.string({ minLength: 1 }),
           fc.string({ minLength: 1, maxLength: 1000 }),
           fc.string({ minLength: 1, maxLength: 1000 }),
-          async (roomId, messageId, authorId, differentUserId, originalContent, newContent) => {
+          async (
+            roomId,
+            messageId,
+            authorId,
+            differentUserId,
+            originalContent,
+            newContent,
+          ) => {
             fc.pre(authorId !== differentUserId);
 
             // Arrange
@@ -323,11 +355,16 @@ describe('RoomChatService', () => {
 
             // Act & Assert
             await expect(
-              service.editMessage(roomId, messageId, differentUserId, editMessageDto)
+              service.editMessage(
+                roomId,
+                messageId,
+                differentUserId,
+                editMessageDto,
+              ),
             ).rejects.toThrow(ForbiddenException);
-          }
+          },
         ),
-        { numRuns: 20 }
+        { numRuns: 20 },
       );
     });
 
@@ -360,11 +397,11 @@ describe('RoomChatService', () => {
 
             // Act & Assert
             await expect(
-              service.editMessage(roomId, messageId, userId, editMessageDto)
+              service.editMessage(roomId, messageId, userId, editMessageDto),
             ).rejects.toThrow(ForbiddenException);
-          }
+          },
         ),
-        { numRuns: 20 }
+        { numRuns: 20 },
       );
     });
   });
@@ -403,9 +440,9 @@ describe('RoomChatService', () => {
             // Assert
             expect(dynamoDBService.putItem).toHaveBeenCalled();
             expect(realtimeService.notifyChatMessage).toHaveBeenCalled();
-          }
+          },
         ),
-        { numRuns: 30 }
+        { numRuns: 30 },
       );
     });
 
@@ -445,9 +482,9 @@ describe('RoomChatService', () => {
             // Assert
             expect(dynamoDBService.putItem).toHaveBeenCalled();
             expect(realtimeService.notifyChatMessage).toHaveBeenCalled();
-          }
+          },
         ),
-        { numRuns: 20 }
+        { numRuns: 20 },
       );
     });
 
@@ -481,11 +518,11 @@ describe('RoomChatService', () => {
 
             // Act & Assert
             await expect(
-              service.deleteMessage(roomId, messageId, differentUserId)
+              service.deleteMessage(roomId, messageId, differentUserId),
             ).rejects.toThrow(ForbiddenException);
-          }
+          },
         ),
-        { numRuns: 20 }
+        { numRuns: 20 },
       );
     });
   });
@@ -545,7 +582,12 @@ describe('RoomChatService', () => {
             realtimeService.notifyChatMessage.mockResolvedValue(undefined);
 
             // Act
-            const result = await service.addReaction(roomId, messageId, userId, emoji);
+            const result = await service.addReaction(
+              roomId,
+              messageId,
+              userId,
+              emoji,
+            );
 
             // Assert
             expect(result).toBeDefined();
@@ -555,9 +597,9 @@ describe('RoomChatService', () => {
             expect(result.reactions![0].count).toBe(1);
             expect(dynamoDBService.putItem).toHaveBeenCalled();
             expect(realtimeService.notifyChatMessage).toHaveBeenCalled();
-          }
+          },
         ),
-        { numRuns: 30 }
+        { numRuns: 30 },
       );
     });
 
@@ -614,11 +656,11 @@ describe('RoomChatService', () => {
 
             // Act & Assert
             await expect(
-              service.addReaction(roomId, messageId, userId, emoji)
+              service.addReaction(roomId, messageId, userId, emoji),
             ).rejects.toThrow(ForbiddenException);
-          }
+          },
         ),
-        { numRuns: 20 }
+        { numRuns: 20 },
       );
     });
   });
@@ -632,7 +674,13 @@ describe('RoomChatService', () => {
           fc.boolean(),
           fc.integer({ min: 100, max: 5000 }),
           fc.integer({ min: 0, max: 300 }),
-          async (roomId, userId, isEnabled, maxMessageLength, slowModeDelay) => {
+          async (
+            roomId,
+            userId,
+            isEnabled,
+            maxMessageLength,
+            slowModeDelay,
+          ) => {
             // Arrange
             permissionService.checkPermission.mockResolvedValue({
               hasPermission: true,
@@ -647,7 +695,11 @@ describe('RoomChatService', () => {
             };
 
             // Act
-            const result = await service.configureChatConfig(roomId, userId, configDto);
+            const result = await service.configureChatConfig(
+              roomId,
+              userId,
+              configDto,
+            );
 
             // Assert
             expect(result).toBeDefined();
@@ -657,9 +709,9 @@ describe('RoomChatService', () => {
             expect(result.slowModeDelay).toBe(slowModeDelay);
             expect(result.createdBy).toBe(userId);
             expect(dynamoDBService.putItem).toHaveBeenCalled();
-          }
+          },
         ),
-        { numRuns: 30 }
+        { numRuns: 30 },
       );
     });
 
@@ -671,7 +723,9 @@ describe('RoomChatService', () => {
           async (roomId, userId) => {
             // Arrange
             permissionService.checkPermission.mockRejectedValue(
-              new ForbiddenException('No tienes permisos para realizar esta acción: MODIFY_SETTINGS')
+              new ForbiddenException(
+                'No tienes permisos para realizar esta acción: MODIFY_SETTINGS',
+              ),
             );
 
             const configDto = {
@@ -681,11 +735,11 @@ describe('RoomChatService', () => {
 
             // Act & Assert
             await expect(
-              service.configureChatConfig(roomId, userId, configDto)
+              service.configureChatConfig(roomId, userId, configDto),
             ).rejects.toThrow(ForbiddenException);
-          }
+          },
         ),
-        { numRuns: 20 }
+        { numRuns: 20 },
       );
     });
   });
@@ -699,18 +753,21 @@ describe('RoomChatService', () => {
           fc.integer({ min: 1, max: 100 }),
           async (roomId, userId, limit) => {
             // Arrange
-            const mockMessages: ChatMessage[] = Array.from({ length: Math.min(limit, 10) }, (_, i) => ({
-              id: `msg-${i}`,
-              roomId,
-              userId: `user-${i}`,
-              username: `user${i}`,
-              type: ChatMessageType.TEXT,
-              content: `Message ${i}`,
-              status: ChatMessageStatus.ACTIVE,
-              reactions: [],
-              createdAt: new Date(Date.now() - i * 1000),
-              updatedAt: new Date(Date.now() - i * 1000),
-            }));
+            const mockMessages: ChatMessage[] = Array.from(
+              { length: Math.min(limit, 10) },
+              (_, i) => ({
+                id: `msg-${i}`,
+                roomId,
+                userId: `user-${i}`,
+                username: `user${i}`,
+                type: ChatMessageType.TEXT,
+                content: `Message ${i}`,
+                status: ChatMessageStatus.ACTIVE,
+                reactions: [],
+                createdAt: new Date(Date.now() - i * 1000),
+                updatedAt: new Date(Date.now() - i * 1000),
+              }),
+            );
 
             permissionService.checkPermission.mockResolvedValue({
               hasPermission: true,
@@ -732,10 +789,14 @@ describe('RoomChatService', () => {
             expect(result.messages).toHaveLength(mockMessages.length);
             expect(result.totalCount).toBe(mockMessages.length);
             expect(result.hasMore).toBe(false);
-            expect(permissionService.checkPermission).toHaveBeenCalledWith(roomId, userId, RoomPermission.VIEW_ROOM);
-          }
+            expect(permissionService.checkPermission).toHaveBeenCalledWith(
+              roomId,
+              userId,
+              RoomPermission.VIEW_ROOM,
+            );
+          },
         ),
-        { numRuns: 30 }
+        { numRuns: 30 },
       );
     });
 
@@ -792,9 +853,9 @@ describe('RoomChatService', () => {
             expect(result).toBeDefined();
             expect(result.messages).toHaveLength(1); // Only active message
             expect(result.messages[0].status).toBe(ChatMessageStatus.ACTIVE);
-          }
+          },
         ),
-        { numRuns: 20 }
+        { numRuns: 20 },
       );
     });
   });
@@ -802,66 +863,60 @@ describe('RoomChatService', () => {
   describe('getChatConfig', () => {
     it('should return existing configuration', async () => {
       await fc.assert(
-        fc.asyncProperty(
-          fc.string({ minLength: 1 }),
-          async (roomId) => {
-            // Arrange
-            const mockConfig: RoomChatConfig = {
-              roomId,
-              isEnabled: true,
-              maxMessageLength: 1000,
-              slowModeDelay: 0,
-              allowFileUploads: true,
-              allowLinks: true,
-              allowMentions: true,
-              allowReactions: true,
-              retentionDays: 30,
-              moderationEnabled: true,
-              profanityFilterEnabled: false,
-              customBannedWords: [],
-              allowedFileTypes: ['image/jpeg'],
-              maxFileSize: 5242880,
-              createdBy: 'system',
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            };
+        fc.asyncProperty(fc.string({ minLength: 1 }), async (roomId) => {
+          // Arrange
+          const mockConfig: RoomChatConfig = {
+            roomId,
+            isEnabled: true,
+            maxMessageLength: 1000,
+            slowModeDelay: 0,
+            allowFileUploads: true,
+            allowLinks: true,
+            allowMentions: true,
+            allowReactions: true,
+            retentionDays: 30,
+            moderationEnabled: true,
+            profanityFilterEnabled: false,
+            customBannedWords: [],
+            allowedFileTypes: ['image/jpeg'],
+            maxFileSize: 5242880,
+            createdBy: 'system',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
 
-            dynamoDBService.getItem.mockResolvedValue(mockConfig);
+          dynamoDBService.getItem.mockResolvedValue(mockConfig);
 
-            // Act
-            const result = await service.getChatConfig(roomId);
+          // Act
+          const result = await service.getChatConfig(roomId);
 
-            // Assert
-            expect(result).toBeDefined();
-            expect(result.roomId).toBe(roomId);
-            expect(result.isEnabled).toBe(true);
-            expect(result.maxMessageLength).toBe(1000);
-          }
-        ),
-        { numRuns: 30 }
+          // Assert
+          expect(result).toBeDefined();
+          expect(result.roomId).toBe(roomId);
+          expect(result.isEnabled).toBe(true);
+          expect(result.maxMessageLength).toBe(1000);
+        }),
+        { numRuns: 30 },
       );
     });
 
     it('should return default configuration when none exists', async () => {
       await fc.assert(
-        fc.asyncProperty(
-          fc.string({ minLength: 1 }),
-          async (roomId) => {
-            // Arrange
-            dynamoDBService.getItem.mockResolvedValue(null);
+        fc.asyncProperty(fc.string({ minLength: 1 }), async (roomId) => {
+          // Arrange
+          dynamoDBService.getItem.mockResolvedValue(null);
 
-            // Act
-            const result = await service.getChatConfig(roomId);
+          // Act
+          const result = await service.getChatConfig(roomId);
 
-            // Assert
-            expect(result).toBeDefined();
-            expect(result.roomId).toBe(roomId);
-            expect(result.isEnabled).toBe(true); // Default value
-            expect(result.maxMessageLength).toBe(1000); // Default value
-            expect(result.createdBy).toBe('system');
-          }
-        ),
-        { numRuns: 20 }
+          // Assert
+          expect(result).toBeDefined();
+          expect(result.roomId).toBe(roomId);
+          expect(result.isEnabled).toBe(true); // Default value
+          expect(result.maxMessageLength).toBe(1000); // Default value
+          expect(result.createdBy).toBe('system');
+        }),
+        { numRuns: 20 },
       );
     });
   });

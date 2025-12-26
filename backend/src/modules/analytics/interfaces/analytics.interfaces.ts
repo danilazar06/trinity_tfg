@@ -24,7 +24,7 @@ export enum EventType {
   USER_LOGIN = 'user_login',
   USER_LOGOUT = 'user_logout',
   USER_REGISTER = 'user_register',
-  
+
   // Room Events
   ROOM_CREATED = 'room_created',
   ROOM_JOINED = 'room_joined',
@@ -32,48 +32,48 @@ export enum EventType {
   ROOM_STARTED = 'room_started',
   ROOM_PAUSED = 'room_paused',
   ROOM_COMPLETED = 'room_completed',
-  
+
   // Interaction Events
   CONTENT_VOTED = 'content_voted',
   MATCH_FOUND = 'match_found',
   CONSENSUS_ACHIEVED = 'consensus_achieved',
-  
+
   // AI Events
   AI_RECOMMENDATION_REQUESTED = 'ai_recommendation_requested',
   AI_RECOMMENDATION_ACCEPTED = 'ai_recommendation_accepted',
-  
+
   // Template Events
   TEMPLATE_CREATED = 'template_created',
   TEMPLATE_USED = 'template_used',
   TEMPLATE_RATED = 'template_rated',
-  
+
   // Theme Events
   THEME_CREATED = 'theme_created',
   THEME_APPLIED = 'theme_applied',
   THEME_RATED = 'theme_rated',
   THEME_REMOVED = 'theme_removed',
-  
+
   // Schedule Events
   SCHEDULE_CREATED = 'schedule_created',
   SCHEDULE_UPDATED = 'schedule_updated',
   SCHEDULE_ATTENDED = 'schedule_attended',
   SCHEDULE_MISSED = 'schedule_missed',
   SCHEDULE_CANCELLED = 'schedule_cancelled',
-  
+
   // Moderation Events
   ROLE_CREATED = 'role_created',
   ROLE_ASSIGNED = 'role_assigned',
   MODERATION_ACTION = 'moderation_action',
   PERMISSION_CHECKED = 'permission_checked',
-  
+
   // Advanced Settings Events
   SETTINGS_UPDATED = 'settings_updated',
   SETTINGS_RESET = 'settings_reset',
-  
+
   // System Events
   API_REQUEST = 'api_request',
   ERROR_OCCURRED = 'error_occurred',
-  PERFORMANCE_METRIC = 'performance_metric'
+  PERFORMANCE_METRIC = 'performance_metric',
 }
 
 export interface UserMetrics {
@@ -386,7 +386,10 @@ export interface ModerationAnalytics {
   };
   moderationEffectiveness: {
     roomsWithModeration: { incidentRate: number; memberSatisfaction: number };
-    roomsWithoutModeration: { incidentRate: number; memberSatisfaction: number };
+    roomsWithoutModeration: {
+      incidentRate: number;
+      memberSatisfaction: number;
+    };
   };
 }
 

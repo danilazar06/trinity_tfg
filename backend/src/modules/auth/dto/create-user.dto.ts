@@ -1,4 +1,11 @@
-import { IsEmail, IsString, MinLength, MaxLength, Matches, IsOptional } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  MinLength,
+  MaxLength,
+  Matches,
+  IsOptional,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateUserDto {
@@ -7,7 +14,9 @@ export class CreateUserDto {
     example: 'usuario@ejemplo.com',
   })
   @IsEmail({}, { message: 'Debe ser un email válido' })
-  @Matches(/^[^<>'"&]*$/, { message: 'El email contiene caracteres no permitidos' })
+  @Matches(/^[^<>'"&]*$/, {
+    message: 'El email contiene caracteres no permitidos',
+  })
   email: string;
 
   @ApiProperty({
@@ -17,10 +26,15 @@ export class CreateUserDto {
     maxLength: 20,
   })
   @IsString()
-  @MinLength(3, { message: 'El nombre de usuario debe tener al menos 3 caracteres' })
-  @MaxLength(20, { message: 'El nombre de usuario no puede tener más de 20 caracteres' })
+  @MinLength(3, {
+    message: 'El nombre de usuario debe tener al menos 3 caracteres',
+  })
+  @MaxLength(20, {
+    message: 'El nombre de usuario no puede tener más de 20 caracteres',
+  })
   @Matches(/^[a-zA-Z0-9_]+$/, {
-    message: 'El nombre de usuario solo puede contener letras, números y guiones bajos',
+    message:
+      'El nombre de usuario solo puede contener letras, números y guiones bajos',
   })
   username: string;
 
@@ -31,8 +45,15 @@ export class CreateUserDto {
   })
   @IsString()
   @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/, {
-    message: 'La contraseña debe contener al menos una letra minúscula, una mayúscula, un número y un carácter especial',
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/,
+    {
+      message:
+        'La contraseña debe contener al menos una letra minúscula, una mayúscula, un número y un carácter especial',
+    },
+  )
+  @Matches(/^[^<>'"&%]*$/, {
+    message: 'La contraseña contiene caracteres no permitidos',
   })
   password: string;
 
@@ -44,7 +65,8 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   @Matches(/^\+[1-9]\d{1,14}$/, {
-    message: 'El número de teléfono debe estar en formato internacional (+34612345678)',
+    message:
+      'El número de teléfono debe estar en formato internacional (+34612345678)',
   })
   phoneNumber?: string;
 }

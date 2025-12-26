@@ -61,12 +61,16 @@ describe('RoomAnalyticsController', () => {
         roomPerformanceScoring: { overallScore: 4.2 },
       };
 
-      roomAnalyticsService.getAdvancedRoomAnalytics.mockResolvedValue(mockAnalytics as any);
+      roomAnalyticsService.getAdvancedRoomAnalytics.mockResolvedValue(
+        mockAnalytics as any,
+      );
 
       const result = await controller.getAdvancedRoomAnalytics();
 
       expect(result).toEqual(mockAnalytics);
-      expect(roomAnalyticsService.getAdvancedRoomAnalytics).toHaveBeenCalledWith(undefined);
+      expect(
+        roomAnalyticsService.getAdvancedRoomAnalytics,
+      ).toHaveBeenCalledWith(undefined);
     });
 
     it('should handle date parameters correctly', async () => {
@@ -75,8 +79,11 @@ describe('RoomAnalyticsController', () => {
           fc.date({ min: new Date('2024-01-01'), max: new Date('2024-12-31') }),
           fc.date({ min: new Date('2024-01-01'), max: new Date('2024-12-31') }),
           async (startDate, endDate) => {
-            const [start, end] = startDate <= endDate ? [startDate, endDate] : [endDate, startDate];
-            
+            const [start, end] =
+              startDate <= endDate
+                ? [startDate, endDate]
+                : [endDate, startDate];
+
             const mockAnalytics = {
               templateAnalytics: { totalTemplates: 45 },
               themeAnalytics: { totalThemes: 32 },
@@ -87,28 +94,36 @@ describe('RoomAnalyticsController', () => {
               roomPerformanceScoring: { overallScore: 4.2 },
             };
 
-            roomAnalyticsService.getAdvancedRoomAnalytics.mockResolvedValue(mockAnalytics as any);
+            roomAnalyticsService.getAdvancedRoomAnalytics.mockResolvedValue(
+              mockAnalytics as any,
+            );
 
             const result = await controller.getAdvancedRoomAnalytics(
               start.toISOString(),
-              end.toISOString()
+              end.toISOString(),
             );
 
             expect(result).toEqual(mockAnalytics);
-            expect(roomAnalyticsService.getAdvancedRoomAnalytics).toHaveBeenCalledWith({
+            expect(
+              roomAnalyticsService.getAdvancedRoomAnalytics,
+            ).toHaveBeenCalledWith({
               startDate: start,
               endDate: end,
             });
-          }
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
     it('should handle service errors', async () => {
-      roomAnalyticsService.getAdvancedRoomAnalytics.mockRejectedValue(new Error('Service error'));
+      roomAnalyticsService.getAdvancedRoomAnalytics.mockRejectedValue(
+        new Error('Service error'),
+      );
 
-      await expect(controller.getAdvancedRoomAnalytics()).rejects.toThrow(BadRequestException);
+      await expect(controller.getAdvancedRoomAnalytics()).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -134,7 +149,9 @@ describe('RoomAnalyticsController', () => {
         templateCreationTrends: [],
       };
 
-      roomAnalyticsService.getTemplateAnalytics.mockResolvedValue(mockTemplateAnalytics);
+      roomAnalyticsService.getTemplateAnalytics.mockResolvedValue(
+        mockTemplateAnalytics,
+      );
 
       const result = await controller.getTemplateAnalytics();
 
@@ -147,7 +164,11 @@ describe('RoomAnalyticsController', () => {
         totalTemplates: 45,
         publicTemplates: 28,
         privateTemplates: 17,
-        templateUsageStats: { totalUsages: 150, averageUsagesPerTemplate: 3.3, mostUsedTemplates: [] },
+        templateUsageStats: {
+          totalUsages: 150,
+          averageUsagesPerTemplate: 3.3,
+          mostUsedTemplates: [],
+        },
         templateCategoryDistribution: {},
         templateEffectiveness: {
           averageRoomSuccessRate: 0.82,
@@ -159,12 +180,14 @@ describe('RoomAnalyticsController', () => {
         templateCreationTrends: [],
       };
 
-      roomAnalyticsService.getTemplateAnalytics.mockResolvedValue(mockAnalytics);
+      roomAnalyticsService.getTemplateAnalytics.mockResolvedValue(
+        mockAnalytics,
+      );
 
       // Test with valid date range
       const result = await controller.getTemplateAnalytics(
         '2024-12-01',
-        '2024-12-24'
+        '2024-12-24',
       );
 
       expect(result).toEqual(mockAnalytics);
@@ -191,7 +214,9 @@ describe('RoomAnalyticsController', () => {
         themeRatingDistribution: {},
       };
 
-      roomAnalyticsService.getThemeAnalytics.mockResolvedValue(mockThemeAnalytics);
+      roomAnalyticsService.getThemeAnalytics.mockResolvedValue(
+        mockThemeAnalytics,
+      );
 
       const result = await controller.getThemeAnalytics();
 
@@ -226,7 +251,9 @@ describe('RoomAnalyticsController', () => {
         },
       };
 
-      roomAnalyticsService.getScheduleAnalytics.mockResolvedValue(mockScheduleAnalytics);
+      roomAnalyticsService.getScheduleAnalytics.mockResolvedValue(
+        mockScheduleAnalytics,
+      );
 
       const result = await controller.getScheduleAnalytics();
 
@@ -254,11 +281,16 @@ describe('RoomAnalyticsController', () => {
         },
         moderationEffectiveness: {
           roomsWithModeration: { incidentRate: 0.05, memberSatisfaction: 4.3 },
-          roomsWithoutModeration: { incidentRate: 0.18, memberSatisfaction: 3.8 },
+          roomsWithoutModeration: {
+            incidentRate: 0.18,
+            memberSatisfaction: 3.8,
+          },
         },
       };
 
-      roomAnalyticsService.getModerationAnalytics.mockResolvedValue(mockModerationAnalytics);
+      roomAnalyticsService.getModerationAnalytics.mockResolvedValue(
+        mockModerationAnalytics,
+      );
 
       const result = await controller.getModerationAnalytics();
 
@@ -281,12 +313,17 @@ describe('RoomAnalyticsController', () => {
         memberEngagement: {},
       };
 
-      analyticsService.getRoomPerformanceDashboard.mockResolvedValue(mockDashboard);
+      analyticsService.getRoomPerformanceDashboard.mockResolvedValue(
+        mockDashboard,
+      );
 
       const result = await controller.getRoomPerformanceDashboard();
 
       expect(result).toEqual(mockDashboard);
-      expect(analyticsService.getRoomPerformanceDashboard).toHaveBeenCalledWith(undefined, undefined);
+      expect(analyticsService.getRoomPerformanceDashboard).toHaveBeenCalledWith(
+        undefined,
+        undefined,
+      );
     });
 
     it('should handle room-specific dashboard requests', async () => {
@@ -298,41 +335,60 @@ describe('RoomAnalyticsController', () => {
         memberEngagement: {},
       };
 
-      analyticsService.getRoomPerformanceDashboard.mockResolvedValue(mockDashboard);
+      analyticsService.getRoomPerformanceDashboard.mockResolvedValue(
+        mockDashboard,
+      );
 
       const result = await controller.getRoomPerformanceDashboard(roomId);
 
       expect(result).toEqual(mockDashboard);
-      expect(analyticsService.getRoomPerformanceDashboard).toHaveBeenCalledWith(roomId, undefined);
+      expect(analyticsService.getRoomPerformanceDashboard).toHaveBeenCalledWith(
+        roomId,
+        undefined,
+      );
     });
   });
 
   describe('getRoomAnalyticsSummary', () => {
     it('should return room-specific analytics summary', async () => {
       const roomId = 'room-123';
-      
+
       const mockAdvancedAnalytics = {
         templateAnalytics: { templateUsageStats: { totalUsages: 15 } },
         themeAnalytics: { themeUsageStats: { totalApplications: 8 } },
-        scheduleAnalytics: { scheduleAttendanceStats: { totalScheduledSessions: 5 } },
+        scheduleAnalytics: {
+          scheduleAttendanceStats: { totalScheduledSessions: 5 },
+        },
         moderationAnalytics: { moderationActionStats: { totalActions: 3 } },
         settingsAnalytics: {},
         memberEngagementAnalytics: {},
-        roomPerformanceScoring: { overallScore: 4.2, improvementRecommendations: [] },
+        roomPerformanceScoring: {
+          overallScore: 4.2,
+          improvementRecommendations: [],
+        },
       };
 
       const mockPerformanceScoring = {
         overallScore: 4.2,
         improvementRecommendations: [
-          { category: 'Template Usage', recommendation: 'Use more templates', potentialImpact: 0.15, implementationDifficulty: 'low' as const },
+          {
+            category: 'Template Usage',
+            recommendation: 'Use more templates',
+            potentialImpact: 0.15,
+            implementationDifficulty: 'low' as const,
+          },
         ],
         scoreComponents: {},
         scoreDistribution: {},
         topPerformingRooms: [],
       };
 
-      roomAnalyticsService.getAdvancedRoomAnalytics.mockResolvedValue(mockAdvancedAnalytics as any);
-      roomAnalyticsService.getRoomPerformanceScoring.mockResolvedValue(mockPerformanceScoring);
+      roomAnalyticsService.getAdvancedRoomAnalytics.mockResolvedValue(
+        mockAdvancedAnalytics as any,
+      );
+      roomAnalyticsService.getRoomPerformanceScoring.mockResolvedValue(
+        mockPerformanceScoring,
+      );
 
       const result = await controller.getRoomAnalyticsSummary(roomId);
 
@@ -350,13 +406,13 @@ describe('RoomAnalyticsController', () => {
   describe('Date parsing', () => {
     it('should handle invalid date formats', async () => {
       await expect(
-        controller.getAdvancedRoomAnalytics('invalid-date', '2024-12-24')
+        controller.getAdvancedRoomAnalytics('invalid-date', '2024-12-24'),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should handle start date after end date', async () => {
       await expect(
-        controller.getAdvancedRoomAnalytics('2024-12-24', '2024-12-01')
+        controller.getAdvancedRoomAnalytics('2024-12-24', '2024-12-01'),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -371,15 +427,19 @@ describe('RoomAnalyticsController', () => {
         roomPerformanceScoring: { overallScore: 4.2 },
       };
 
-      roomAnalyticsService.getAdvancedRoomAnalytics.mockResolvedValue(mockAnalytics as any);
+      roomAnalyticsService.getAdvancedRoomAnalytics.mockResolvedValue(
+        mockAnalytics as any,
+      );
 
       const result = await controller.getAdvancedRoomAnalytics(
         '2024-12-01',
-        '2024-12-24'
+        '2024-12-24',
       );
 
       expect(result).toBeDefined();
-      expect(roomAnalyticsService.getAdvancedRoomAnalytics).toHaveBeenCalledWith({
+      expect(
+        roomAnalyticsService.getAdvancedRoomAnalytics,
+      ).toHaveBeenCalledWith({
         startDate: new Date('2024-12-01'),
         endDate: new Date('2024-12-24'),
       });
@@ -388,15 +448,23 @@ describe('RoomAnalyticsController', () => {
 
   describe('Error handling', () => {
     it('should handle service errors gracefully', async () => {
-      roomAnalyticsService.getTemplateAnalytics.mockRejectedValue(new Error('Database error'));
+      roomAnalyticsService.getTemplateAnalytics.mockRejectedValue(
+        new Error('Database error'),
+      );
 
-      await expect(controller.getTemplateAnalytics()).rejects.toThrow(BadRequestException);
+      await expect(controller.getTemplateAnalytics()).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should handle analytics service errors', async () => {
-      analyticsService.getRoomPerformanceDashboard.mockRejectedValue(new Error('Analytics error'));
+      analyticsService.getRoomPerformanceDashboard.mockRejectedValue(
+        new Error('Analytics error'),
+      );
 
-      await expect(controller.getRoomPerformanceDashboard()).rejects.toThrow(BadRequestException);
+      await expect(controller.getRoomPerformanceDashboard()).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

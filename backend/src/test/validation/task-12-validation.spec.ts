@@ -29,9 +29,13 @@ describe('Task 12: Performance Optimization and Finalization', () => {
       ],
     }).compile();
 
-    databaseOptimizer = module.get<DatabaseOptimizerService>(DatabaseOptimizerService);
+    databaseOptimizer = module.get<DatabaseOptimizerService>(
+      DatabaseOptimizerService,
+    );
     apiOptimizer = module.get<APIOptimizerService>(APIOptimizerService);
-    realtimeOptimizer = module.get<RealtimeOptimizerService>(RealtimeOptimizerService);
+    realtimeOptimizer = module.get<RealtimeOptimizerService>(
+      RealtimeOptimizerService,
+    );
   });
 
   describe('Database Query Performance Optimization (< 50ms average)', () => {
@@ -39,27 +43,39 @@ describe('Task 12: Performance Optimization and Finalization', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            queryType: fc.constantFrom('room-automation', 'permission', 'analytics', 'theme'),
-            optimizationLevel: fc.constantFrom('basic', 'intermediate', 'advanced'),
+            queryType: fc.constantFrom(
+              'room-automation',
+              'permission',
+              'analytics',
+              'theme',
+            ),
+            optimizationLevel: fc.constantFrom(
+              'basic',
+              'intermediate',
+              'advanced',
+            ),
           }),
           async (testData) => {
-            const optimizations = await databaseOptimizer.optimizeDatabaseQueries();
-            
+            const optimizations =
+              await databaseOptimizer.optimizeDatabaseQueries();
+
             expect(optimizations).toBeDefined();
             expect(Array.isArray(optimizations)).toBe(true);
             expect(optimizations.length).toBeGreaterThan(0);
 
             // Verify each optimization shows improvement
-            optimizations.forEach(optimization => {
+            optimizations.forEach((optimization) => {
               expect(optimization.improvement).toBeGreaterThan(0);
               expect(optimization.afterMetrics.averageQueryTime).toBeLessThan(
-                optimization.beforeMetrics.averageQueryTime
+                optimization.beforeMetrics.averageQueryTime,
               );
-              expect(optimization.afterMetrics.averageQueryTime).toBeLessThan(50); // Target: < 50ms
+              expect(optimization.afterMetrics.averageQueryTime).toBeLessThan(
+                50,
+              ); // Target: < 50ms
             });
-          }
+          },
         ),
-        { numRuns: 10, timeout: 15000 }
+        { numRuns: 10, timeout: 15000 },
       );
     });
 
@@ -68,28 +84,35 @@ describe('Task 12: Performance Optimization and Finalization', () => {
         fc.asyncProperty(
           fc.integer({ min: 1, max: 5 }),
           async (expectedRecommendations) => {
-            const recommendations = await databaseOptimizer.generateOptimizationRecommendations();
-            
+            const recommendations =
+              await databaseOptimizer.generateOptimizationRecommendations();
+
             expect(Array.isArray(recommendations)).toBe(true);
             expect(recommendations.length).toBeGreaterThanOrEqual(1);
 
-            recommendations.forEach(rec => {
+            recommendations.forEach((rec) => {
               expect(rec.type).toBeDefined();
               expect(rec.priority).toMatch(/^(high|medium|low)$/);
               expect(rec.description).toBeDefined();
               expect(rec.expectedImprovement).toBeGreaterThan(0);
-              expect(rec.implementationComplexity).toMatch(/^(low|medium|high)$/);
+              expect(rec.implementationComplexity).toMatch(
+                /^(low|medium|high)$/,
+              );
             });
-          }
+          },
         ),
-        { numRuns: 8, timeout: 10000 }
+        { numRuns: 8, timeout: 10000 },
       );
     });
 
     it('should track and improve query performance metrics', async () => {
       // Simulate query tracking
-      const queryTypes = ['automation-config', 'permission-check', 'analytics-data'];
-      
+      const queryTypes = [
+        'automation-config',
+        'permission-check',
+        'analytics-data',
+      ];
+
       for (const queryType of queryTypes) {
         // Simulate initial slow queries
         databaseOptimizer.trackQueryTime(queryType, 80);
@@ -112,7 +135,9 @@ describe('Task 12: Performance Optimization and Finalization', () => {
 
       const afterMetrics = await databaseOptimizer.collectDatabaseMetrics();
       expect(afterMetrics.averageQueryTime).toBeLessThan(50);
-      expect(afterMetrics.averageQueryTime).toBeLessThan(beforeMetrics.averageQueryTime);
+      expect(afterMetrics.averageQueryTime).toBeLessThan(
+        beforeMetrics.averageQueryTime,
+      );
     });
   });
 
@@ -121,36 +146,45 @@ describe('Task 12: Performance Optimization and Finalization', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            endpointType: fc.constantFrom('automation', 'permission', 'analytics', 'theme'),
+            endpointType: fc.constantFrom(
+              'automation',
+              'permission',
+              'analytics',
+              'theme',
+            ),
             optimizationStrategies: fc.integer({ min: 2, max: 5 }),
           }),
           async (testData) => {
             const optimizations = await apiOptimizer.optimizeAPIPerformance();
-            
+
             expect(optimizations).toBeDefined();
             expect(Array.isArray(optimizations)).toBe(true);
             expect(optimizations.length).toBeGreaterThan(0);
 
             // Verify each optimization meets performance targets
-            optimizations.forEach(optimization => {
+            optimizations.forEach((optimization) => {
               expect(optimization.improvement).toBeGreaterThan(0);
-              expect(optimization.afterResponseTime).toBeLessThan(optimization.beforeResponseTime);
+              expect(optimization.afterResponseTime).toBeLessThan(
+                optimization.beforeResponseTime,
+              );
               expect(optimization.afterResponseTime).toBeLessThan(300); // Target: < 300ms
-              expect(optimization.optimizationApplied.length).toBeGreaterThan(0);
+              expect(optimization.optimizationApplied.length).toBeGreaterThan(
+                0,
+              );
             });
-          }
+          },
         ),
-        { numRuns: 12, timeout: 15000 }
+        { numRuns: 12, timeout: 15000 },
       );
     });
 
     it('should apply appropriate optimization strategies', async () => {
       const strategies = apiOptimizer.getOptimizationStrategies();
-      
+
       expect(Array.isArray(strategies)).toBe(true);
       expect(strategies.length).toBeGreaterThan(5);
 
-      strategies.forEach(strategy => {
+      strategies.forEach((strategy) => {
         expect(strategy.name).toBeDefined();
         expect(strategy.description).toBeDefined();
         expect(strategy.expectedImprovement).toBeGreaterThan(0);
@@ -163,7 +197,7 @@ describe('Task 12: Performance Optimization and Finalization', () => {
       const endpoints = [
         '/room-automation/:roomId/config',
         '/permissions/check',
-        '/analytics/rooms/dashboard'
+        '/analytics/rooms/dashboard',
       ];
 
       // Simulate initial slow responses
@@ -188,7 +222,9 @@ describe('Task 12: Performance Optimization and Finalization', () => {
 
       const afterMetrics = await apiOptimizer.collectAPIMetrics();
       expect(afterMetrics.averageResponseTime).toBeLessThan(300);
-      expect(afterMetrics.averageResponseTime).toBeLessThan(beforeMetrics.averageResponseTime);
+      expect(afterMetrics.averageResponseTime).toBeLessThan(
+        beforeMetrics.averageResponseTime,
+      );
     });
   });
 
@@ -197,36 +233,47 @@ describe('Task 12: Performance Optimization and Finalization', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            optimizationType: fc.constantFrom('connection', 'broadcast', 'event', 'memory', 'room'),
+            optimizationType: fc.constantFrom(
+              'connection',
+              'broadcast',
+              'event',
+              'memory',
+              'room',
+            ),
             connectionCount: fc.integer({ min: 50, max: 500 }),
           }),
           async (testData) => {
-            const optimizations = await realtimeOptimizer.optimizeRealtimePerformance();
-            
+            const optimizations =
+              await realtimeOptimizer.optimizeRealtimePerformance();
+
             expect(optimizations).toBeDefined();
             expect(Array.isArray(optimizations)).toBe(true);
             expect(optimizations.length).toBeGreaterThan(0);
 
             // Verify each optimization meets latency targets
-            optimizations.forEach(optimization => {
+            optimizations.forEach((optimization) => {
               expect(optimization.improvement).toBeGreaterThan(0);
-              expect(optimization.afterLatency).toBeLessThan(optimization.beforeLatency);
+              expect(optimization.afterLatency).toBeLessThan(
+                optimization.beforeLatency,
+              );
               expect(optimization.afterLatency).toBeLessThan(100); // Target: < 100ms
-              expect(optimization.connectionsOptimized).toBeGreaterThanOrEqual(0);
+              expect(optimization.connectionsOptimized).toBeGreaterThanOrEqual(
+                0,
+              );
             });
-          }
+          },
         ),
-        { numRuns: 10, timeout: 15000 }
+        { numRuns: 10, timeout: 15000 },
       );
     });
 
     it('should provide connection optimization strategies', async () => {
       const optimizations = realtimeOptimizer.getConnectionOptimizations();
-      
+
       expect(Array.isArray(optimizations)).toBe(true);
       expect(optimizations.length).toBeGreaterThan(5);
 
-      optimizations.forEach(optimization => {
+      optimizations.forEach((optimization) => {
         expect(optimization.strategy).toBeDefined();
         expect(optimization.description).toBeDefined();
         expect(optimization.expectedLatencyReduction).toBeGreaterThan(0);
@@ -238,7 +285,7 @@ describe('Task 12: Performance Optimization and Finalization', () => {
     it('should track and improve real-time latency', async () => {
       // Clear any existing metrics first
       realtimeOptimizer['latencyMetrics'] = [];
-      
+
       // Simulate initial high latency
       for (let i = 0; i < 20; i++) {
         realtimeOptimizer.trackLatency(150 + Math.random() * 50);
@@ -258,7 +305,9 @@ describe('Task 12: Performance Optimization and Finalization', () => {
 
       const afterMetrics = await realtimeOptimizer.collectRealtimeMetrics();
       expect(afterMetrics.averageLatency).toBeLessThan(100);
-      expect(afterMetrics.averageLatency).toBeLessThan(beforeMetrics.averageLatency);
+      expect(afterMetrics.averageLatency).toBeLessThan(
+        beforeMetrics.averageLatency,
+      );
     });
   });
 
@@ -275,7 +324,8 @@ describe('Task 12: Performance Optimization and Finalization', () => {
 
       const finalMemory = process.memoryUsage();
       const memoryIncrease = finalMemory.heapUsed - initialMemory.heapUsed;
-      const memoryIncreasePercentage = (memoryIncrease / initialMemory.heapUsed) * 100;
+      const memoryIncreasePercentage =
+        (memoryIncrease / initialMemory.heapUsed) * 100;
 
       // Memory increase should be minimal during optimization
       expect(memoryIncreasePercentage).toBeLessThan(15);
@@ -287,7 +337,7 @@ describe('Task 12: Performance Optimization and Finalization', () => {
       realtimeOptimizer.updateMessageMetrics(1000, 950, 10, 1024 * 1024);
 
       const metrics = await realtimeOptimizer.collectRealtimeMetrics();
-      
+
       expect(metrics.memoryUsage).toBeDefined();
       expect(metrics.memoryUsage).toBeGreaterThan(0);
       expect(metrics.connectionDropRate).toBeLessThan(0.1); // < 10% drop rate
@@ -305,11 +355,12 @@ describe('Task 12: Performance Optimization and Finalization', () => {
           }),
           async (testData) => {
             // Run coordinated optimizations
-            const [dbOptimizations, apiOptimizations, realtimeOptimizations] = await Promise.all([
-              databaseOptimizer.optimizeDatabaseQueries(),
-              apiOptimizer.optimizeAPIPerformance(),
-              realtimeOptimizer.optimizeRealtimePerformance(),
-            ]);
+            const [dbOptimizations, apiOptimizations, realtimeOptimizations] =
+              await Promise.all([
+                databaseOptimizer.optimizeDatabaseQueries(),
+                apiOptimizer.optimizeAPIPerformance(),
+                realtimeOptimizer.optimizeRealtimePerformance(),
+              ]);
 
             // Verify all systems were optimized
             expect(dbOptimizations.length).toBeGreaterThan(0);
@@ -317,16 +368,24 @@ describe('Task 12: Performance Optimization and Finalization', () => {
             expect(realtimeOptimizations.length).toBeGreaterThan(0);
 
             // Verify improvements are meaningful
-            const avgDbImprovement = dbOptimizations.reduce((sum, opt) => sum + opt.improvement, 0) / dbOptimizations.length;
-            const avgApiImprovement = apiOptimizations.reduce((sum, opt) => sum + opt.improvement, 0) / apiOptimizations.length;
-            const avgRealtimeImprovement = realtimeOptimizations.reduce((sum, opt) => sum + opt.improvement, 0) / realtimeOptimizations.length;
+            const avgDbImprovement =
+              dbOptimizations.reduce((sum, opt) => sum + opt.improvement, 0) /
+              dbOptimizations.length;
+            const avgApiImprovement =
+              apiOptimizations.reduce((sum, opt) => sum + opt.improvement, 0) /
+              apiOptimizations.length;
+            const avgRealtimeImprovement =
+              realtimeOptimizations.reduce(
+                (sum, opt) => sum + opt.improvement,
+                0,
+              ) / realtimeOptimizations.length;
 
             expect(avgDbImprovement).toBeGreaterThan(20);
             expect(avgApiImprovement).toBeGreaterThan(20);
             expect(avgRealtimeImprovement).toBeGreaterThan(20);
-          }
+          },
         ),
-        { numRuns: 5, timeout: 20000 }
+        { numRuns: 5, timeout: 20000 },
       );
     });
 

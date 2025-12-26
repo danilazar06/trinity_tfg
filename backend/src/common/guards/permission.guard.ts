@@ -1,4 +1,10 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RoomModerationService } from '../../modules/room-moderation/room-moderation.service';
 import { RoomPermission } from '../../domain/entities/room-moderation.entity';
@@ -18,10 +24,9 @@ export class PermissionGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredPermissions = this.reflector.getAllAndOverride<RoomPermission[]>(
-      PERMISSIONS_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredPermissions = this.reflector.getAllAndOverride<
+      RoomPermission[]
+    >(PERMISSIONS_KEY, [context.getHandler(), context.getClass()]);
 
     if (!requiredPermissions || requiredPermissions.length === 0) {
       return true; // No se requieren permisos específicos
@@ -42,13 +47,21 @@ export class PermissionGuard implements CanActivate {
     try {
       // Verificar cada permiso requerido
       for (const permission of requiredPermissions) {
-        await this.roomModerationService.checkPermission(roomId, user.sub, permission);
+        await this.roomModerationService.checkPermission(
+          roomId,
+          user.sub,
+          permission,
+        );
       }
 
-      this.logger.debug(`Permisos verificados para usuario ${user.sub} en sala ${roomId}: ${requiredPermissions.join(', ')}`);
+      this.logger.debug(
+        `Permisos verificados para usuario ${user.sub} en sala ${roomId}: ${requiredPermissions.join(', ')}`,
+      );
       return true;
     } catch (error) {
-      this.logger.warn(`Acceso denegado para usuario ${user.sub} en sala ${roomId}: ${error.message}`);
+      this.logger.warn(
+        `Acceso denegado para usuario ${user.sub} en sala ${roomId}: ${error.message}`,
+      );
       throw new ForbiddenException(`Permisos insuficientes: ${error.message}`);
     }
   }

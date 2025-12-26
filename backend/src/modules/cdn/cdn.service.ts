@@ -42,13 +42,24 @@ export class CDNService {
   private readonly imageOptimizationEnabled: boolean;
 
   constructor(private configService: ConfigService) {
-    this.cdnBaseUrl = this.configService.get('CDN_BASE_URL', 'https://image.tmdb.org/t/p/');
-    this.cloudFrontDistribution = this.configService.get('CLOUDFRONT_DISTRIBUTION', '');
-    this.imageOptimizationEnabled = this.configService.get('IMAGE_OPTIMIZATION_ENABLED', 'true') === 'true';
+    this.cdnBaseUrl = this.configService.get(
+      'CDN_BASE_URL',
+      'https://image.tmdb.org/t/p/',
+    );
+    this.cloudFrontDistribution = this.configService.get(
+      'CLOUDFRONT_DISTRIBUTION',
+      '',
+    );
+    this.imageOptimizationEnabled =
+      this.configService.get('IMAGE_OPTIMIZATION_ENABLED', 'true') === 'true';
 
-    this.logger.log(`🌐 CDN Service initialized with base URL: ${this.cdnBaseUrl}`);
+    this.logger.log(
+      `🌐 CDN Service initialized with base URL: ${this.cdnBaseUrl}`,
+    );
     if (this.cloudFrontDistribution) {
-      this.logger.log(`☁️ CloudFront distribution configured: ${this.cloudFrontDistribution}`);
+      this.logger.log(
+        `☁️ CloudFront distribution configured: ${this.cloudFrontDistribution}`,
+      );
     }
   }
 
@@ -58,7 +69,7 @@ export class CDNService {
    */
   async optimizeImage(
     originalImagePath: string,
-    options: ImageOptimizationOptions = {}
+    options: ImageOptimizationOptions = {},
   ): Promise<CDNImageResponse> {
     try {
       this.logger.debug(`🖼️ Optimizing image: ${originalImagePath}`);
@@ -111,17 +122,24 @@ export class CDNService {
         sizes,
         metadata: {
           format: format === 'auto' ? 'webp' : format,
-          estimatedSize: this.estimateImageSize(validWidth, validHeight, validQuality),
+          estimatedSize: this.estimateImageSize(
+            validWidth,
+            validHeight,
+            validQuality,
+          ),
           cacheStatus: 'miss', // En producción, esto vendría del CDN
         },
       };
 
-      this.logger.debug(`✅ Image optimization complete: ${JSON.stringify(response.metadata)}`);
+      this.logger.debug(
+        `✅ Image optimization complete: ${JSON.stringify(response.metadata)}`,
+      );
       return response;
-
     } catch (error) {
-      this.logger.error(`❌ Error optimizing image ${originalImagePath}: ${error.message}`);
-      
+      this.logger.error(
+        `❌ Error optimizing image ${originalImagePath}: ${error.message}`,
+      );
+
       // Fallback a imagen original
       return this.getFallbackImageResponse(originalImagePath);
     }
@@ -138,7 +156,7 @@ export class CDNService {
       enableThumbnail: true,
       enableLazyLoading: true,
       qualitySteps: [30, 60, 85],
-    }
+    },
   ): Promise<{
     loadingStrategy: string;
     imageSequence: string[];
@@ -174,8 +192,8 @@ export class CDNService {
       // 3. Secuencia de calidad progresiva
       for (let i = 1; i < config.qualitySteps.length; i++) {
         const progressiveUrl = this.buildOptimizedUrl(imagePath, {
-          width: 300 + (i * 100), // Incrementar resolución gradualmente
-          height: 450 + (i * 150),
+          width: 300 + i * 100, // Incrementar resolución gradualmente
+          height: 450 + i * 150,
           quality: config.qualitySteps[i],
           format: 'webp',
         });
@@ -199,17 +217,20 @@ export class CDNService {
         fallbackToScroll: true,
       };
 
-      this.logger.debug(`✅ Progressive loading configured with ${imageSequence.length} steps`);
+      this.logger.debug(
+        `✅ Progressive loading configured with ${imageSequence.length} steps`,
+      );
 
       return {
         loadingStrategy: 'progressive-quality',
         imageSequence,
         lazyLoadConfig,
       };
-
     } catch (error) {
-      this.logger.error(`❌ Error setting up progressive loading: ${error.message}`);
-      
+      this.logger.error(
+        `❌ Error setting up progressive loading: ${error.message}`,
+      );
+
       // Fallback a carga simple
       return {
         loadingStrategy: 'simple',
@@ -232,7 +253,7 @@ export class CDNService {
     try {
       // En producción, esto consultaría CloudWatch o la API de CloudFront
       // Por ahora, simulamos estadísticas
-      
+
       const stats = {
         hitRate: 0.85, // 85% cache hit rate
         totalRequests: 10000,
@@ -247,7 +268,6 @@ export class CDNService {
 
       this.logger.debug(`📊 CDN Cache stats: ${JSON.stringify(stats)}`);
       return stats;
-
     } catch (error) {
       this.logger.error(`❌ Error getting cache stats: ${error.message}`);
       return {
@@ -269,11 +289,13 @@ export class CDNService {
     estimatedTime: number;
   }> {
     try {
-      this.logger.log(`🔄 Invalidating CDN cache for ${imagePaths.length} images`);
+      this.logger.log(
+        `🔄 Invalidating CDN cache for ${imagePaths.length} images`,
+      );
 
       // En producción, esto usaría la API de CloudFront
       const invalidationId = `inv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
+
       // Simular invalidación
       const result = {
         invalidationId,
@@ -283,7 +305,6 @@ export class CDNService {
 
       this.logger.log(`✅ Cache invalidation initiated: ${invalidationId}`);
       return result;
-
     } catch (error) {
       this.logger.error(`❌ Error invalidating cache: ${error.message}`);
       return {
@@ -297,7 +318,10 @@ export class CDNService {
   /**
    * Métodos privados para construcción de URLs
    */
-  private buildOptimizedUrl(imagePath: string, options: ImageOptimizationOptions): string {
+  private buildOptimizedUrl(
+    imagePath: string,
+    options: ImageOptimizationOptions,
+  ): string {
     if (!this.imageOptimizationEnabled) {
       return this.buildOriginalUrl(imagePath);
     }
@@ -305,11 +329,12 @@ export class CDNService {
     // Si tenemos CloudFront configurado, usar transformaciones de imagen
     if (this.cloudFrontDistribution) {
       const params = new URLSearchParams();
-      
+
       if (options.width) params.append('w', options.width.toString());
       if (options.height) params.append('h', options.height.toString());
       if (options.quality) params.append('q', options.quality.toString());
-      if (options.format && options.format !== 'auto') params.append('f', options.format);
+      if (options.format && options.format !== 'auto')
+        params.append('f', options.format);
       if (options.progressive) params.append('p', '1');
 
       return `https://${this.cloudFrontDistribution}${imagePath}?${params.toString()}`;
@@ -324,11 +349,25 @@ export class CDNService {
     return `${this.cdnBaseUrl}original${imagePath}`;
   }
 
-  private generateResponsiveSizes(imagePath: string): CDNImageResponse['sizes'] {
+  private generateResponsiveSizes(
+    imagePath: string,
+  ): CDNImageResponse['sizes'] {
     return {
-      small: this.buildOptimizedUrl(imagePath, { width: 200, height: 300, quality: 75 }),
-      medium: this.buildOptimizedUrl(imagePath, { width: 350, height: 525, quality: 80 }),
-      large: this.buildOptimizedUrl(imagePath, { width: 500, height: 750, quality: 85 }),
+      small: this.buildOptimizedUrl(imagePath, {
+        width: 200,
+        height: 300,
+        quality: 75,
+      }),
+      medium: this.buildOptimizedUrl(imagePath, {
+        width: 350,
+        height: 525,
+        quality: 80,
+      }),
+      large: this.buildOptimizedUrl(imagePath, {
+        width: 500,
+        height: 750,
+        quality: 85,
+      }),
       original: this.buildOriginalUrl(imagePath),
     };
   }
@@ -343,24 +382,28 @@ export class CDNService {
     return 'w1280';
   }
 
-  private estimateImageSize(width: number, height: number, quality: number): number {
+  private estimateImageSize(
+    width: number,
+    height: number,
+    quality: number,
+  ): number {
     // Validar parámetros de entrada - usar valores por defecto para casos inválidos
     const validWidth = Math.max(1, Math.abs(width) || 500);
     const validHeight = Math.max(1, Math.abs(height) || 750);
     const validQuality = Math.max(1, Math.min(100, Math.abs(quality) || 85));
-    
+
     // Estimación aproximada del tamaño de archivo en bytes
     const pixels = validWidth * validHeight;
     const compressionFactor = validQuality / 100;
     const baseSize = pixels * 3; // 3 bytes por pixel (RGB)
     const compressedSize = baseSize * compressionFactor * 0.1; // Factor de compresión JPEG/WebP
-    
+
     return Math.round(Math.max(0, compressedSize));
   }
 
   private getFallbackImageResponse(imagePath: string): CDNImageResponse {
     const originalUrl = this.buildOriginalUrl(imagePath);
-    
+
     return {
       originalUrl,
       optimizedUrl: originalUrl,

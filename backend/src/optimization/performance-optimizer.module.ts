@@ -6,9 +6,7 @@ import { RealtimeOptimizerService } from './realtime-optimizer.service';
 import { DatabaseModule } from '../infrastructure/database/database.module';
 
 @Module({
-  imports: [
-    DatabaseModule,
-  ],
+  imports: [DatabaseModule],
   controllers: [PerformanceOptimizerController],
   providers: [
     DatabaseOptimizerService,

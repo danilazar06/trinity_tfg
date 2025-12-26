@@ -48,7 +48,7 @@ describe('UsersController', () => {
     it('should return only active users when active=true', () => {
       const result = controller.findAll('true');
       expect(result).toBeInstanceOf(Array);
-      result.forEach(user => {
+      result.forEach((user) => {
         expect(user.activo).toBe(true);
       });
     });
@@ -74,7 +74,9 @@ describe('UsersController', () => {
     });
 
     it('should throw HttpException for non-existent token', () => {
-      expect(() => controller.findByToken('invalid-token')).toThrow(HttpException);
+      expect(() => controller.findByToken('invalid-token')).toThrow(
+        HttpException,
+      );
     });
   });
 
@@ -94,7 +96,9 @@ describe('UsersController', () => {
         nombre: 'Updated Name',
       };
 
-      expect(() => controller.update(999, updateUserDto)).toThrow(HttpException);
+      expect(() => controller.update(999, updateUserDto)).toThrow(
+        HttpException,
+      );
     });
   });
 

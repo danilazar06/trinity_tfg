@@ -1,14 +1,21 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  Logger,
+  ConflictException,
+} from '@nestjs/common';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
 import { DynamoDBKeys } from '../../infrastructure/database/dynamodb.constants';
 import { RoomService } from '../room/room.service';
 import { EventTracker } from '../analytics/event-tracker.service';
 import { RealtimeCompatibilityService } from '../realtime/realtime-compatibility.service';
 import { EventType } from '../analytics/interfaces/analytics.interfaces';
-import { 
-  RoomSchedule, 
-  ScheduleAttendee, 
-  ScheduleInstance, 
+import {
+  RoomSchedule,
+  ScheduleAttendee,
+  ScheduleInstance,
   ScheduleNotification,
   ScheduleStats,
   ScheduleConflict,
@@ -21,11 +28,11 @@ import {
   ScheduleStatus,
   AttendanceStatus,
   NotificationType,
-  ReminderTiming
+  ReminderTiming,
 } from '../../domain/entities/room-schedule.entity';
-import { 
-  CreateScheduleDto, 
-  UpdateScheduleDto, 
+import {
+  CreateScheduleDto,
+  UpdateScheduleDto,
   RespondToScheduleDto,
   ScheduleFiltersDto,
   CreateScheduleTemplateDto,
@@ -33,7 +40,7 @@ import {
   GetScheduleSuggestionsDto,
   CreateAutoScheduleConfigDto,
   ModifyScheduleInstanceDto,
-  ScheduleStatsQueryDto
+  ScheduleStatsQueryDto,
 } from './dto/schedule.dto';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -51,16 +58,21 @@ export class RoomScheduleService {
   /**
    * Crear una nueva programación de sala
    */
-  async createSchedule(userId: string, createScheduleDto: CreateScheduleDto): Promise<RoomSchedule> {
+  async createSchedule(
+    userId: string,
+    createScheduleDto: CreateScheduleDto,
+  ): Promise<RoomSchedule> {
     // Verificar que el usuario tiene permisos en la sala
     await this.verifyRoomAccess(createScheduleDto.roomId, userId);
 
     // Validar horarios
     const startTime = new Date(createScheduleDto.startTime);
     const endTime = new Date(createScheduleDto.endTime);
-    
+
     if (startTime >= endTime) {
-      throw new BadRequestException('La hora de inicio debe ser anterior a la hora de finalización');
+      throw new BadRequestException(
+        'La hora de inicio debe ser anterior a la hora de finalización',
+      );
     }
 
     if (startTime < new Date()) {
@@ -68,9 +80,15 @@ export class RoomScheduleService {
     }
 
     // Verificar conflictos
-    const conflicts = await this.checkScheduleConflicts(createScheduleDto.roomId, startTime, endTime);
+    const conflicts = await this.checkScheduleConflicts(
+      createScheduleDto.roomId,
+      startTime,
+      endTime,
+    );
     if (conflicts.length > 0) {
-      throw new ConflictException(`Conflicto de programación: ${conflicts[0].suggestion || 'Horario no disponible'}`);
+      throw new ConflictException(
+        `Conflicto de programación: ${conflicts[0].suggestion || 'Horario no disponible'}`,
+      );
     }
 
     const scheduleId = uuidv4();
@@ -86,14 +104,18 @@ export class RoomScheduleService {
       endTime,
       timezone: createScheduleDto.timezone,
       status: ScheduleStatus.SCHEDULED,
-      recurrence: createScheduleDto.recurrence ? {
-        type: createScheduleDto.recurrence.type,
-        interval: createScheduleDto.recurrence.interval,
-        daysOfWeek: createScheduleDto.recurrence.daysOfWeek,
-        dayOfMonth: createScheduleDto.recurrence.dayOfMonth,
-        endDate: createScheduleDto.recurrence.endDate ? new Date(createScheduleDto.recurrence.endDate) : undefined,
-        maxOccurrences: createScheduleDto.recurrence.maxOccurrences,
-      } : undefined,
+      recurrence: createScheduleDto.recurrence
+        ? {
+            type: createScheduleDto.recurrence.type,
+            interval: createScheduleDto.recurrence.interval,
+            daysOfWeek: createScheduleDto.recurrence.daysOfWeek,
+            dayOfMonth: createScheduleDto.recurrence.dayOfMonth,
+            endDate: createScheduleDto.recurrence.endDate
+              ? new Date(createScheduleDto.recurrence.endDate)
+              : undefined,
+            maxOccurrences: createScheduleDto.recurrence.maxOccurrences,
+          }
+        : undefined,
       reminders: {
         enabled: createScheduleDto.reminders.enabled,
         timings: createScheduleDto.reminders.timings,
@@ -121,7 +143,10 @@ export class RoomScheduleService {
       });
 
       // Crear instancias si es recurrente
-      if (schedule.recurrence && schedule.recurrence.type !== RecurrenceType.NONE) {
+      if (
+        schedule.recurrence &&
+        schedule.recurrence.type !== RecurrenceType.NONE
+      ) {
         await this.createRecurringInstances(schedule);
       }
 
@@ -150,7 +175,7 @@ export class RoomScheduleService {
         {
           source: 'room_schedule_service',
           userAgent: 'backend',
-        }
+        },
       );
 
       // 🔔 Notificar creación de programación en tiempo real
@@ -163,7 +188,9 @@ export class RoomScheduleService {
         message: `Nueva programación: ${createScheduleDto.title}`,
       });
 
-      this.logger.log(`Programación creada: ${scheduleId} para sala ${createScheduleDto.roomId}`);
+      this.logger.log(
+        `Programación creada: ${scheduleId} para sala ${createScheduleDto.roomId}`,
+      );
       return schedule;
     } catch (error) {
       this.logger.error(`Error creando programación: ${error.message}`);
@@ -174,7 +201,10 @@ export class RoomScheduleService {
   /**
    * Obtener programaciones de una sala
    */
-  async getRoomSchedules(roomId: string, filters: ScheduleFiltersDto = {}): Promise<ScheduleSearchResult> {
+  async getRoomSchedules(
+    roomId: string,
+    filters: ScheduleFiltersDto = {},
+  ): Promise<ScheduleSearchResult> {
     try {
       const queryParams: any = {
         IndexName: 'GSI1',
@@ -186,7 +216,9 @@ export class RoomScheduleService {
 
       // Aplicar filtros
       const filterExpressions: string[] = [];
-      const expressionValues: any = { ...queryParams.ExpressionAttributeValues };
+      const expressionValues: any = {
+        ...queryParams.ExpressionAttributeValues,
+      };
 
       if (filters.status) {
         filterExpressions.push('#status = :status');
@@ -196,7 +228,9 @@ export class RoomScheduleService {
 
       if (filters.startDate) {
         filterExpressions.push('startTime >= :startDate');
-        expressionValues[':startDate'] = new Date(filters.startDate).toISOString();
+        expressionValues[':startDate'] = new Date(
+          filters.startDate,
+        ).toISOString();
       }
 
       if (filters.endDate) {
@@ -219,16 +253,20 @@ export class RoomScheduleService {
       }
 
       const result = await this.dynamoDBService.query(queryParams);
-      const schedules = result.Items?.map(item => item as RoomSchedule) || [];
+      const schedules = result.Items?.map((item) => item as RoomSchedule) || [];
 
       return {
         schedules,
         total: schedules.length,
         hasMore: !!result.LastEvaluatedKey,
-        nextOffset: filters.offset ? filters.offset + schedules.length : schedules.length,
+        nextOffset: filters.offset
+          ? filters.offset + schedules.length
+          : schedules.length,
       };
     } catch (error) {
-      this.logger.error(`Error obteniendo programaciones de sala ${roomId}: ${error.message}`);
+      this.logger.error(
+        `Error obteniendo programaciones de sala ${roomId}: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -236,7 +274,10 @@ export class RoomScheduleService {
   /**
    * Obtener programaciones de un usuario
    */
-  async getUserSchedules(userId: string, filters: ScheduleFiltersDto = {}): Promise<ScheduleSearchResult> {
+  async getUserSchedules(
+    userId: string,
+    filters: ScheduleFiltersDto = {},
+  ): Promise<ScheduleSearchResult> {
     try {
       const queryParams: any = {
         IndexName: 'GSI2',
@@ -248,7 +289,9 @@ export class RoomScheduleService {
 
       // Aplicar filtros similares a getRoomSchedules
       const filterExpressions: string[] = [];
-      const expressionValues: any = { ...queryParams.ExpressionAttributeValues };
+      const expressionValues: any = {
+        ...queryParams.ExpressionAttributeValues,
+      };
 
       if (filters.status) {
         filterExpressions.push('#status = :status');
@@ -262,16 +305,20 @@ export class RoomScheduleService {
       }
 
       const result = await this.dynamoDBService.query(queryParams);
-      const schedules = result.Items?.map(item => item as RoomSchedule) || [];
+      const schedules = result.Items?.map((item) => item as RoomSchedule) || [];
 
       return {
         schedules,
         total: schedules.length,
         hasMore: !!result.LastEvaluatedKey,
-        nextOffset: filters.offset ? filters.offset + schedules.length : schedules.length,
+        nextOffset: filters.offset
+          ? filters.offset + schedules.length
+          : schedules.length,
       };
     } catch (error) {
-      this.logger.error(`Error obteniendo programaciones de usuario ${userId}: ${error.message}`);
+      this.logger.error(
+        `Error obteniendo programaciones de usuario ${userId}: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -282,7 +329,7 @@ export class RoomScheduleService {
   async getSchedule(scheduleId: string): Promise<RoomSchedule> {
     const result = await this.dynamoDBService.getItem(
       DynamoDBKeys.schedulesPK(scheduleId),
-      DynamoDBKeys.schedulesSK()
+      DynamoDBKeys.schedulesSK(),
     );
 
     if (!result) {
@@ -295,7 +342,11 @@ export class RoomScheduleService {
   /**
    * Actualizar una programación
    */
-  async updateSchedule(scheduleId: string, userId: string, updateScheduleDto: UpdateScheduleDto): Promise<RoomSchedule> {
+  async updateSchedule(
+    scheduleId: string,
+    userId: string,
+    updateScheduleDto: UpdateScheduleDto,
+  ): Promise<RoomSchedule> {
     const schedule = await this.getSchedule(scheduleId);
 
     // Verificar permisos
@@ -305,18 +356,31 @@ export class RoomScheduleService {
 
     // Validar cambios de horario
     if (updateScheduleDto.startTime || updateScheduleDto.endTime) {
-      const startTime = updateScheduleDto.startTime ? new Date(updateScheduleDto.startTime) : schedule.startTime;
-      const endTime = updateScheduleDto.endTime ? new Date(updateScheduleDto.endTime) : schedule.endTime;
+      const startTime = updateScheduleDto.startTime
+        ? new Date(updateScheduleDto.startTime)
+        : schedule.startTime;
+      const endTime = updateScheduleDto.endTime
+        ? new Date(updateScheduleDto.endTime)
+        : schedule.endTime;
 
       if (startTime >= endTime) {
-        throw new BadRequestException('La hora de inicio debe ser anterior a la hora de finalización');
+        throw new BadRequestException(
+          'La hora de inicio debe ser anterior a la hora de finalización',
+        );
       }
 
       // Verificar conflictos solo si cambió el horario
       if (updateScheduleDto.startTime || updateScheduleDto.endTime) {
-        const conflicts = await this.checkScheduleConflicts(schedule.roomId, startTime, endTime, scheduleId);
+        const conflicts = await this.checkScheduleConflicts(
+          schedule.roomId,
+          startTime,
+          endTime,
+          scheduleId,
+        );
         if (conflicts.length > 0) {
-          throw new ConflictException(`Conflicto de programación: ${conflicts[0].suggestion || 'Horario no disponible'}`);
+          throw new ConflictException(
+            `Conflicto de programación: ${conflicts[0].suggestion || 'Horario no disponible'}`,
+          );
         }
       }
     }
@@ -351,7 +415,9 @@ export class RoomScheduleService {
         interval: updateScheduleDto.recurrence.interval,
         daysOfWeek: updateScheduleDto.recurrence.daysOfWeek,
         dayOfMonth: updateScheduleDto.recurrence.dayOfMonth,
-        endDate: updateScheduleDto.recurrence.endDate ? new Date(updateScheduleDto.recurrence.endDate) : undefined,
+        endDate: updateScheduleDto.recurrence.endDate
+          ? new Date(updateScheduleDto.recurrence.endDate)
+          : undefined,
         maxOccurrences: updateScheduleDto.recurrence.maxOccurrences,
       };
     }
@@ -384,9 +450,13 @@ export class RoomScheduleService {
         PK: DynamoDBKeys.schedulesPK(scheduleId),
         SK: DynamoDBKeys.schedulesSK(),
         GSI1PK: DynamoDBKeys.schedulesGSI1PK(schedule.roomId),
-        GSI1SK: DynamoDBKeys.schedulesGSI1SK(updatedSchedule.startTime.toISOString()),
+        GSI1SK: DynamoDBKeys.schedulesGSI1SK(
+          updatedSchedule.startTime.toISOString(),
+        ),
         GSI2PK: DynamoDBKeys.schedulesGSI2PK(schedule.scheduledBy),
-        GSI2SK: DynamoDBKeys.schedulesGSI2SK(updatedSchedule.startTime.toISOString()),
+        GSI2SK: DynamoDBKeys.schedulesGSI2SK(
+          updatedSchedule.startTime.toISOString(),
+        ),
         ...updatedSchedule,
       });
 
@@ -398,7 +468,9 @@ export class RoomScheduleService {
           scheduleId,
           scheduleTitle: updatedSchedule.title,
           roomId: schedule.roomId,
-          hasTimeChange: !!(updateScheduleDto.startTime || updateScheduleDto.endTime),
+          hasTimeChange: !!(
+            updateScheduleDto.startTime || updateScheduleDto.endTime
+          ),
           hasRecurrenceChange: !!updateScheduleDto.recurrence,
           hasReminderChange: !!updateScheduleDto.reminders,
           statusChange: updateScheduleDto.status,
@@ -407,7 +479,7 @@ export class RoomScheduleService {
         {
           source: 'room_schedule_service',
           userAgent: 'backend',
-        }
+        },
       );
 
       // 🔔 Notificar actualización de programación en tiempo real
@@ -431,7 +503,11 @@ export class RoomScheduleService {
   /**
    * Responder a una programación (asistir/declinar)
    */
-  async respondToSchedule(scheduleId: string, userId: string, responseDto: RespondToScheduleDto): Promise<ScheduleAttendee> {
+  async respondToSchedule(
+    scheduleId: string,
+    userId: string,
+    responseDto: RespondToScheduleDto,
+  ): Promise<ScheduleAttendee> {
     const schedule = await this.getSchedule(scheduleId);
 
     // Verificar que la programación permite asistentes
@@ -463,7 +539,9 @@ export class RoomScheduleService {
 
       // 📝 Track schedule attendance event
       await this.eventTracker.trackEvent(
-        responseDto.status === AttendanceStatus.ACCEPTED ? EventType.SCHEDULE_ATTENDED : EventType.SCHEDULE_MISSED,
+        responseDto.status === AttendanceStatus.ACCEPTED
+          ? EventType.SCHEDULE_ATTENDED
+          : EventType.SCHEDULE_MISSED,
         userId,
         {
           scheduleId,
@@ -476,10 +554,12 @@ export class RoomScheduleService {
         {
           source: 'room_schedule_service',
           userAgent: 'backend',
-        }
+        },
       );
 
-      this.logger.log(`Usuario ${userId} respondió a programación ${scheduleId}: ${responseDto.status}`);
+      this.logger.log(
+        `Usuario ${userId} respondió a programación ${scheduleId}: ${responseDto.status}`,
+      );
       return attendee;
     } catch (error) {
       this.logger.error(`Error respondiendo a programación: ${error.message}`);
@@ -499,9 +579,11 @@ export class RoomScheduleService {
         },
       });
 
-      return result.Items?.map(item => item as ScheduleAttendee) || [];
+      return result.Items?.map((item) => item as ScheduleAttendee) || [];
     } catch (error) {
-      this.logger.error(`Error obteniendo asistentes de programación ${scheduleId}: ${error.message}`);
+      this.logger.error(
+        `Error obteniendo asistentes de programación ${scheduleId}: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -509,43 +591,54 @@ export class RoomScheduleService {
   /**
    * Obtener sugerencias de horario
    */
-  async getScheduleSuggestions(getSuggestionsDto: GetScheduleSuggestionsDto): Promise<ScheduleSuggestion[]> {
+  async getScheduleSuggestions(
+    getSuggestionsDto: GetScheduleSuggestionsDto,
+  ): Promise<ScheduleSuggestion[]> {
     try {
       // Implementación simplificada - en producción usaría algoritmos más sofisticados
       const suggestions: ScheduleSuggestion[] = [];
       const now = new Date();
-      const baseDate = getSuggestionsDto.preferredDate ? 
-        new Date(Math.max(new Date(getSuggestionsDto.preferredDate).getTime(), now.getTime() + 60000)) : // Al menos 1 minuto en el futuro
-        new Date(now.getTime() + 60000); // 1 minuto en el futuro
-      
+      const baseDate = getSuggestionsDto.preferredDate
+        ? new Date(
+            Math.max(
+              new Date(getSuggestionsDto.preferredDate).getTime(),
+              now.getTime() + 60000,
+            ),
+          ) // Al menos 1 minuto en el futuro
+        : new Date(now.getTime() + 60000); // 1 minuto en el futuro
+
       // Generar sugerencias para los próximos 7 días
       for (let i = 0; i < 7; i++) {
         const suggestedDate = new Date(baseDate);
         suggestedDate.setDate(baseDate.getDate() + i);
-        
+
         // Asegurar que la fecha sugerida sea en el futuro
         if (suggestedDate.getTime() < Date.now()) {
           continue;
         }
-        
+
         // Sugerir horarios comunes (9 AM, 2 PM, 7 PM)
         const commonHours = [9, 14, 19];
-        
+
         for (const hour of commonHours) {
           const suggestedTime = new Date(suggestedDate);
           suggestedTime.setHours(hour, 0, 0, 0);
-          
+
           // Asegurar que el horario sugerido sea en el futuro
           if (suggestedTime.getTime() < Date.now()) {
             continue;
           }
-          
+
           const endTime = new Date(suggestedTime);
           endTime.setMinutes(endTime.getMinutes() + getSuggestionsDto.duration);
 
           // Verificar disponibilidad (simplificado)
-          const conflicts = await this.checkScheduleConflicts(getSuggestionsDto.roomId, suggestedTime, endTime);
-          
+          const conflicts = await this.checkScheduleConflicts(
+            getSuggestionsDto.roomId,
+            suggestedTime,
+            endTime,
+          );
+
           if (conflicts.length === 0) {
             suggestions.push({
               suggestedTime,
@@ -563,28 +656,36 @@ export class RoomScheduleService {
 
       return suggestions.slice(0, getSuggestionsDto.maxSuggestions || 5);
     } catch (error) {
-      this.logger.error(`Error obteniendo sugerencias de horario: ${error.message}`);
+      this.logger.error(
+        `Error obteniendo sugerencias de horario: ${error.message}`,
+      );
       throw error;
     }
   }
 
   // Métodos auxiliares privados
 
-  private async verifyRoomAccess(roomId: string, userId: string, permission: string = 'member'): Promise<void> {
+  private async verifyRoomAccess(
+    roomId: string,
+    userId: string,
+    permission: string = 'member',
+  ): Promise<void> {
     try {
       const room = await this.roomService.getRoom(roomId);
-      
+
       // Verificar que el usuario es miembro de la sala
-      const isMember = room.members?.some(member => member.userId === userId);
+      const isMember = room.members?.some((member) => member.userId === userId);
       if (!isMember) {
         throw new ForbiddenException('No tienes acceso a esta sala');
       }
 
       // Verificar permisos específicos si es necesario
       if (permission === 'moderate') {
-        const member = room.members?.find(member => member.userId === userId);
+        const member = room.members?.find((member) => member.userId === userId);
         if (member?.role !== 'admin' && member?.role !== 'moderator') {
-          throw new ForbiddenException('No tienes permisos para moderar esta sala');
+          throw new ForbiddenException(
+            'No tienes permisos para moderar esta sala',
+          );
         }
       }
     } catch (error) {
@@ -596,10 +697,10 @@ export class RoomScheduleService {
   }
 
   private async checkScheduleConflicts(
-    roomId: string, 
-    startTime: Date, 
-    endTime: Date, 
-    excludeScheduleId?: string
+    roomId: string,
+    startTime: Date,
+    endTime: Date,
+    excludeScheduleId?: string,
   ): Promise<ScheduleConflict[]> {
     try {
       // Buscar programaciones existentes en el rango de tiempo
@@ -620,7 +721,8 @@ export class RoomScheduleService {
       });
 
       const conflicts: ScheduleConflict[] = [];
-      const existingSchedules = result.Items?.map(item => item as RoomSchedule) || [];
+      const existingSchedules =
+        result.Items?.map((item) => item as RoomSchedule) || [];
 
       for (const existing of existingSchedules) {
         if (excludeScheduleId && existing.id === excludeScheduleId) {
@@ -628,7 +730,14 @@ export class RoomScheduleService {
         }
 
         // Verificar solapamiento
-        if (this.timesOverlap(startTime, endTime, existing.startTime, existing.endTime)) {
+        if (
+          this.timesOverlap(
+            startTime,
+            endTime,
+            existing.startTime,
+            existing.endTime,
+          )
+        ) {
           conflicts.push({
             scheduleId: existing.id,
             conflictingScheduleId: existing.id,
@@ -648,12 +757,22 @@ export class RoomScheduleService {
     }
   }
 
-  private timesOverlap(start1: Date, end1: Date, start2: Date, end2: Date): boolean {
+  private timesOverlap(
+    start1: Date,
+    end1: Date,
+    start2: Date,
+    end2: Date,
+  ): boolean {
     return start1 < end2 && end1 > start2;
   }
 
-  private async createRecurringInstances(schedule: RoomSchedule): Promise<void> {
-    if (!schedule.recurrence || schedule.recurrence.type === RecurrenceType.NONE) {
+  private async createRecurringInstances(
+    schedule: RoomSchedule,
+  ): Promise<void> {
+    if (
+      !schedule.recurrence ||
+      schedule.recurrence.type === RecurrenceType.NONE
+    ) {
       return;
     }
 
@@ -665,10 +784,14 @@ export class RoomScheduleService {
     let currentDate = new Date(schedule.startTime);
     let instanceCount = 0;
 
-    while (currentDate <= maxDate && instanceCount < (schedule.recurrence.maxOccurrences || 100)) {
+    while (
+      currentDate <= maxDate &&
+      instanceCount < (schedule.recurrence.maxOccurrences || 100)
+    ) {
       if (currentDate > schedule.startTime) {
         const instanceId = uuidv4();
-        const duration = schedule.endTime.getTime() - schedule.startTime.getTime();
+        const duration =
+          schedule.endTime.getTime() - schedule.startTime.getTime();
         const instanceEndTime = new Date(currentDate.getTime() + duration);
 
         const instance: ScheduleInstance = {
@@ -686,7 +809,10 @@ export class RoomScheduleService {
       }
 
       // Calcular siguiente fecha según el patrón
-      currentDate = this.getNextRecurrenceDate(currentDate, schedule.recurrence);
+      currentDate = this.getNextRecurrenceDate(
+        currentDate,
+        schedule.recurrence,
+      );
       instanceCount++;
     }
 
@@ -696,16 +822,24 @@ export class RoomScheduleService {
         await this.dynamoDBService.putItem({
           PK: DynamoDBKeys.scheduleInstancesPK(schedule.id),
           SK: DynamoDBKeys.scheduleInstancesSK(instance.id),
-          GSI1PK: DynamoDBKeys.scheduleInstancesGSI1PK(instance.instanceDate.toISOString().split('T')[0]),
-          GSI1SK: DynamoDBKeys.scheduleInstancesGSI1SK(instance.startTime.toISOString()),
+          GSI1PK: DynamoDBKeys.scheduleInstancesGSI1PK(
+            instance.instanceDate.toISOString().split('T')[0],
+          ),
+          GSI1SK: DynamoDBKeys.scheduleInstancesGSI1SK(
+            instance.startTime.toISOString(),
+          ),
           ...instance,
         });
       } catch (error) {
-        this.logger.error(`Error creando instancia recurrente: ${error.message}`);
+        this.logger.error(
+          `Error creando instancia recurrente: ${error.message}`,
+        );
       }
     }
 
-    this.logger.log(`Creadas ${instances.length} instancias recurrentes para programación ${schedule.id}`);
+    this.logger.log(
+      `Creadas ${instances.length} instancias recurrentes para programación ${schedule.id}`,
+    );
   }
 
   private getNextRecurrenceDate(currentDate: Date, recurrence: any): Date {
@@ -716,7 +850,7 @@ export class RoomScheduleService {
         nextDate.setDate(nextDate.getDate() + recurrence.interval);
         break;
       case RecurrenceType.WEEKLY:
-        nextDate.setDate(nextDate.getDate() + (7 * recurrence.interval));
+        nextDate.setDate(nextDate.getDate() + 7 * recurrence.interval);
         break;
       case RecurrenceType.MONTHLY:
         nextDate.setMonth(nextDate.getMonth() + recurrence.interval);
@@ -736,11 +870,14 @@ export class RoomScheduleService {
     const notifications: ScheduleNotification[] = [];
 
     for (const timing of schedule.reminders.timings) {
-      const reminderTime = this.calculateReminderTime(schedule.startTime, timing);
-      
+      const reminderTime = this.calculateReminderTime(
+        schedule.startTime,
+        timing,
+      );
+
       if (reminderTime > new Date()) {
         const notificationId = uuidv4();
-        
+
         for (const notificationType of schedule.reminders.notificationTypes) {
           const notification: ScheduleNotification = {
             id: notificationId,
@@ -751,7 +888,9 @@ export class RoomScheduleService {
             scheduledFor: reminderTime,
             status: 'pending',
             retryCount: 0,
-            message: schedule.reminders.customMessage || `Recordatorio: "${schedule.title}" comienza en ${this.getTimingDescription(timing)}`,
+            message:
+              schedule.reminders.customMessage ||
+              `Recordatorio: "${schedule.title}" comienza en ${this.getTimingDescription(timing)}`,
           };
 
           notifications.push(notification);
@@ -765,8 +904,12 @@ export class RoomScheduleService {
         await this.dynamoDBService.putItem({
           PK: DynamoDBKeys.scheduleNotificationsPK(notification.scheduleId),
           SK: DynamoDBKeys.scheduleNotificationsSK(notification.id),
-          GSI1PK: DynamoDBKeys.scheduleNotificationsGSI1PK(notification.scheduledFor.toISOString().split('T')[0]),
-          GSI1SK: DynamoDBKeys.scheduleNotificationsGSI1SK(notification.scheduledFor.toISOString()),
+          GSI1PK: DynamoDBKeys.scheduleNotificationsGSI1PK(
+            notification.scheduledFor.toISOString().split('T')[0],
+          ),
+          GSI1SK: DynamoDBKeys.scheduleNotificationsGSI1SK(
+            notification.scheduledFor.toISOString(),
+          ),
           ...notification,
         });
       } catch (error) {
@@ -774,7 +917,9 @@ export class RoomScheduleService {
       }
     }
 
-    this.logger.log(`Programados ${notifications.length} recordatorios para programación ${schedule.id}`);
+    this.logger.log(
+      `Programados ${notifications.length} recordatorios para programación ${schedule.id}`,
+    );
   }
 
   private calculateReminderTime(startTime: Date, timing: ReminderTiming): Date {

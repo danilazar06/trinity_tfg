@@ -36,23 +36,29 @@ export class VoteService {
 
       if (room.status !== 'ACTIVE') {
         throw new BadRequestException(
-          `No se puede votar. Estado de la sala: ${room.status}`
+          `No se puede votar. Estado de la sala: ${room.status}`,
         );
       }
 
       // 2. Verificar que el usuario es miembro de la sala
       const members = await this.multiTableService.getRoomMembers(roomId);
-      const isMember = members.some(member => member.userId === userId && member.isActive);
-      
+      const isMember = members.some(
+        (member) => member.userId === userId && member.isActive,
+      );
+
       if (!isMember) {
         throw new BadRequestException('No eres miembro de esta sala');
       }
 
       // 3. Incrementar el contador de votos atómicamente
-      const updatedVote = await this.multiTableService.incrementVote(roomId, movieId, voteType);
+      const updatedVote = await this.multiTableService.incrementVote(
+        roomId,
+        movieId,
+        voteType,
+      );
 
       // 4. Verificar condición de victoria (Stop-on-Match)
-      const totalMembers = members.filter(member => member.isActive).length;
+      const totalMembers = members.filter((member) => member.isActive).length;
       const likesCount = updatedVote.likesCount || 0;
 
       let matchFound = false;
@@ -61,11 +67,17 @@ export class VoteService {
       // Condición de Match: todos los miembros activos han dado LIKE
       if (voteType === 'LIKE' && likesCount === totalMembers) {
         // ¡MATCH ENCONTRADO!
-        await this.multiTableService.updateRoomStatus(roomId, 'MATCHED', movieId);
+        await this.multiTableService.updateRoomStatus(
+          roomId,
+          'MATCHED',
+          movieId,
+        );
         matchFound = true;
         roomUpdated = true;
 
-        this.logger.log(`🎉 MATCH encontrado en sala ${roomId}: película ${movieId}`);
+        this.logger.log(
+          `🎉 MATCH encontrado en sala ${roomId}: película ${movieId}`,
+        );
       }
 
       return {
@@ -74,7 +86,6 @@ export class VoteService {
         matchFound,
         matchedMovie: matchFound ? { tmdbId: movieId } : undefined,
       };
-
     } catch (error) {
       this.logger.error(`Error processing vote: ${error.message}`);
       throw error;
@@ -112,11 +123,11 @@ export class VoteService {
     try {
       // Obtener todos los votos actuales
       const votes = await this.multiTableService.getRoomVotes(roomId);
-      
+
       // En una implementación completa, eliminaríamos los votos existentes
       // Por ahora, solo actualizamos el estado de la sala
       await this.multiTableService.updateRoomStatus(roomId, 'ACTIVE');
-      
+
       this.logger.log(`Votes reset for room ${roomId}`);
     } catch (error) {
       this.logger.error(`Error resetting room votes: ${error.message}`);
@@ -139,8 +150,9 @@ export class VoteService {
         this.multiTableService.getRoomMembers(roomId),
       ]);
 
-      const totalVotes = votes.reduce((sum, vote) => 
-        sum + (vote.likesCount || 0) + (vote.dislikesCount || 0), 0
+      const totalVotes = votes.reduce(
+        (sum, vote) => sum + (vote.likesCount || 0) + (vote.dislikesCount || 0),
+        0,
       );
 
       // Encontrar la película con más likes
@@ -154,7 +166,7 @@ export class VoteService {
         totalVotes,
         totalMovies: votes.length,
         topMovie,
-        memberCount: members.filter(member => member.isActive).length,
+        memberCount: members.filter((member) => member.isActive).length,
       };
     } catch (error) {
       this.logger.error(`Error getting voting stats: ${error.message}`);

@@ -9,13 +9,18 @@ import {
   Logger,
   Param,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { 
-  CDNService, 
-  ImageOptimizationOptions, 
-  CDNImageResponse, 
-  ProgressiveLoadingConfig 
+import {
+  CDNService,
+  ImageOptimizationOptions,
+  CDNImageResponse,
+  ProgressiveLoadingConfig,
 } from './cdn.service';
 
 export class OptimizeImageDto {
@@ -51,7 +56,8 @@ export class CDNController {
   @Post('optimize-image')
   @ApiOperation({
     summary: 'Optimizar imagen para entrega via CDN',
-    description: 'Genera URLs optimizadas para diferentes tamaños y formatos de imagen'
+    description:
+      'Genera URLs optimizadas para diferentes tamaños y formatos de imagen',
   })
   @ApiResponse({
     status: 200,
@@ -69,26 +75,28 @@ export class CDNController {
             small: { type: 'string' },
             medium: { type: 'string' },
             large: { type: 'string' },
-            original: { type: 'string' }
-          }
+            original: { type: 'string' },
+          },
         },
         metadata: {
           type: 'object',
           properties: {
             format: { type: 'string' },
             estimatedSize: { type: 'number' },
-            cacheStatus: { type: 'string' }
-          }
-        }
-      }
-    }
+            cacheStatus: { type: 'string' },
+          },
+        },
+      },
+    },
   })
   async optimizeImage(
     @Body() dto: OptimizeImageDto,
     @Request() req: any,
   ): Promise<CDNImageResponse> {
-    this.logger.log(`🖼️ User ${req.user.sub} optimizing image: ${dto.imagePath}`);
-    
+    this.logger.log(
+      `🖼️ User ${req.user.sub} optimizing image: ${dto.imagePath}`,
+    );
+
     const options: ImageOptimizationOptions = {
       width: dto.width,
       height: dto.height,
@@ -103,7 +111,8 @@ export class CDNController {
   @Post('progressive-loading')
   @ApiOperation({
     summary: 'Configurar carga progresiva de imagen',
-    description: 'Genera secuencia de carga progresiva para experiencia visual optimizada'
+    description:
+      'Genera secuencia de carga progresiva para experiencia visual optimizada',
   })
   @ApiResponse({
     status: 200,
@@ -114,18 +123,20 @@ export class CDNController {
         loadingStrategy: { type: 'string' },
         imageSequence: {
           type: 'array',
-          items: { type: 'string' }
+          items: { type: 'string' },
         },
-        lazyLoadConfig: { type: 'object' }
-      }
-    }
+        lazyLoadConfig: { type: 'object' },
+      },
+    },
   })
   async setupProgressiveLoading(
     @Body() dto: ProgressiveLoadingDto,
     @Request() req: any,
   ) {
-    this.logger.log(`📈 User ${req.user.sub} setting up progressive loading for: ${dto.imagePath}`);
-    
+    this.logger.log(
+      `📈 User ${req.user.sub} setting up progressive loading for: ${dto.imagePath}`,
+    );
+
     const config: ProgressiveLoadingConfig = {
       enablePlaceholder: dto.enablePlaceholder ?? true,
       enableThumbnail: dto.enableThumbnail ?? true,
@@ -139,7 +150,7 @@ export class CDNController {
   @Get('cache-stats')
   @ApiOperation({
     summary: 'Obtener estadísticas de caché del CDN',
-    description: 'Proporciona métricas de rendimiento y uso del CDN'
+    description: 'Proporciona métricas de rendimiento y uso del CDN',
   })
   @ApiResponse({
     status: 200,
@@ -153,24 +164,25 @@ export class CDNController {
         averageLoadTime: { type: 'number' },
         topImages: {
           type: 'array',
-          items: { type: 'string' }
-        }
-      }
-    }
+          items: { type: 'string' },
+        },
+      },
+    },
   })
   async getCacheStats(
     @Request() req: any,
     @Query('imagePath') imagePath?: string,
   ) {
     this.logger.log(`📊 User ${req.user.sub} requesting CDN cache stats`);
-    
+
     return this.cdnService.getCacheStats(imagePath);
   }
 
   @Post('invalidate-cache')
   @ApiOperation({
     summary: 'Invalidar caché de CDN para imágenes específicas',
-    description: 'Fuerza la actualización de imágenes en el CDN (solo para administradores)'
+    description:
+      'Fuerza la actualización de imágenes en el CDN (solo para administradores)',
   })
   @ApiResponse({
     status: 200,
@@ -180,42 +192,44 @@ export class CDNController {
       properties: {
         invalidationId: { type: 'string' },
         status: { type: 'string' },
-        estimatedTime: { type: 'number' }
-      }
-    }
+        estimatedTime: { type: 'number' },
+      },
+    },
   })
-  async invalidateCache(
-    @Body() dto: InvalidateCacheDto,
-    @Request() req: any,
-  ) {
-    this.logger.log(`🔄 User ${req.user.sub} invalidating cache for ${dto.imagePaths.length} images`);
-    
+  async invalidateCache(@Body() dto: InvalidateCacheDto, @Request() req: any) {
+    this.logger.log(
+      `🔄 User ${req.user.sub} invalidating cache for ${dto.imagePaths.length} images`,
+    );
+
     return this.cdnService.invalidateCache(dto.imagePaths);
   }
 
   @Get('image-info/:imagePath')
   @ApiOperation({
     summary: 'Obtener información detallada de una imagen',
-    description: 'Proporciona metadatos y URLs optimizadas para una imagen específica'
+    description:
+      'Proporciona metadatos y URLs optimizadas para una imagen específica',
   })
   @ApiResponse({
     status: 200,
-    description: 'Información de imagen obtenida'
+    description: 'Información de imagen obtenida',
   })
   async getImageInfo(
     @Param('imagePath') imagePath: string,
     @Query('optimize') optimize: boolean = true,
     @Request() req: any,
   ): Promise<CDNImageResponse> {
-    this.logger.log(`ℹ️ User ${req.user.sub} requesting info for image: ${imagePath}`);
-    
+    this.logger.log(
+      `ℹ️ User ${req.user.sub} requesting info for image: ${imagePath}`,
+    );
+
     if (optimize) {
       return this.cdnService.optimizeImage(imagePath);
     } else {
-      return this.cdnService.optimizeImage(imagePath, { 
-        width: undefined, 
-        height: undefined, 
-        quality: 100 
+      return this.cdnService.optimizeImage(imagePath, {
+        width: undefined,
+        height: undefined,
+        quality: 100,
       });
     }
   }

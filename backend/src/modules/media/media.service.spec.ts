@@ -4,7 +4,10 @@ import * as fc from 'fast-check';
 import { MediaService } from './media.service';
 import { MultiTableService } from '../../infrastructure/database/multi-table.service';
 import { TMDBService } from '../../infrastructure/tmdb/tmdb.service';
-import { CircuitBreakerService, CircuitState } from '../../infrastructure/circuit-breaker/circuit-breaker.service';
+import {
+  CircuitBreakerService,
+  CircuitState,
+} from '../../infrastructure/circuit-breaker/circuit-breaker.service';
 import { MediaItem } from '../../domain/entities/media.entity';
 
 // Mock services
@@ -62,23 +65,28 @@ describe('MediaService Property Tests', () => {
   /**
    * **Feature: trinity-mvp, Property 7: Integración TMDB con fallback**
    * **Valida: Requisitos 4.1, 4.2, 4.3, 4.4, 4.5**
-   * 
-   * Para cualquier solicitud de contenido, el sistema debe intentar la API TMDB primero, 
-   * cachear resultados exitosos, y recurrir a la base de datos sombra cuando TMDB no esté disponible, 
+   *
+   * Para cualquier solicitud de contenido, el sistema debe intentar la API TMDB primero,
+   * cachear resultados exitosos, y recurrir a la base de datos sombra cuando TMDB no esté disponible,
    * siempre respetando filtros aplicados
    */
   describe('Property 7: TMDB integration with fallback', () => {
-    
     it('should attempt TMDB API first and cache successful results', async () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
             filters: fc.record({
-              genres: fc.option(fc.array(fc.string({ minLength: 1, maxLength: 20 }), { maxLength: 3 })),
+              genres: fc.option(
+                fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+                  maxLength: 3,
+                }),
+              ),
               releaseYearFrom: fc.option(fc.integer({ min: 1900, max: 2030 })),
               releaseYearTo: fc.option(fc.integer({ min: 1900, max: 2030 })),
               minRating: fc.option(fc.float({ min: 0, max: 10 })),
-              contentTypes: fc.option(fc.array(fc.constantFrom('movie', 'tv'), { maxLength: 2 })),
+              contentTypes: fc.option(
+                fc.array(fc.constantFrom('movie', 'tv'), { maxLength: 2 }),
+              ),
             }),
             tmdbResults: fc.array(
               fc.record({
@@ -86,36 +94,50 @@ describe('MediaService Property Tests', () => {
                 title: fc.string({ minLength: 1, maxLength: 100 }),
                 overview: fc.string({ minLength: 0, maxLength: 500 }),
                 posterPath: fc.string({ minLength: 0, maxLength: 200 }),
-                releaseDate: fc.date({ min: new Date('1900-01-01'), max: new Date('2030-12-31') }).map(d => d.toISOString().split('T')[0]),
+                releaseDate: fc
+                  .date({
+                    min: new Date('1900-01-01'),
+                    max: new Date('2030-12-31'),
+                  })
+                  .map((d) => d.toISOString().split('T')[0]),
                 popularity: fc.float({ min: 0, max: 1000 }),
                 voteAverage: fc.float({ min: 0, max: 10 }),
                 voteCount: fc.integer({ min: 0, max: 100000 }),
-                genres: fc.array(fc.string({ minLength: 1, maxLength: 20 }), { maxLength: 3 }),
+                genres: fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+                  maxLength: 3,
+                }),
                 mediaType: fc.constantFrom('movie', 'tv'),
               }),
-              { minLength: 0, maxLength: 20 }
+              { minLength: 0, maxLength: 20 },
             ),
             tmdbSuccess: fc.boolean(),
           }),
           async (testData) => {
             // Mock circuit breaker to execute operation or fallback based on tmdbSuccess
-            mockCircuitBreakerService.execute.mockImplementation(async (name, operation, fallback) => {
-              if (testData.tmdbSuccess) {
-                return operation();
-              } else {
-                return fallback();
-              }
-            });
+            mockCircuitBreakerService.execute.mockImplementation(
+              async (name, operation, fallback) => {
+                if (testData.tmdbSuccess) {
+                  return operation();
+                } else {
+                  return fallback();
+                }
+              },
+            );
 
             // Mock TMDB service response
-            mockTMDBService.discoverContent.mockResolvedValue(testData.tmdbResults);
-            
+            mockTMDBService.discoverContent.mockResolvedValue(
+              testData.tmdbResults,
+            );
+
             // Mock caching
             mockMultiTableService.cacheMovie.mockResolvedValue(undefined);
-            
+
             // Mock fallback (cached content)
             mockMultiTableService.searchCachedMovies.mockResolvedValue(
-              testData.tmdbResults.slice(0, Math.min(5, testData.tmdbResults.length)) // Simulate cached subset
+              testData.tmdbResults.slice(
+                0,
+                Math.min(5, testData.tmdbResults.length),
+              ), // Simulate cached subset
             );
 
             // Execute the operation
@@ -126,7 +148,7 @@ describe('MediaService Property Tests', () => {
               expect(mockCircuitBreakerService.execute).toHaveBeenCalledWith(
                 'tmdb-api',
                 expect.any(Function),
-                expect.any(Function)
+                expect.any(Function),
               );
 
               // Verify results match TMDB response
@@ -139,14 +161,18 @@ describe('MediaService Property Tests', () => {
             } else {
               // Verify fallback was used
               expect(mockCircuitBreakerService.execute).toHaveBeenCalled();
-              expect(mockMultiTableService.searchCachedMovies).toHaveBeenCalled();
-              
+              expect(
+                mockMultiTableService.searchCachedMovies,
+              ).toHaveBeenCalled();
+
               // Result should be from cache (subset of original data)
-              expect(result.length).toBeLessThanOrEqual(testData.tmdbResults.length);
+              expect(result.length).toBeLessThanOrEqual(
+                testData.tmdbResults.length,
+              );
             }
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -155,7 +181,12 @@ describe('MediaService Property Tests', () => {
         fc.asyncProperty(
           fc.record({
             filters: fc.record({
-              genres: fc.option(fc.array(fc.constantFrom('Action', 'Comedy', 'Drama'), { minLength: 1, maxLength: 2 })),
+              genres: fc.option(
+                fc.array(fc.constantFrom('Action', 'Comedy', 'Drama'), {
+                  minLength: 1,
+                  maxLength: 2,
+                }),
+              ),
               releaseYearFrom: fc.option(fc.integer({ min: 2000, max: 2020 })),
               releaseYearTo: fc.option(fc.integer({ min: 2021, max: 2024 })),
               minRating: fc.option(fc.float({ min: 5, max: 9 })),
@@ -198,16 +229,20 @@ describe('MediaService Property Tests', () => {
               },
             ];
 
-            mockCircuitBreakerService.execute.mockImplementation(async (name, operation, fallback) => {
-              if (testData.useCache) {
-                return fallback();
-              } else {
-                return operation();
-              }
-            });
+            mockCircuitBreakerService.execute.mockImplementation(
+              async (name, operation, fallback) => {
+                if (testData.useCache) {
+                  return fallback();
+                } else {
+                  return operation();
+                }
+              },
+            );
 
             mockTMDBService.discoverContent.mockResolvedValue(mockResults);
-            mockMultiTableService.searchCachedMovies.mockResolvedValue(mockResults);
+            mockMultiTableService.searchCachedMovies.mockResolvedValue(
+              mockResults,
+            );
             mockMultiTableService.cacheMovie.mockResolvedValue(undefined);
 
             const result = await service.fetchMovies(testData.filters);
@@ -216,7 +251,7 @@ describe('MediaService Property Tests', () => {
             expect(mockCircuitBreakerService.execute).toHaveBeenCalledWith(
               'tmdb-api',
               expect.any(Function),
-              expect.any(Function)
+              expect.any(Function),
             );
 
             // Verify filters are applied regardless of source
@@ -226,16 +261,16 @@ describe('MediaService Property Tests', () => {
                 expect(mockTMDBService.discoverContent).toHaveBeenCalledWith(
                   expect.objectContaining({
                     genres: testData.filters.genres,
-                  })
+                  }),
                 );
               }
             }
 
             // Results should be an array
             expect(Array.isArray(result)).toBe(true);
-            
+
             // Each result should have required MediaItem properties
-            result.forEach(item => {
+            result.forEach((item) => {
               expect(item).toEqual(
                 expect.objectContaining({
                   tmdbId: expect.any(String),
@@ -247,12 +282,12 @@ describe('MediaService Property Tests', () => {
                   popularity: expect.any(Number),
                   voteAverage: expect.any(Number),
                   mediaType: expect.stringMatching(/^(movie|tv)$/),
-                })
+                }),
               );
             });
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -260,7 +295,11 @@ describe('MediaService Property Tests', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            circuitState: fc.constantFrom(CircuitState.CLOSED, CircuitState.OPEN, CircuitState.HALF_OPEN),
+            circuitState: fc.constantFrom(
+              CircuitState.CLOSED,
+              CircuitState.OPEN,
+              CircuitState.HALF_OPEN,
+            ),
             tmdbHealthy: fc.boolean(),
             cachedItemsCount: fc.integer({ min: 0, max: 50 }),
           }),
@@ -274,37 +313,45 @@ describe('MediaService Property Tests', () => {
             });
 
             // Generate mock cached items
-            const cachedItems = Array.from({ length: testData.cachedItemsCount }, (_, i) => ({
-              tmdbId: `cached-${i}`,
-              title: `Cached Movie ${i}`,
-              overview: `Cached overview ${i}`,
-              posterPath: `/cached-poster-${i}.jpg`,
-              releaseDate: '2023-01-01',
-              genres: ['Action'],
-              popularity: 50 + i,
-              voteAverage: 7.0,
-              voteCount: 100,
-              adult: false,
-              originalLanguage: 'en',
-              mediaType: 'movie' as const,
-              cachedAt: new Date(),
-              isPopular: i < 10,
-            }));
+            const cachedItems = Array.from(
+              { length: testData.cachedItemsCount },
+              (_, i) => ({
+                tmdbId: `cached-${i}`,
+                title: `Cached Movie ${i}`,
+                overview: `Cached overview ${i}`,
+                posterPath: `/cached-poster-${i}.jpg`,
+                releaseDate: '2023-01-01',
+                genres: ['Action'],
+                popularity: 50 + i,
+                voteAverage: 7.0,
+                voteCount: 100,
+                adult: false,
+                originalLanguage: 'en',
+                mediaType: 'movie' as const,
+                cachedAt: new Date(),
+                isPopular: i < 10,
+              }),
+            );
 
             // Mock circuit breaker behavior
-            mockCircuitBreakerService.execute.mockImplementation(async (name, operation, fallback) => {
-              if (testData.circuitState === CircuitState.OPEN || !testData.tmdbHealthy) {
-                // Circuit is open or TMDB is unhealthy, use fallback
-                return fallback();
-              } else {
-                // Circuit is closed or half-open and TMDB is healthy, try operation
-                try {
-                  return await operation();
-                } catch (error) {
+            mockCircuitBreakerService.execute.mockImplementation(
+              async (name, operation, fallback) => {
+                if (
+                  testData.circuitState === CircuitState.OPEN ||
+                  !testData.tmdbHealthy
+                ) {
+                  // Circuit is open or TMDB is unhealthy, use fallback
                   return fallback();
+                } else {
+                  // Circuit is closed or half-open and TMDB is healthy, try operation
+                  try {
+                    return await operation();
+                  } catch (error) {
+                    return fallback();
+                  }
                 }
-              }
-            });
+              },
+            );
 
             // Mock TMDB responses
             if (testData.tmdbHealthy) {
@@ -324,14 +371,18 @@ describe('MediaService Property Tests', () => {
                   mediaType: 'movie',
                   cachedAt: new Date(),
                   isPopular: true,
-                }
+                },
               ]);
             } else {
-              mockTMDBService.discoverContent.mockRejectedValue(new Error('TMDB API Error'));
+              mockTMDBService.discoverContent.mockRejectedValue(
+                new Error('TMDB API Error'),
+              );
             }
 
             // Mock cached content
-            mockMultiTableService.searchCachedMovies.mockResolvedValue(cachedItems);
+            mockMultiTableService.searchCachedMovies.mockResolvedValue(
+              cachedItems,
+            );
             mockMultiTableService.cacheMovie.mockResolvedValue(undefined);
 
             // Execute the operation
@@ -341,7 +392,10 @@ describe('MediaService Property Tests', () => {
             expect(mockCircuitBreakerService.execute).toHaveBeenCalled();
 
             // Verify appropriate data source was used
-            if (testData.circuitState === CircuitState.OPEN || !testData.tmdbHealthy) {
+            if (
+              testData.circuitState === CircuitState.OPEN ||
+              !testData.tmdbHealthy
+            ) {
               // Should use cached content
               expect(result).toEqual(cachedItems);
             } else if (testData.tmdbHealthy) {
@@ -351,10 +405,10 @@ describe('MediaService Property Tests', () => {
                   expect.objectContaining({
                     tmdbId: 'tmdb-1',
                     title: 'Fresh TMDB Movie',
-                  })
-                ])
+                  }),
+                ]),
               );
-              
+
               if (result.length > 0) {
                 expect(mockMultiTableService.cacheMovie).toHaveBeenCalled();
               }
@@ -362,9 +416,9 @@ describe('MediaService Property Tests', () => {
 
             // Result should always be an array
             expect(Array.isArray(result)).toBe(true);
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -372,7 +426,9 @@ describe('MediaService Property Tests', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            tmdbId: fc.string({ minLength: 1, maxLength: 10 }).filter(s => s.trim().length > 0),
+            tmdbId: fc
+              .string({ minLength: 1, maxLength: 10 })
+              .filter((s) => s.trim().length > 0),
             cacheExpired: fc.boolean(),
             tmdbAvailable: fc.boolean(),
           }),
@@ -396,7 +452,9 @@ describe('MediaService Property Tests', () => {
               mediaType: 'movie' as const,
               cachedAt: new Date(),
               isPopular: true,
-              expiresAt: testData.cacheExpired ? expiredDate.toISOString() : validDate.toISOString(),
+              expiresAt: testData.cacheExpired
+                ? expiredDate.toISOString()
+                : validDate.toISOString(),
             };
 
             const freshItem = {
@@ -404,12 +462,14 @@ describe('MediaService Property Tests', () => {
               title: 'Fresh TMDB Movie',
               overview: 'Fresh from TMDB',
               cachedAt: now,
-              expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+              expiresAt: new Date(
+                now.getTime() + 24 * 60 * 60 * 1000,
+              ).toISOString(),
             };
 
             // Mock cache lookup
             mockMultiTableService.getCachedMovie.mockResolvedValue(
-              testData.cacheExpired ? null : cachedItem
+              testData.cacheExpired ? null : cachedItem,
             );
 
             // Mock TMDB response
@@ -427,22 +487,28 @@ describe('MediaService Property Tests', () => {
                 adult: false,
                 original_language: 'en',
               };
-              mockTMDBService.getMovieDetails.mockResolvedValue(tmdbMovieResponse);
+              mockTMDBService.getMovieDetails.mockResolvedValue(
+                tmdbMovieResponse,
+              );
               mockTMDBService.convertToMediaItem.mockReturnValue(freshItem);
             } else {
-              mockTMDBService.getMovieDetails.mockRejectedValue(new Error('TMDB Error'));
+              mockTMDBService.getMovieDetails.mockRejectedValue(
+                new Error('TMDB Error'),
+              );
             }
 
             mockMultiTableService.cacheMovie.mockResolvedValue(undefined);
 
             // Mock circuit breaker
-            mockCircuitBreakerService.execute.mockImplementation(async (name, operation, fallback) => {
-              if (testData.tmdbAvailable) {
-                return operation();
-              } else {
-                return fallback();
-              }
-            });
+            mockCircuitBreakerService.execute.mockImplementation(
+              async (name, operation, fallback) => {
+                if (testData.tmdbAvailable) {
+                  return operation();
+                } else {
+                  return fallback();
+                }
+              },
+            );
 
             // Execute the operation
             const result = await service.getMovieDetails(testData.tmdbId);
@@ -462,9 +528,9 @@ describe('MediaService Property Tests', () => {
                 expect(result).toEqual(cachedItem);
               }
             }
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
   });

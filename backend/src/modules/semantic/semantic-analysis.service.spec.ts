@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import * as fc from 'fast-check';
-import { SemanticAnalysisService, PreferencePattern, SemanticSimilarity } from './semantic-analysis.service';
+import {
+  SemanticAnalysisService,
+  PreferencePattern,
+  SemanticSimilarity,
+} from './semantic-analysis.service';
 import { MultiTableService } from '../../infrastructure/database/multi-table.service';
 import { MediaService } from '../media/media.service';
 import { InteractionService } from '../interaction/interaction.service';
@@ -59,12 +63,11 @@ describe('SemanticAnalysisService Property Tests', () => {
   /**
    * **Feature: trinity-mvp, Property 8: Inyección semántica de contenido**
    * **Valida: Requisitos 5.1, 5.2, 5.3, 5.4, 5.5**
-   * 
+   *
    * Para cualquier sala con patrones de votación, el sistema debe analizar preferencias,
    * calcular similitud semántica, e inyectar contenido relevante manteniendo aleatorización
    */
   describe('Property 8: Semantic content injection', () => {
-    
     it('should analyze preference patterns consistently from positive votes', async () => {
       await fc.assert(
         fc.asyncProperty(
@@ -78,7 +81,7 @@ describe('SemanticAnalysisService Property Tests', () => {
                 roomId: fc.string({ minLength: 1, maxLength: 20 }),
                 timestamp: fc.date(),
               }),
-              { minLength: 5, maxLength: 50 }
+              { minLength: 5, maxLength: 50 },
             ),
             mediaContent: fc.array(
               fc.record({
@@ -86,13 +89,24 @@ describe('SemanticAnalysisService Property Tests', () => {
                 title: fc.string({ minLength: 1, maxLength: 100 }),
                 overview: fc.string({ minLength: 10, maxLength: 500 }),
                 genres: fc.array(
-                  fc.constantFrom('Action', 'Comedy', 'Drama', 'Horror', 'Romance', 'Sci-Fi'),
-                  { minLength: 1, maxLength: 3 }
+                  fc.constantFrom(
+                    'Action',
+                    'Comedy',
+                    'Drama',
+                    'Horror',
+                    'Romance',
+                    'Sci-Fi',
+                  ),
+                  { minLength: 1, maxLength: 3 },
                 ),
                 voteAverage: fc.float({ min: 1, max: 10 }),
                 popularity: fc.float({ min: 1, max: 1000 }),
-                releaseDate: fc.date({ min: new Date('2000-01-01'), max: new Date('2024-12-31') })
-                  .map(d => d.toISOString().split('T')[0]),
+                releaseDate: fc
+                  .date({
+                    min: new Date('2000-01-01'),
+                    max: new Date('2024-12-31'),
+                  })
+                  .map((d) => d.toISOString().split('T')[0]),
                 posterPath: fc.string({ minLength: 1, maxLength: 100 }),
                 voteCount: fc.integer({ min: 1, max: 10000 }),
                 adult: fc.boolean(),
@@ -101,17 +115,25 @@ describe('SemanticAnalysisService Property Tests', () => {
                 cachedAt: fc.date(),
                 isPopular: fc.boolean(),
               }),
-              { minLength: 5, maxLength: 50 }
+              { minLength: 5, maxLength: 50 },
             ),
           }),
           async (testData) => {
             // Mock the content details for votes
-            mockMediaService.getMovieDetails.mockImplementation(async (mediaId: string) => {
-              return testData.mediaContent.find(item => item.tmdbId === mediaId) || null;
-            });
+            mockMediaService.getMovieDetails.mockImplementation(
+              async (mediaId: string) => {
+                return (
+                  testData.mediaContent.find(
+                    (item) => item.tmdbId === mediaId,
+                  ) || null
+                );
+              },
+            );
 
             // Execute preference analysis
-            const patterns = await service.analyzePreferencePatterns(testData.roomId);
+            const patterns = await service.analyzePreferencePatterns(
+              testData.roomId,
+            );
 
             // Verify patterns are consistent and valid
             expect(patterns).toBeDefined();
@@ -124,18 +146,22 @@ describe('SemanticAnalysisService Property Tests', () => {
             expect(typeof patterns.genres).toBe('object');
 
             // Verify popularity and year ranges are logical
-            expect(patterns.popularityRange.min).toBeLessThanOrEqual(patterns.popularityRange.max);
-            expect(patterns.releaseYearRange.min).toBeLessThanOrEqual(patterns.releaseYearRange.max);
+            expect(patterns.popularityRange.min).toBeLessThanOrEqual(
+              patterns.popularityRange.max,
+            );
+            expect(patterns.releaseYearRange.min).toBeLessThanOrEqual(
+              patterns.releaseYearRange.max,
+            );
 
             // Verify common keywords are strings
             expect(Array.isArray(patterns.commonKeywords)).toBe(true);
-            patterns.commonKeywords.forEach(keyword => {
+            patterns.commonKeywords.forEach((keyword) => {
               expect(typeof keyword).toBe('string');
               expect(keyword.length).toBeGreaterThan(0);
             });
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -148,13 +174,23 @@ describe('SemanticAnalysisService Property Tests', () => {
               title: fc.string({ minLength: 1, maxLength: 100 }),
               overview: fc.string({ minLength: 10, maxLength: 500 }),
               genres: fc.array(
-                fc.constantFrom('Action', 'Comedy', 'Drama', 'Horror', 'Romance'),
-                { minLength: 1, maxLength: 3 }
+                fc.constantFrom(
+                  'Action',
+                  'Comedy',
+                  'Drama',
+                  'Horror',
+                  'Romance',
+                ),
+                { minLength: 1, maxLength: 3 },
               ),
               voteAverage: fc.float({ min: 1, max: 10 }),
               popularity: fc.float({ min: 1, max: 1000 }),
-              releaseDate: fc.date({ min: new Date('2000-01-01'), max: new Date('2024-12-31') })
-                .map(d => d.toISOString().split('T')[0]),
+              releaseDate: fc
+                .date({
+                  min: new Date('2000-01-01'),
+                  max: new Date('2024-12-31'),
+                })
+                .map((d) => d.toISOString().split('T')[0]),
               posterPath: fc.string(),
               voteCount: fc.integer({ min: 1, max: 10000 }),
               adult: fc.boolean(),
@@ -169,13 +205,23 @@ describe('SemanticAnalysisService Property Tests', () => {
                 title: fc.string({ minLength: 1, maxLength: 100 }),
                 overview: fc.string({ minLength: 10, maxLength: 500 }),
                 genres: fc.array(
-                  fc.constantFrom('Action', 'Comedy', 'Drama', 'Horror', 'Romance'),
-                  { minLength: 1, maxLength: 3 }
+                  fc.constantFrom(
+                    'Action',
+                    'Comedy',
+                    'Drama',
+                    'Horror',
+                    'Romance',
+                  ),
+                  { minLength: 1, maxLength: 3 },
                 ),
                 voteAverage: fc.float({ min: 1, max: 10 }),
                 popularity: fc.float({ min: 1, max: 1000 }),
-                releaseDate: fc.date({ min: new Date('2000-01-01'), max: new Date('2024-12-31') })
-                  .map(d => d.toISOString().split('T')[0]),
+                releaseDate: fc
+                  .date({
+                    min: new Date('2000-01-01'),
+                    max: new Date('2024-12-31'),
+                  })
+                  .map((d) => d.toISOString().split('T')[0]),
                 posterPath: fc.string(),
                 voteCount: fc.integer({ min: 1, max: 10000 }),
                 adult: fc.boolean(),
@@ -184,18 +230,18 @@ describe('SemanticAnalysisService Property Tests', () => {
                 cachedAt: fc.date(),
                 isPopular: fc.boolean(),
               }),
-              { minLength: 1, maxLength: 20 }
+              { minLength: 1, maxLength: 20 },
             ),
           }),
           async (testData) => {
             // Calculate semantic similarities
             const similarities = await service.calculateSemanticSimilarity(
               testData.targetContent,
-              testData.candidateContent
+              testData.candidateContent,
             );
 
             // Verify all similarity scores are valid
-            similarities.forEach(similarity => {
+            similarities.forEach((similarity) => {
               expect(similarity.similarityScore).toBeGreaterThanOrEqual(0);
               expect(similarity.similarityScore).toBeLessThanOrEqual(1);
               expect(typeof similarity.mediaId).toBe('string');
@@ -205,23 +251,26 @@ describe('SemanticAnalysisService Property Tests', () => {
 
             // Verify results are sorted by similarity score (descending)
             for (let i = 1; i < similarities.length; i++) {
-              expect(similarities[i-1].similarityScore).toBeGreaterThanOrEqual(
-                similarities[i].similarityScore
-              );
+              expect(
+                similarities[i - 1].similarityScore,
+              ).toBeGreaterThanOrEqual(similarities[i].similarityScore);
             }
 
             // Verify identical content has maximum similarity
-            const identicalSimilarity = await service.calculateSemanticSimilarity(
-              testData.targetContent,
-              [testData.targetContent]
-            );
-            
+            const identicalSimilarity =
+              await service.calculateSemanticSimilarity(
+                testData.targetContent,
+                [testData.targetContent],
+              );
+
             if (identicalSimilarity.length > 0) {
-              expect(identicalSimilarity[0].similarityScore).toBeGreaterThan(0.8);
+              expect(identicalSimilarity[0].similarityScore).toBeGreaterThan(
+                0.8,
+              );
             }
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -229,49 +278,65 @@ describe('SemanticAnalysisService Property Tests', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            roomId: fc.string({ minLength: 1, maxLength: 20 }).filter(s => s.trim().length > 0),
+            roomId: fc
+              .string({ minLength: 1, maxLength: 20 })
+              .filter((s) => s.trim().length > 0),
             maxInjections: fc.integer({ min: 1, max: 20 }),
             shouldInject: fc.boolean(),
-            existingContent: fc.array(
-              fc.record({
-                tmdbId: fc.string({ minLength: 1, maxLength: 10 }).filter(s => s.trim().length > 0),
-                title: fc.string({ minLength: 1, maxLength: 100 }),
-                overview: fc.string({ minLength: 10, maxLength: 500 }),
-                genres: fc.array(
-                  fc.constantFrom('Action', 'Comedy', 'Drama'),
-                  { minLength: 1, maxLength: 2 }
-                ),
-                voteAverage: fc.float({ min: 7, max: 10 }), // High-rated content
-                popularity: fc.float({ min: 50, max: 500 }), // Moderate popularity
-                releaseDate: fc.date({ min: new Date('2015-01-01'), max: new Date('2024-12-31') })
-                  .map(d => d.toISOString().split('T')[0]),
-                posterPath: fc.string(),
-                voteCount: fc.integer({ min: 100, max: 10000 }),
-                adult: fc.boolean(),
-                originalLanguage: fc.string(),
-                mediaType: fc.constantFrom('movie', 'tv'),
-                cachedAt: fc.date(),
-                isPopular: fc.boolean(),
+            existingContent: fc
+              .array(
+                fc.record({
+                  tmdbId: fc
+                    .string({ minLength: 1, maxLength: 10 })
+                    .filter((s) => s.trim().length > 0),
+                  title: fc.string({ minLength: 1, maxLength: 100 }),
+                  overview: fc.string({ minLength: 10, maxLength: 500 }),
+                  genres: fc.array(
+                    fc.constantFrom('Action', 'Comedy', 'Drama'),
+                    { minLength: 1, maxLength: 2 },
+                  ),
+                  voteAverage: fc.float({ min: 7, max: 10 }), // High-rated content
+                  popularity: fc.float({ min: 50, max: 500 }), // Moderate popularity
+                  releaseDate: fc
+                    .date({
+                      min: new Date('2015-01-01'),
+                      max: new Date('2024-12-31'),
+                    })
+                    .map((d) => d.toISOString().split('T')[0]),
+                  posterPath: fc.string(),
+                  voteCount: fc.integer({ min: 100, max: 10000 }),
+                  adult: fc.boolean(),
+                  originalLanguage: fc.string(),
+                  mediaType: fc.constantFrom('movie', 'tv'),
+                  cachedAt: fc.date(),
+                  isPopular: fc.boolean(),
+                }),
+                { minLength: 10, maxLength: 50 },
+              )
+              .map((items) => {
+                // Asegurar IDs únicos
+                return items.map((item, index) => ({
+                  ...item,
+                  tmdbId: `movie-${index + 1}`,
+                }));
               }),
-              { minLength: 10, maxLength: 50 }
-            ).map(items => {
-              // Asegurar IDs únicos
-              return items.map((item, index) => ({
-                ...item,
-                tmdbId: `movie-${index + 1}`,
-              }));
-            }),
           }),
           async (testData) => {
             // Mock should inject decision
-            const shouldInjectSpy = jest.spyOn(service, 'shouldInjectContent')
+            const shouldInjectSpy = jest
+              .spyOn(service, 'shouldInjectContent')
               .mockResolvedValue(testData.shouldInject);
 
             // Mock content fetching
-            mockMediaService.fetchMovies.mockResolvedValue(testData.existingContent);
+            mockMediaService.fetchMovies.mockResolvedValue(
+              testData.existingContent,
+            );
 
             // Execute content injection
-            const result = await service.injectSemanticContent(testData.roomId, testData.maxInjections);
+            const result = await service.injectSemanticContent(
+              testData.roomId,
+              testData.maxInjections,
+            );
 
             // Verify shouldInjectContent was called
             expect(shouldInjectSpy).toHaveBeenCalledWith(testData.roomId);
@@ -280,15 +345,21 @@ describe('SemanticAnalysisService Property Tests', () => {
             expect(result).toBeDefined();
             expect(Array.isArray(result.injectedContent)).toBe(true);
             expect(result.analysisMetadata).toBeDefined();
-            expect(typeof result.analysisMetadata.totalPositiveVotes).toBe('number');
-            expect(typeof result.analysisMetadata.injectionReason).toBe('string');
+            expect(typeof result.analysisMetadata.totalPositiveVotes).toBe(
+              'number',
+            );
+            expect(typeof result.analysisMetadata.injectionReason).toBe(
+              'string',
+            );
 
             if (testData.shouldInject) {
               // Verify injection respects max limit
-              expect(result.injectedContent.length).toBeLessThanOrEqual(testData.maxInjections);
+              expect(result.injectedContent.length).toBeLessThanOrEqual(
+                testData.maxInjections,
+              );
 
               // Verify injected content meets quality criteria
-              result.injectedContent.forEach(item => {
+              result.injectedContent.forEach((item) => {
                 expect(item.genres.length).toBeGreaterThanOrEqual(2); // Multiple genres for bridge content
                 expect(item.voteAverage).toBeGreaterThanOrEqual(7.0); // High rating
                 expect(item.popularity).toBeGreaterThanOrEqual(50); // Moderate popularity
@@ -296,22 +367,26 @@ describe('SemanticAnalysisService Property Tests', () => {
               });
 
               // Verify content diversity (no duplicates)
-              const tmdbIds = result.injectedContent.map(item => item.tmdbId);
+              const tmdbIds = result.injectedContent.map((item) => item.tmdbId);
               const uniqueIds = new Set(tmdbIds);
               expect(uniqueIds.size).toBe(tmdbIds.length);
             } else {
               // When injection criteria not met, should return empty array
               expect(result.injectedContent.length).toBe(0);
-              expect(result.analysisMetadata.injectionReason).toContain('does not meet');
+              expect(result.analysisMetadata.injectionReason).toContain(
+                'does not meet',
+              );
             }
 
             // Verify metadata consistency
             expect(result.analysisMetadata.patternsFound).toBeDefined();
             expect(result.analysisMetadata.patternsFound.genres).toBeDefined();
-            expect(typeof result.analysisMetadata.patternsFound.averageRating).toBe('number');
-          }
+            expect(
+              typeof result.analysisMetadata.patternsFound.averageRating,
+            ).toBe('number');
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -325,24 +400,33 @@ describe('SemanticAnalysisService Property Tests', () => {
           }),
           async (testData) => {
             // Mock metrics for injection criteria
-            jest.spyOn(service as any, 'getRecentMatches').mockResolvedValue(
-              Array(testData.recentMatches).fill({})
-            );
-            jest.spyOn(service as any, 'countTotalVotes').mockResolvedValue(testData.totalVotes);
+            jest
+              .spyOn(service as any, 'getRecentMatches')
+              .mockResolvedValue(Array(testData.recentMatches).fill({}));
+            jest
+              .spyOn(service as any, 'countTotalVotes')
+              .mockResolvedValue(testData.totalVotes);
 
             // Evaluate injection criteria multiple times
-            const evaluation1 = await service.shouldInjectContent(testData.roomId);
-            const evaluation2 = await service.shouldInjectContent(testData.roomId);
-            const evaluation3 = await service.shouldInjectContent(testData.roomId);
+            const evaluation1 = await service.shouldInjectContent(
+              testData.roomId,
+            );
+            const evaluation2 = await service.shouldInjectContent(
+              testData.roomId,
+            );
+            const evaluation3 = await service.shouldInjectContent(
+              testData.roomId,
+            );
 
             // Verify consistency across evaluations
             expect(evaluation1).toBe(evaluation2);
             expect(evaluation2).toBe(evaluation3);
 
             // Verify injection logic follows expected criteria
-            const expectedShouldInject = testData.recentMatches < 2 && 
-                                       testData.totalVotes > 20 && 
-                                       (testData.recentMatches / Math.max(testData.totalVotes, 1)) < 0.05;
+            const expectedShouldInject =
+              testData.recentMatches < 2 &&
+              testData.totalVotes > 20 &&
+              testData.recentMatches / Math.max(testData.totalVotes, 1) < 0.05;
 
             expect(evaluation1).toBe(expectedShouldInject);
 
@@ -354,9 +438,9 @@ describe('SemanticAnalysisService Property Tests', () => {
             if (testData.recentMatches >= 2) {
               expect(evaluation1).toBe(false); // Sufficient matches = no injection
             }
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -371,13 +455,23 @@ describe('SemanticAnalysisService Property Tests', () => {
                 title: fc.string({ minLength: 1, maxLength: 100 }),
                 overview: fc.string({ minLength: 10, maxLength: 500 }),
                 genres: fc.array(
-                  fc.constantFrom('Action', 'Comedy', 'Drama', 'Romance', 'Thriller'),
-                  { minLength: 1, maxLength: 4 }
+                  fc.constantFrom(
+                    'Action',
+                    'Comedy',
+                    'Drama',
+                    'Romance',
+                    'Thriller',
+                  ),
+                  { minLength: 1, maxLength: 4 },
                 ),
                 voteAverage: fc.float({ min: 1, max: 10 }),
                 popularity: fc.float({ min: 1, max: 1000 }),
-                releaseDate: fc.date({ min: new Date('2000-01-01'), max: new Date('2024-12-31') })
-                  .map(d => d.toISOString().split('T')[0]),
+                releaseDate: fc
+                  .date({
+                    min: new Date('2000-01-01'),
+                    max: new Date('2024-12-31'),
+                  })
+                  .map((d) => d.toISOString().split('T')[0]),
                 posterPath: fc.string(),
                 voteCount: fc.integer({ min: 1, max: 10000 }),
                 adult: fc.boolean(),
@@ -386,18 +480,18 @@ describe('SemanticAnalysisService Property Tests', () => {
                 cachedAt: fc.date(),
                 isPopular: fc.boolean(),
               }),
-              { minLength: 20, maxLength: 100 }
+              { minLength: 20, maxLength: 100 },
             ),
           }),
           async (testData) => {
             // Use private method to test bridge content identification
             const bridgeContent = await (service as any).identifyBridgeContent(
-              testData.roomId, 
-              testData.candidateContent
+              testData.roomId,
+              testData.candidateContent,
             );
 
             // Verify bridge content meets quality criteria
-            bridgeContent.forEach(item => {
+            bridgeContent.forEach((item) => {
               expect(item.genres.length).toBeGreaterThanOrEqual(2); // Multiple genres
               expect(item.voteAverage).toBeGreaterThanOrEqual(7.0); // High rating
               expect(item.popularity).toBeGreaterThanOrEqual(50); // Not too niche
@@ -406,26 +500,29 @@ describe('SemanticAnalysisService Property Tests', () => {
 
             // Verify content is sorted by bridge potential (genre diversity * rating)
             for (let i = 1; i < bridgeContent.length; i++) {
-              const scoreA = bridgeContent[i-1].genres.length * bridgeContent[i-1].voteAverage;
-              const scoreB = bridgeContent[i].genres.length * bridgeContent[i].voteAverage;
+              const scoreA =
+                bridgeContent[i - 1].genres.length *
+                bridgeContent[i - 1].voteAverage;
+              const scoreB =
+                bridgeContent[i].genres.length * bridgeContent[i].voteAverage;
               expect(scoreA).toBeGreaterThanOrEqual(scoreB);
             }
 
             // Verify no duplicates in bridge content
-            const tmdbIds = bridgeContent.map(item => item.tmdbId);
+            const tmdbIds = bridgeContent.map((item) => item.tmdbId);
             const uniqueIds = new Set(tmdbIds);
             expect(uniqueIds.size).toBe(tmdbIds.length);
 
             // Verify bridge content is subset of candidates
-            bridgeContent.forEach(bridgeItem => {
+            bridgeContent.forEach((bridgeItem) => {
               const found = testData.candidateContent.some(
-                candidate => candidate.tmdbId === bridgeItem.tmdbId
+                (candidate) => candidate.tmdbId === bridgeItem.tmdbId,
               );
               expect(found).toBe(true);
             });
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
   });

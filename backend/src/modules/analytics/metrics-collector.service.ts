@@ -20,7 +20,7 @@ export class MetricsCollector {
    */
   async collectUserMetrics(
     userId: string,
-    timeRange?: TimeRange
+    timeRange?: TimeRange,
   ): Promise<UserMetrics> {
     try {
       this.logger.log(`📊 Collecting user metrics for ${userId}...`);
@@ -44,7 +44,9 @@ export class MetricsCollector {
       // Store metrics for future aggregation
       await this.storeUserMetrics(userMetrics);
 
-      this.logger.log(`📊 User metrics collected for ${userId}: ${userMetrics.votesSubmitted} votes`);
+      this.logger.log(
+        `📊 User metrics collected for ${userId}: ${userMetrics.votesSubmitted} votes`,
+      );
       return userMetrics;
     } catch (error) {
       this.logger.error('❌ Error collecting user metrics:', error);
@@ -57,7 +59,7 @@ export class MetricsCollector {
    */
   async collectRoomMetrics(
     roomId: string,
-    timeRange?: TimeRange
+    timeRange?: TimeRange,
   ): Promise<RoomMetrics> {
     try {
       this.logger.log(`🏠 Collecting room metrics for ${roomId}...`);
@@ -85,7 +87,9 @@ export class MetricsCollector {
       // Store metrics for future aggregation
       await this.storeRoomMetrics(roomMetrics);
 
-      this.logger.log(`🏠 Room metrics collected for ${roomId}: ${roomMetrics.matchesFound} matches`);
+      this.logger.log(
+        `🏠 Room metrics collected for ${roomId}: ${roomMetrics.matchesFound} matches`,
+      );
       return roomMetrics;
     } catch (error) {
       this.logger.error('❌ Error collecting room metrics:', error);
@@ -97,7 +101,9 @@ export class MetricsCollector {
   private async storeUserMetrics(metrics: UserMetrics): Promise<void> {
     try {
       // Mock storage - in real scenario, store in DynamoDB
-      this.logger.debug(`Storing user metrics: ${JSON.stringify(metrics, null, 2)}`);
+      this.logger.debug(
+        `Storing user metrics: ${JSON.stringify(metrics, null, 2)}`,
+      );
     } catch (error) {
       this.logger.error('❌ Error storing user metrics:', error);
       throw error;
@@ -107,7 +113,9 @@ export class MetricsCollector {
   private async storeRoomMetrics(metrics: RoomMetrics): Promise<void> {
     try {
       // Mock storage - in real scenario, store in DynamoDB
-      this.logger.debug(`Storing room metrics: ${JSON.stringify(metrics, null, 2)}`);
+      this.logger.debug(
+        `Storing room metrics: ${JSON.stringify(metrics, null, 2)}`,
+      );
     } catch (error) {
       this.logger.error('❌ Error storing room metrics:', error);
       throw error;

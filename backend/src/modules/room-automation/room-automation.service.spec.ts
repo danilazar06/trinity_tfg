@@ -6,7 +6,7 @@ import { AnalyticsService } from '../analytics/analytics.service';
 import { RoomService } from '../room/room.service';
 import { InteractionService } from '../interaction/interaction.service';
 import { MediaService } from '../media/media.service';
-import { RealtimeService } from '../realtime/realtime.service';
+import { RealtimeCompatibilityService } from '../realtime/realtime-compatibility.service';
 import * as fc from 'fast-check';
 import {
   AutomationLevel,
@@ -23,7 +23,7 @@ describe('RoomAutomationService', () => {
   let roomService: jest.Mocked<RoomService>;
   let interactionService: jest.Mocked<InteractionService>;
   let mediaService: jest.Mocked<MediaService>;
-  let realtimeService: jest.Mocked<RealtimeService>;
+  let realtimeService: jest.Mocked<RealtimeCompatibilityService>;
 
   beforeEach(async () => {
     const mockMultiTableService = {
@@ -58,6 +58,8 @@ describe('RoomAutomationService', () => {
 
     const mockRealtimeService = {
       notifyRoom: jest.fn(),
+      publishEvent: jest.fn(),
+      subscribeToRoom: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -69,7 +71,10 @@ describe('RoomAutomationService', () => {
         { provide: RoomService, useValue: mockRoomService },
         { provide: InteractionService, useValue: mockInteractionService },
         { provide: MediaService, useValue: mockMediaService },
-        { provide: RealtimeService, useValue: mockRealtimeService },
+        {
+          provide: RealtimeCompatibilityService,
+          useValue: mockRealtimeService,
+        },
       ],
     }).compile();
 
@@ -80,7 +85,7 @@ describe('RoomAutomationService', () => {
     roomService = module.get(RoomService);
     interactionService = module.get(InteractionService);
     mediaService = module.get(MediaService);
-    realtimeService = module.get(RealtimeService);
+    realtimeService = module.get(RealtimeCompatibilityService);
   });
 
   it('should be defined', () => {
@@ -96,17 +101,23 @@ describe('RoomAutomationService', () => {
               roomId: fc.string({ minLength: 1, maxLength: 50 }),
               userId: fc.string({ minLength: 1, maxLength: 50 }),
               isEnabled: fc.boolean(),
-              automationLevel: fc.constantFrom(...Object.values(AutomationLevel)),
+              automationLevel: fc.constantFrom(
+                ...Object.values(AutomationLevel),
+              ),
             }),
             async ({ roomId, userId, isEnabled, automationLevel }) => {
               // Mock successful database operations
               multiTableService.create.mockResolvedValue(undefined);
               eventTracker.trackEvent.mockResolvedValue(undefined);
 
-              const config = await service.createAutomationConfig(roomId, userId, {
-                isEnabled,
-                automationLevel,
-              });
+              const config = await service.createAutomationConfig(
+                roomId,
+                userId,
+                {
+                  isEnabled,
+                  automationLevel,
+                },
+              );
 
               // Verify config structure
               expect(config).toBeDefined();
@@ -131,18 +142,18 @@ describe('RoomAutomationService', () => {
                 expect.objectContaining({
                   PK: `ROOM#${roomId}`,
                   SK: expect.stringMatching(/^AUTOMATION#/),
-                })
+                }),
               );
               expect(eventTracker.trackEvent).toHaveBeenCalledWith(
                 expect.objectContaining({
                   eventType: 'automation_created',
                   userId,
                   roomId,
-                })
+                }),
               );
-            }
+            },
           ),
-          { numRuns: 50 }
+          { numRuns: 50 },
         );
       });
     });
@@ -153,7 +164,9 @@ describe('RoomAutomationService', () => {
           fc.asyncProperty(
             fc.record({
               roomId: fc.string({ minLength: 1, maxLength: 50 }),
-              automationLevel: fc.constantFrom(...Object.values(AutomationLevel)),
+              automationLevel: fc.constantFrom(
+                ...Object.values(AutomationLevel),
+              ),
               confidence: fc.float({ min: 0, max: 1 }),
             }),
             async ({ roomId, automationLevel, confidence }) => {
@@ -164,9 +177,18 @@ describe('RoomAutomationService', () => {
                 creatorId: 'test-user',
                 isEnabled: true,
                 automationLevel,
-                contentOptimization: { enabled: true, smartInjection: { enabled: true } },
-                sessionOptimization: { enabled: true, sessionManagement: { enabled: true } },
-                memberEngagement: { enabled: true, engagementOptimization: { enabled: true } },
+                contentOptimization: {
+                  enabled: true,
+                  smartInjection: { enabled: true },
+                },
+                sessionOptimization: {
+                  enabled: true,
+                  sessionManagement: { enabled: true },
+                },
+                memberEngagement: {
+                  enabled: true,
+                  engagementOptimization: { enabled: true },
+                },
                 preferenceLearning: { enabled: true },
                 performanceMetrics: {
                   totalOptimizations: 0,
@@ -198,7 +220,10 @@ describe('RoomAutomationService', () => {
               };
 
               // Test decision application logic
-              const shouldApply = service['isDecisionApplicable'](mockDecision, automationLevel);
+              const shouldApply = service['isDecisionApplicable'](
+                mockDecision,
+                automationLevel,
+              );
 
               // Verify decision application follows automation level rules
               switch (automationLevel) {
@@ -231,15 +256,18 @@ describe('RoomAutomationService', () => {
                   }
                   break;
               }
-            }
+            },
           ),
-          { numRuns: 100 }
+          { numRuns: 100 },
         );
       });
 
       // Helper method for testing (would be private in actual implementation)
       beforeEach(() => {
-        (service as any).isDecisionApplicable = (decision: any, automationLevel: AutomationLevel) => {
+        (service as any).isDecisionApplicable = (
+          decision: any,
+          automationLevel: AutomationLevel,
+        ) => {
           switch (automationLevel) {
             case AutomationLevel.BASIC:
               return decision.confidence > 0.8;
@@ -282,12 +310,14 @@ describe('RoomAutomationService', () => {
               };
 
               multiTableService.query.mockResolvedValue([mockConfig]);
-              
+
               let updatedConfig = { ...mockConfig };
-              multiTableService.update.mockImplementation((table, key, data) => {
-                updatedConfig = { ...updatedConfig, ...data };
-                return Promise.resolve(undefined);
-              });
+              multiTableService.update.mockImplementation(
+                (table, key, data) => {
+                  updatedConfig = { ...updatedConfig, ...data };
+                  return Promise.resolve(undefined);
+                },
+              );
 
               // Simulate operations
               const decisions = [];
@@ -310,20 +340,27 @@ describe('RoomAutomationService', () => {
               await service['updatePerformanceMetrics'](roomId, decisions);
 
               // Verify metrics calculation
-              expect(updatedConfig.performanceMetrics.totalOptimizations).toBe(totalOps);
-              expect(updatedConfig.performanceMetrics.successfulOptimizations).toBe(successfulOps);
-              expect(updatedConfig.performanceMetrics.failedOptimizations).toBe(failedOps);
+              expect(updatedConfig.performanceMetrics.totalOptimizations).toBe(
+                totalOps,
+              );
+              expect(
+                updatedConfig.performanceMetrics.successfulOptimizations,
+              ).toBe(successfulOps);
+              expect(updatedConfig.performanceMetrics.failedOptimizations).toBe(
+                failedOps,
+              );
 
               // Verify success rate calculation
               if (totalOps > 0) {
                 const expectedSuccessRate = successfulOps / totalOps;
-                const actualSuccessRate = updatedConfig.performanceMetrics.successfulOptimizations / 
-                                        updatedConfig.performanceMetrics.totalOptimizations;
+                const actualSuccessRate =
+                  updatedConfig.performanceMetrics.successfulOptimizations /
+                  updatedConfig.performanceMetrics.totalOptimizations;
                 expect(actualSuccessRate).toBeCloseTo(expectedSuccessRate, 2);
               }
-            }
+            },
           ),
-          { numRuns: 50 }
+          { numRuns: 50 },
         );
       });
     });
@@ -336,7 +373,9 @@ describe('RoomAutomationService', () => {
               roomId: fc.string({ minLength: 1, maxLength: 50 }),
               userId: fc.string({ minLength: 1, maxLength: 50 }),
               isEnabled: fc.boolean(),
-              newAutomationLevel: fc.constantFrom(...Object.values(AutomationLevel)),
+              newAutomationLevel: fc.constantFrom(
+                ...Object.values(AutomationLevel),
+              ),
             }),
             async ({ roomId, userId, isEnabled, newAutomationLevel }) => {
               // Mock existing config
@@ -364,7 +403,11 @@ describe('RoomAutomationService', () => {
                 automationLevel: newAutomationLevel,
               };
 
-              const updatedConfig = await service.updateAutomationConfig(roomId, userId, updates);
+              const updatedConfig = await service.updateAutomationConfig(
+                roomId,
+                userId,
+                updates,
+              );
 
               // Verify updates were applied
               expect(updatedConfig.isEnabled).toBe(isEnabled);
@@ -375,11 +418,13 @@ describe('RoomAutomationService', () => {
               expect(updatedConfig.roomId).toBe(existingConfig.roomId);
               expect(updatedConfig.creatorId).toBe(existingConfig.creatorId);
               expect(updatedConfig.createdAt).toEqual(existingConfig.createdAt);
-              expect(updatedConfig.performanceMetrics.totalOptimizations).toBe(5);
+              expect(updatedConfig.performanceMetrics.totalOptimizations).toBe(
+                5,
+              );
 
               // Verify updatedAt was changed
               expect(updatedConfig.updatedAt.getTime()).toBeGreaterThan(
-                existingConfig.updatedAt.getTime()
+                existingConfig.updatedAt.getTime(),
               );
 
               // Verify database update was called
@@ -389,7 +434,7 @@ describe('RoomAutomationService', () => {
                   PK: `ROOM#${roomId}`,
                   SK: `AUTOMATION#${existingConfig.id}`,
                 },
-                updatedConfig
+                updatedConfig,
               );
 
               // Verify event tracking
@@ -398,11 +443,11 @@ describe('RoomAutomationService', () => {
                   eventType: 'automation_updated',
                   userId,
                   roomId,
-                })
+                }),
               );
-            }
+            },
           ),
-          { numRuns: 50 }
+          { numRuns: 50 },
         );
       });
     });
@@ -417,7 +462,12 @@ describe('RoomAutomationService', () => {
               hasInactiveMembers: fc.boolean(),
               hasSuboptimalTiming: fc.boolean(),
             }),
-            async ({ roomId, hasLowEngagement, hasInactiveMembers, hasSuboptimalTiming }) => {
+            async ({
+              roomId,
+              hasLowEngagement,
+              hasInactiveMembers,
+              hasSuboptimalTiming,
+            }) => {
               // Mock automation config
               const mockConfig = {
                 id: `automation_${roomId}`,
@@ -432,11 +482,12 @@ describe('RoomAutomationService', () => {
 
               multiTableService.query.mockResolvedValue([mockConfig]);
 
-              const recommendations = await service.generateSmartRecommendations(roomId);
+              const recommendations =
+                await service.generateSmartRecommendations(roomId);
 
               // Verify recommendations structure
               expect(Array.isArray(recommendations)).toBe(true);
-              
+
               for (const rec of recommendations) {
                 expect(rec.id).toBeDefined();
                 expect(rec.roomId).toBe(roomId);
@@ -446,7 +497,9 @@ describe('RoomAutomationService', () => {
                 expect(rec.description).toBeDefined();
                 expect(rec.confidence).toBeGreaterThanOrEqual(0);
                 expect(rec.confidence).toBeLessThanOrEqual(1);
-                expect(Object.values(RecommendationPriority)).toContain(rec.priority);
+                expect(Object.values(RecommendationPriority)).toContain(
+                  rec.priority,
+                );
                 expect(rec.expectedBenefit).toBeDefined();
                 expect(typeof rec.actionRequired).toBe('boolean');
                 expect(typeof rec.autoApplicable).toBe('boolean');
@@ -457,20 +510,27 @@ describe('RoomAutomationService', () => {
               for (let i = 1; i < recommendations.length; i++) {
                 const prev = recommendations[i - 1];
                 const curr = recommendations[i];
-                
-                const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
+
+                const priorityOrder = {
+                  critical: 4,
+                  high: 3,
+                  medium: 2,
+                  low: 1,
+                };
                 const prevPriority = priorityOrder[prev.priority];
                 const currPriority = priorityOrder[curr.priority];
-                
+
                 if (prevPriority === currPriority) {
-                  expect(prev.confidence).toBeGreaterThanOrEqual(curr.confidence);
+                  expect(prev.confidence).toBeGreaterThanOrEqual(
+                    curr.confidence,
+                  );
                 } else {
                   expect(prevPriority).toBeGreaterThanOrEqual(currPriority);
                 }
               }
-            }
+            },
           ),
-          { numRuns: 30 }
+          { numRuns: 30 },
         );
       });
     });
@@ -479,9 +539,9 @@ describe('RoomAutomationService', () => {
       it('should handle multiple room optimizations efficiently', async () => {
         // Simplified test that focuses on the core functionality
         const roomIds = ['room1', 'room2', 'room3'];
-        
+
         // Mock configs for each room - need to mock both query calls
-        roomIds.forEach(roomId => {
+        roomIds.forEach((roomId) => {
           const mockConfig = {
             id: `automation_${roomId}`,
             roomId,
@@ -491,9 +551,13 @@ describe('RoomAutomationService', () => {
             sessionOptimization: { enabled: false },
             memberEngagement: { enabled: false },
             preferenceLearning: { enabled: false },
-            performanceMetrics: { totalOptimizations: 0, successfulOptimizations: 0, failedOptimizations: 0 },
+            performanceMetrics: {
+              totalOptimizations: 0,
+              successfulOptimizations: 0,
+              failedOptimizations: 0,
+            },
           };
-          
+
           // Mock both the initial query and the performance metrics update query
           multiTableService.query.mockResolvedValueOnce([mockConfig]);
           multiTableService.query.mockResolvedValueOnce([mockConfig]);
@@ -502,18 +566,18 @@ describe('RoomAutomationService', () => {
         multiTableService.update.mockResolvedValue(undefined);
 
         const startTime = Date.now();
-        
+
         // Run optimizations
         const results = await Promise.all(
-          roomIds.map(roomId => service.optimizeRoom(roomId))
+          roomIds.map((roomId) => service.optimizeRoom(roomId)),
         );
-        
+
         const endTime = Date.now();
         const executionTime = endTime - startTime;
 
         // Verify results
         expect(results).toHaveLength(3);
-        results.forEach(decisions => {
+        results.forEach((decisions) => {
           expect(Array.isArray(decisions)).toBe(true);
         });
 
@@ -525,7 +589,7 @@ describe('RoomAutomationService', () => {
     describe('🔄 Property 7: Automation State Consistency', () => {
       it('should maintain consistent automation state across operations', async () => {
         const roomId = 'test-room-123';
-        
+
         // Mock initial config with complete structure
         let currentConfig = {
           id: `automation_${roomId}`,
@@ -547,7 +611,9 @@ describe('RoomAutomationService', () => {
           updatedAt: new Date(),
         };
 
-        multiTableService.query.mockImplementation(() => Promise.resolve([currentConfig]));
+        multiTableService.query.mockImplementation(() =>
+          Promise.resolve([currentConfig]),
+        );
         multiTableService.update.mockImplementation((table, key, data) => {
           currentConfig = { ...currentConfig, ...data };
           return Promise.resolve(undefined);
@@ -558,17 +624,26 @@ describe('RoomAutomationService', () => {
         eventTracker.trackEvent.mockClear();
 
         // Test enable operation
-        await service.updateAutomationConfig(roomId, 'test-user', { isEnabled: true });
+        await service.updateAutomationConfig(roomId, 'test-user', {
+          isEnabled: true,
+        });
         expect(currentConfig.isEnabled).toBe(true);
         expect(eventTracker.trackEvent).toHaveBeenCalledTimes(1);
 
         // Test disable operation
-        await service.updateAutomationConfig(roomId, 'test-user', { isEnabled: false });
+        await service.updateAutomationConfig(roomId, 'test-user', {
+          isEnabled: false,
+        });
         expect(currentConfig.isEnabled).toBe(false);
         expect(eventTracker.trackEvent).toHaveBeenCalledTimes(2);
 
         // Test feedback operation
-        await service.provideAutomationFeedback(roomId, 'test-user', 'general', 4);
+        await service.provideAutomationFeedback(
+          roomId,
+          'test-user',
+          'general',
+          4,
+        );
         expect(eventTracker.trackEvent).toHaveBeenCalledTimes(3);
 
         // Verify final state consistency
@@ -586,7 +661,11 @@ describe('RoomAutomationService', () => {
         multiTableService.create.mockResolvedValue(undefined);
         eventTracker.trackEvent.mockResolvedValue(undefined);
 
-        const config = await service.createAutomationConfig('room1', 'user1', {});
+        const config = await service.createAutomationConfig(
+          'room1',
+          'user1',
+          {},
+        );
 
         expect(config.roomId).toBe('room1');
         expect(config.creatorId).toBe('user1');
@@ -607,7 +686,11 @@ describe('RoomAutomationService', () => {
           automationLevel: AutomationLevel.ADVANCED,
         };
 
-        const config = await service.createAutomationConfig('room1', 'user1', customConfig);
+        const config = await service.createAutomationConfig(
+          'room1',
+          'user1',
+          customConfig,
+        );
 
         expect(config.isEnabled).toBe(false);
         expect(config.automationLevel).toBe(AutomationLevel.ADVANCED);
@@ -638,7 +721,7 @@ describe('RoomAutomationService', () => {
         multiTableService.query.mockResolvedValue([]);
 
         await expect(
-          service.updateAutomationConfig('nonexistent', 'user1', {})
+          service.updateAutomationConfig('nonexistent', 'user1', {}),
         ).rejects.toThrow('Automation config not found');
       });
 
@@ -654,10 +737,16 @@ describe('RoomAutomationService', () => {
         eventTracker.trackEvent.mockResolvedValue(undefined);
 
         const updates = { isEnabled: false };
-        const result = await service.updateAutomationConfig('room1', 'user1', updates);
+        const result = await service.updateAutomationConfig(
+          'room1',
+          'user1',
+          updates,
+        );
 
         expect(result.isEnabled).toBe(false);
-        expect(result.updatedAt.getTime()).toBeGreaterThan(existingConfig.createdAt.getTime());
+        expect(result.updatedAt.getTime()).toBeGreaterThan(
+          existingConfig.createdAt.getTime(),
+        );
       });
     });
 
@@ -665,7 +754,8 @@ describe('RoomAutomationService', () => {
       it('should return empty array when no config exists', async () => {
         multiTableService.query.mockResolvedValue([]);
 
-        const recommendations = await service.generateSmartRecommendations('room1');
+        const recommendations =
+          await service.generateSmartRecommendations('room1');
 
         expect(recommendations).toEqual([]);
       });
@@ -679,12 +769,13 @@ describe('RoomAutomationService', () => {
         };
         multiTableService.query.mockResolvedValue([mockConfig]);
 
-        const recommendations = await service.generateSmartRecommendations('room1');
+        const recommendations =
+          await service.generateSmartRecommendations('room1');
 
         expect(Array.isArray(recommendations)).toBe(true);
         expect(recommendations.length).toBeGreaterThan(0);
-        
-        recommendations.forEach(rec => {
+
+        recommendations.forEach((rec) => {
           expect(rec.roomId).toBe('room1');
           expect(rec.confidence).toBeGreaterThanOrEqual(0);
           expect(rec.confidence).toBeLessThanOrEqual(1);
@@ -695,10 +786,18 @@ describe('RoomAutomationService', () => {
     describe('provideAutomationFeedback', () => {
       it('should track feedback event', async () => {
         eventTracker.trackEvent.mockResolvedValue(undefined);
-        multiTableService.query.mockResolvedValue([{ id: 'test', performanceMetrics: {} }]);
+        multiTableService.query.mockResolvedValue([
+          { id: 'test', performanceMetrics: {} },
+        ]);
         multiTableService.update.mockResolvedValue(undefined);
 
-        await service.provideAutomationFeedback('room1', 'user1', 'general', 5, 'Great!');
+        await service.provideAutomationFeedback(
+          'room1',
+          'user1',
+          'general',
+          5,
+          'Great!',
+        );
 
         expect(eventTracker.trackEvent).toHaveBeenCalledWith({
           eventType: 'automation_feedback',

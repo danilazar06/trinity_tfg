@@ -2,7 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
 import { DynamoDBKeys } from '../../infrastructure/database/dynamodb.constants';
-import { Member, MemberRole, MemberStatus } from '../../domain/entities/room.entity';
+import {
+  Member,
+  MemberRole,
+  MemberStatus,
+} from '../../domain/entities/room.entity';
 import { EventTracker } from '../analytics/event-tracker.service';
 import { EventType } from '../analytics/interfaces/analytics.interfaces';
 
@@ -16,13 +20,20 @@ export class MemberService {
     private configService: ConfigService,
     private eventTracker: EventTracker,
   ) {
-    this.inactiveTimeoutMinutes = this.configService.get('INACTIVE_MEMBER_TIMEOUT_MINUTES', 30);
+    this.inactiveTimeoutMinutes = this.configService.get(
+      'INACTIVE_MEMBER_TIMEOUT_MINUTES',
+      30,
+    );
   }
 
   /**
    * Añadir un miembro a la sala
    */
-  async addMember(roomId: string, userId: string, role: MemberRole): Promise<Member> {
+  async addMember(
+    roomId: string,
+    userId: string,
+    role: MemberRole,
+  ): Promise<Member> {
     const member: Member = {
       userId,
       roomId,
@@ -55,11 +66,13 @@ export class MemberService {
         {
           source: 'member_service',
           userAgent: 'backend',
-        }
+        },
       );
     }
 
-    this.logger.log(`Miembro añadido: ${userId} a la sala ${roomId} con rol ${role}`);
+    this.logger.log(
+      `Miembro añadido: ${userId} a la sala ${roomId} con rol ${role}`,
+    );
     return member;
   }
 
@@ -75,7 +88,9 @@ export class MemberService {
 
       return item ? (item as Member) : null;
     } catch (error) {
-      this.logger.error(`Error getting member ${userId} from room ${roomId}: ${error.message}`);
+      this.logger.error(
+        `Error getting member ${userId} from room ${roomId}: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -95,7 +110,9 @@ export class MemberService {
 
       return items as Member[];
     } catch (error) {
-      this.logger.error(`Error getting members for room ${roomId}: ${error.message}`);
+      this.logger.error(
+        `Error getting members for room ${roomId}: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -108,9 +125,10 @@ export class MemberService {
     const now = new Date();
     const timeoutMs = this.inactiveTimeoutMinutes * 60 * 1000;
 
-    return allMembers.filter(member => {
+    return allMembers.filter((member) => {
       const lastActivity = new Date(member.lastActivityAt);
-      const isRecentlyActive = (now.getTime() - lastActivity.getTime()) < timeoutMs;
+      const isRecentlyActive =
+        now.getTime() - lastActivity.getTime() < timeoutMs;
       return member.status === MemberStatus.ACTIVE && isRecentlyActive;
     });
   }
@@ -130,7 +148,7 @@ export class MemberService {
       {
         source: 'member_service',
         userAgent: 'backend',
-      }
+      },
     );
 
     // Eliminar el miembro
@@ -190,7 +208,9 @@ export class MemberService {
       },
     );
 
-    this.logger.log(`Lista desordenada actualizada para miembro ${userId} en sala ${roomId}`);
+    this.logger.log(
+      `Lista desordenada actualizada para miembro ${userId} en sala ${roomId}`,
+    );
   }
 
   /**
@@ -225,10 +245,10 @@ export class MemberService {
   generateShuffledList(masterList: string[], seed?: string): string[] {
     // Usar el userId como seed para que sea consistente pero único por usuario
     const shuffled = [...masterList];
-    
+
     // Algoritmo Fisher-Yates con seed
-    let random = this.seededRandom(seed || Date.now().toString());
-    
+    const random = this.seededRandom(seed || Date.now().toString());
+
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
@@ -244,11 +264,11 @@ export class MemberService {
     let hash = 0;
     for (let i = 0; i < seed.length; i++) {
       const char = seed.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32bit integer
     }
-    
-    return function() {
+
+    return function () {
       hash = Math.sin(hash) * 10000;
       return hash - Math.floor(hash);
     };
@@ -257,7 +277,10 @@ export class MemberService {
   /**
    * Eliminar todos los votos de un miembro en una sala
    */
-  private async removeAllMemberVotes(roomId: string, userId: string): Promise<void> {
+  private async removeAllMemberVotes(
+    roomId: string,
+    userId: string,
+  ): Promise<void> {
     try {
       // Obtener todos los votos del miembro en esta sala
       const votes = await this.dynamoDBService.query({
@@ -273,7 +296,9 @@ export class MemberService {
         await this.dynamoDBService.deleteItem(vote.PK, vote.SK);
       }
 
-      this.logger.log(`Eliminados ${votes.length} votos del miembro ${userId} en sala ${roomId}`);
+      this.logger.log(
+        `Eliminados ${votes.length} votos del miembro ${userId} en sala ${roomId}`,
+      );
     } catch (error) {
       this.logger.error(`Error removing member votes: ${error.message}`);
       throw error;
@@ -283,7 +308,10 @@ export class MemberService {
   /**
    * Obtener progreso del miembro en la sala
    */
-  async getMemberProgress(roomId: string, userId: string): Promise<{
+  async getMemberProgress(
+    roomId: string,
+    userId: string,
+  ): Promise<{
     currentIndex: number;
     totalItems: number;
     progressPercentage: number;
@@ -296,7 +324,8 @@ export class MemberService {
 
     const totalItems = member.shuffledList.length;
     const currentIndex = member.currentIndex;
-    const progressPercentage = totalItems > 0 ? (currentIndex / totalItems) * 100 : 0;
+    const progressPercentage =
+      totalItems > 0 ? (currentIndex / totalItems) * 100 : 0;
     const remainingItems = Math.max(0, totalItems - currentIndex);
 
     return {
@@ -310,7 +339,10 @@ export class MemberService {
   /**
    * Obtener siguiente elemento multimedia para el miembro
    */
-  async getNextMediaForMember(roomId: string, userId: string): Promise<string | null> {
+  async getNextMediaForMember(
+    roomId: string,
+    userId: string,
+  ): Promise<string | null> {
     const member = await this.getMember(roomId, userId);
     if (!member) {
       throw new Error('Miembro no encontrado');
@@ -342,7 +374,9 @@ export class MemberService {
         },
       );
 
-      this.logger.log(`Miembro ${userId} marcado como inactivo en sala ${roomId}`);
+      this.logger.log(
+        `Miembro ${userId} marcado como inactivo en sala ${roomId}`,
+      );
     } catch (error) {
       this.logger.error(`Error marking member inactive: ${error.message}`);
       throw error;
@@ -352,7 +386,10 @@ export class MemberService {
   /**
    * Generar listas desordenadas para todos los miembros de una sala
    */
-  async generateShuffledListsForAllMembers(roomId: string, masterList: string[]): Promise<number> {
+  async generateShuffledListsForAllMembers(
+    roomId: string,
+    masterList: string[],
+  ): Promise<number> {
     const members = await this.getRoomMembers(roomId);
 
     for (const member of members) {
@@ -361,7 +398,9 @@ export class MemberService {
       await this.updateMemberShuffledList(roomId, member.userId, shuffledList);
     }
 
-    this.logger.log(`Listas desordenadas generadas para ${members.length} miembros en sala ${roomId}`);
+    this.logger.log(
+      `Listas desordenadas generadas para ${members.length} miembros en sala ${roomId}`,
+    );
     return members.length;
   }
 }

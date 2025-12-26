@@ -29,7 +29,7 @@ export class DynamoDBService {
   constructor(private configService: ConfigService) {
     // Configuración para desarrollo local o AWS
     const isLocal = this.configService.get('NODE_ENV') === 'development';
-    
+
     if (isLocal) {
       // Para desarrollo local con DynamoDB Local
       this.dynamodb = new AWS.DynamoDB.DocumentClient({
@@ -48,7 +48,10 @@ export class DynamoDBService {
       this.dynamodb = new AWS.DynamoDB.DocumentClient();
     }
 
-    this.tableName = this.configService.get('DYNAMODB_TABLE_NAME', 'trinity-main');
+    this.tableName = this.configService.get(
+      'DYNAMODB_TABLE_NAME',
+      'trinity-main',
+    );
   }
 
   /**
@@ -86,7 +89,7 @@ export class DynamoDBService {
         })
         .promise();
 
-      return result.Item as DynamoDBItem || null;
+      return (result.Item as DynamoDBItem) || null;
     } catch (error) {
       this.logger.error(`Error getting item: ${error.message}`, error.stack);
       throw error;
@@ -104,7 +107,7 @@ export class DynamoDBService {
       };
 
       const result = await this.dynamodb.query(params).promise();
-      return result.Items as DynamoDBItem[] || [];
+      return (result.Items as DynamoDBItem[]) || [];
     } catch (error) {
       this.logger.error(`Error querying items: ${error.message}`, error.stack);
       throw error;
@@ -132,13 +135,17 @@ export class DynamoDBService {
         };
 
         const result = await this.dynamodb.batchGet(params).promise();
-        const items = result.Responses?.[this.tableName] as DynamoDBItem[] || [];
+        const items =
+          (result.Responses?.[this.tableName] as DynamoDBItem[]) || [];
         allItems.push(...items);
       }
 
       return allItems;
     } catch (error) {
-      this.logger.error(`Error batch getting items: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error batch getting items: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -154,7 +161,7 @@ export class DynamoDBService {
       const chunks = this.chunkArray(items, 25);
 
       for (const chunk of chunks) {
-        const writeRequests = chunk.map(item => ({
+        const writeRequests = chunk.map((item) => ({
           PutRequest: {
             Item: {
               ...item,
@@ -175,7 +182,10 @@ export class DynamoDBService {
 
       this.logger.debug(`Batch write completed for ${items.length} items`);
     } catch (error) {
-      this.logger.error(`Error batch writing items: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error batch writing items: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -227,7 +237,10 @@ export class DynamoDBService {
       const result = await this.dynamodb.update(params).promise();
       return result.Attributes as DynamoDBItem;
     } catch (error) {
-      this.logger.error(`Error conditional update: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error conditional update: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -260,14 +273,17 @@ export class DynamoDBService {
         },
       });
 
-      const room = roomData.find(item => item.SK === 'METADATA') || null;
-      const members = roomData.filter(item => item.SK.startsWith('MEMBER#'));
-      const votes = roomData.filter(item => item.SK.startsWith('VOTE#'));
-      const matches = roomData.filter(item => item.SK.startsWith('MATCH#'));
+      const room = roomData.find((item) => item.SK === 'METADATA') || null;
+      const members = roomData.filter((item) => item.SK.startsWith('MEMBER#'));
+      const votes = roomData.filter((item) => item.SK.startsWith('VOTE#'));
+      const matches = roomData.filter((item) => item.SK.startsWith('MATCH#'));
 
       return { room, members, votes, matches };
     } catch (error) {
-      this.logger.error(`Error getting room state: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error getting room state: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }

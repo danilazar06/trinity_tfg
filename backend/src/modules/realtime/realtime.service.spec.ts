@@ -50,7 +50,14 @@ describe('RealtimeService', () => {
           fc.constantFrom('like', 'dislike'), // voteType
           fc.integer({ min: 0, max: 100 }), // totalVotes
           fc.integer({ min: 1, max: 100 }), // requiredVotes
-          async (roomId, userId, mediaId, voteType, totalVotes, requiredVotes) => {
+          async (
+            roomId,
+            userId,
+            mediaId,
+            voteType,
+            totalVotes,
+            requiredVotes,
+          ) => {
             const voteData = {
               userId,
               mediaId,
@@ -58,7 +65,12 @@ describe('RealtimeService', () => {
               progress: {
                 totalVotes,
                 requiredVotes: Math.max(requiredVotes, totalVotes),
-                percentage: Math.min(100, Math.round((totalVotes / Math.max(requiredVotes, totalVotes)) * 100)),
+                percentage: Math.min(
+                  100,
+                  Math.round(
+                    (totalVotes / Math.max(requiredVotes, totalVotes)) * 100,
+                  ),
+                ),
               },
             };
 
@@ -71,9 +83,9 @@ describe('RealtimeService', () => {
               voteType,
               progress: voteData.progress,
             });
-          }
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -85,7 +97,10 @@ describe('RealtimeService', () => {
           fc.integer({ min: 1, max: 50 }),
           async (roomId, totalVotes, requiredVotes) => {
             const adjustedRequired = Math.max(requiredVotes, totalVotes);
-            const expectedPercentage = Math.min(100, Math.round((totalVotes / adjustedRequired) * 100));
+            const expectedPercentage = Math.min(
+              100,
+              Math.round((totalVotes / adjustedRequired) * 100),
+            );
 
             const voteData = {
               userId: 'test-user',
@@ -100,13 +115,16 @@ describe('RealtimeService', () => {
 
             await service.notifyVote(roomId, voteData);
 
-            const callArgs = mockGateway.notifyVote.mock.calls[mockGateway.notifyVote.mock.calls.length - 1][1];
+            const callArgs =
+              mockGateway.notifyVote.mock.calls[
+                mockGateway.notifyVote.mock.calls.length - 1
+              ][1];
             expect(callArgs.progress.percentage).toBe(expectedPercentage);
             expect(callArgs.progress.percentage).toBeGreaterThanOrEqual(0);
             expect(callArgs.progress.percentage).toBeLessThanOrEqual(100);
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
   });
@@ -118,7 +136,10 @@ describe('RealtimeService', () => {
           fc.string({ minLength: 1, maxLength: 50 }), // roomId
           fc.string({ minLength: 1, maxLength: 50 }), // mediaId
           fc.string({ minLength: 1, maxLength: 100 }), // mediaTitle
-          fc.array(fc.string({ minLength: 1, maxLength: 50 }), { minLength: 1, maxLength: 10 }), // participants
+          fc.array(fc.string({ minLength: 1, maxLength: 50 }), {
+            minLength: 1,
+            maxLength: 10,
+          }), // participants
           fc.constantFrom('unanimous', 'majority'), // matchType
           async (roomId, mediaId, mediaTitle, participants, matchType) => {
             const matchData = {
@@ -137,9 +158,9 @@ describe('RealtimeService', () => {
               participants,
               matchType,
             });
-          }
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -173,7 +194,13 @@ describe('RealtimeService', () => {
           fc.integer({ min: 0, max: 1000 }), // queueLength
           fc.integer({ min: 0, max: 50 }), // activeMembers
           fc.option(fc.string({ minLength: 1, maxLength: 50 })), // currentMediaId
-          async (roomId, status, queueLength, activeMembers, currentMediaId) => {
+          async (
+            roomId,
+            status,
+            queueLength,
+            activeMembers,
+            currentMediaId,
+          ) => {
             const stateData = {
               status: status as 'active' | 'paused' | 'finished',
               currentMediaId: currentMediaId || undefined,
@@ -183,16 +210,19 @@ describe('RealtimeService', () => {
 
             await service.notifyRoomStateChange(roomId, stateData);
 
-            expect(mockGateway.notifyRoomStateChange).toHaveBeenCalledWith(roomId, {
-              type: 'roomState',
-              status,
-              currentMediaId: currentMediaId || undefined,
-              queueLength,
-              activeMembers,
-            });
-          }
+            expect(mockGateway.notifyRoomStateChange).toHaveBeenCalledWith(
+              roomId,
+              {
+                type: 'roomState',
+                status,
+                currentMediaId: currentMediaId || undefined,
+                queueLength,
+                activeMembers,
+              },
+            );
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -205,7 +235,9 @@ describe('RealtimeService', () => {
           fc.string({ minLength: 1 }),
           async (roomId, currentPosition, totalItems, currentMediaId) => {
             const adjustedTotal = Math.max(totalItems, currentPosition + 1);
-            const expectedPercentage = Math.round((currentPosition / adjustedTotal) * 100);
+            const expectedPercentage = Math.round(
+              (currentPosition / adjustedTotal) * 100,
+            );
 
             const progressData = {
               currentPosition,
@@ -216,14 +248,17 @@ describe('RealtimeService', () => {
 
             await service.notifyQueueProgress(roomId, progressData);
 
-            const callArgs = mockGateway.notifyRoomStateChange.mock.calls[mockGateway.notifyRoomStateChange.mock.calls.length - 1][1];
+            const callArgs =
+              mockGateway.notifyRoomStateChange.mock.calls[
+                mockGateway.notifyRoomStateChange.mock.calls.length - 1
+              ][1];
             expect(callArgs.type).toBe('queueProgress');
             expect(callArgs.percentage).toBe(expectedPercentage);
             expect(callArgs.percentage).toBeGreaterThanOrEqual(0);
             expect(callArgs.percentage).toBeLessThanOrEqual(100);
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
   });
@@ -245,15 +280,18 @@ describe('RealtimeService', () => {
 
             await service.notifyMemberStatusChange(roomId, memberData);
 
-            expect(mockGateway.notifyMemberStatusChange).toHaveBeenCalledWith(roomId, {
-              type: 'memberStatus',
-              userId,
-              status,
-              lastActivity: lastActivity?.toISOString(),
-            });
-          }
+            expect(mockGateway.notifyMemberStatusChange).toHaveBeenCalledWith(
+              roomId,
+              {
+                type: 'memberStatus',
+                userId,
+                status,
+                lastActivity: lastActivity?.toISOString(),
+              },
+            );
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
   });
@@ -263,7 +301,10 @@ describe('RealtimeService', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.string({ minLength: 1 }),
-          fc.array(fc.string({ minLength: 1 }), { minLength: 1, maxLength: 10 }),
+          fc.array(fc.string({ minLength: 1 }), {
+            minLength: 1,
+            maxLength: 10,
+          }),
           fc.string({ minLength: 1, maxLength: 200 }),
           fc.string({ minLength: 1, maxLength: 50 }),
           fc.float({ min: 0, max: 1 }),
@@ -277,16 +318,19 @@ describe('RealtimeService', () => {
 
             await service.notifyAIRecommendation(roomId, recommendationData);
 
-            expect(mockGateway.notifyRoomStateChange).toHaveBeenCalledWith(roomId, {
-              type: 'aiRecommendation',
-              mediaIds,
-              reasoning,
-              emotionalState,
-              confidence,
-            });
-          }
+            expect(mockGateway.notifyRoomStateChange).toHaveBeenCalledWith(
+              roomId,
+              {
+                type: 'aiRecommendation',
+                mediaIds,
+                reasoning,
+                emotionalState,
+                confidence,
+              },
+            );
+          },
         ),
-        { numRuns: 30 }
+        { numRuns: 30 },
       );
     });
 
@@ -305,13 +349,16 @@ describe('RealtimeService', () => {
 
             await service.notifyAIRecommendation(roomId, recommendationData);
 
-            const callArgs = mockGateway.notifyRoomStateChange.mock.calls[mockGateway.notifyRoomStateChange.mock.calls.length - 1][1];
+            const callArgs =
+              mockGateway.notifyRoomStateChange.mock.calls[
+                mockGateway.notifyRoomStateChange.mock.calls.length - 1
+              ][1];
             expect(callArgs.confidence).toBeCloseTo(confidence, 5);
             expect(callArgs.confidence).toBeGreaterThanOrEqual(0);
             expect(callArgs.confidence).toBeLessThanOrEqual(1);
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
   });
@@ -343,7 +390,11 @@ describe('RealtimeService', () => {
         totalConnections: 5,
         activeRooms: 2,
         roomStats: [
-          { roomId: 'room1', memberCount: 3, members: ['user1', 'user2', 'user3'] },
+          {
+            roomId: 'room1',
+            memberCount: 3,
+            members: ['user1', 'user2', 'user3'],
+          },
           { roomId: 'room2', memberCount: 2, members: ['user4', 'user5'] },
         ],
       };
@@ -411,7 +462,9 @@ describe('RealtimeService', () => {
       };
 
       // Should not throw error - service should handle it gracefully
-      await expect(service.notifyVote('test-room', voteData)).resolves.toBeUndefined();
+      await expect(
+        service.notifyVote('test-room', voteData),
+      ).resolves.toBeUndefined();
     });
 
     it('should handle missing gateway methods gracefully', async () => {
@@ -422,7 +475,9 @@ describe('RealtimeService', () => {
           roomStats: [],
         }),
       };
-      const serviceWithIncompleteGateway = new RealtimeService(incompleteGateway as any);
+      const serviceWithIncompleteGateway = new RealtimeService(
+        incompleteGateway as any,
+      );
 
       // Should not throw error
       const stats = serviceWithIncompleteGateway.getRealtimeStats();

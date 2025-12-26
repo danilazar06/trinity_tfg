@@ -1,4 +1,11 @@
-import { IsOptional, IsArray, IsNumber, Min, Max, IsString } from 'class-validator';
+import {
+  IsOptional,
+  IsArray,
+  IsNumber,
+  Min,
+  Max,
+  IsString,
+} from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -12,7 +19,7 @@ export class ContentFiltersDto {
   @IsOptional()
   @Transform(({ value }) => {
     if (typeof value === 'string') {
-      return value.split(',').map(g => g.trim());
+      return value.split(',').map((g) => g.trim());
     }
     return value;
   })
@@ -65,7 +72,7 @@ export class ContentFiltersDto {
   @IsOptional()
   @Transform(({ value }) => {
     if (typeof value === 'string') {
-      return value.split(',').map(t => t.trim());
+      return value.split(',').map((t) => t.trim());
     }
     return value;
   })

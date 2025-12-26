@@ -1,3 +1,4 @@
+import '../../test-setup-integration';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { AppModule } from '../../app.module';
@@ -32,7 +33,8 @@ describe('Backward Compatibility Tests', () => {
     // Get services
     authService = moduleFixture.get<AuthService>(AuthService);
     roomService = moduleFixture.get<RoomService>(RoomService);
-    interactionService = moduleFixture.get<InteractionService>(InteractionService);
+    interactionService =
+      moduleFixture.get<InteractionService>(InteractionService);
     matchService = moduleFixture.get<MatchService>(MatchService);
     mediaService = moduleFixture.get<MediaService>(MediaService);
     analyticsService = moduleFixture.get<AnalyticsService>(AnalyticsService);
@@ -76,7 +78,7 @@ describe('Backward Compatibility Tests', () => {
             expect(user).toBeDefined();
             expect(user.user.email).toBe(userData.email);
             expect(user.user.username).toBe(userData.username);
-            expect(user.accessToken).toBeDefined();
+            expect(user.requiresConfirmation).toBe(true);
 
             // Login should work as before
             const loginResult = await authService.login({
@@ -89,12 +91,14 @@ describe('Backward Compatibility Tests', () => {
             expect(loginResult.accessToken).toBeDefined();
 
             // Token refresh should work as before
-            const refreshResult = await authService.refreshToken(loginResult.refreshToken);
+            const refreshResult = await authService.refreshToken(
+              loginResult.refreshToken,
+            );
             expect(refreshResult).toBeDefined();
             expect(refreshResult.accessToken).toBeDefined();
-          }
+          },
         ),
-        { numRuns: 10, timeout: 15000 }
+        { numRuns: 10, timeout: 15000 },
       );
     });
 
@@ -112,7 +116,7 @@ describe('Backward Compatibility Tests', () => {
 
       // Logout should work as before
       await authService.logout(user.user.id);
-      
+
       // After logout, operations requiring authentication should fail gracefully
       await expect(authService.getProfile(user.user.id)).rejects.toThrow();
     });
@@ -150,19 +154,23 @@ describe('Backward Compatibility Tests', () => {
             expect(retrievedRoom.id).toBe(room.id);
 
             // Room updates should work as before
-            const updatedRoom = await roomService.updateRoom(room.id, testUser.user.id, {
-              name: roomData.roomName + ' Updated',
-            });
+            const updatedRoom = await roomService.updateRoom(
+              room.id,
+              testUser.user.id,
+              {
+                name: roomData.roomName + ' Updated',
+              },
+            );
             expect(updatedRoom.name).toBe(roomData.roomName + ' Updated');
 
             // Room deletion should work as before
             await roomService.deleteRoom(room.id, testUser.user.id);
-            
+
             // Deleted room should not be retrievable
             await expect(roomService.getRoomById(room.id)).rejects.toThrow();
-          }
+          },
         ),
-        { numRuns: 15, timeout: 20000 }
+        { numRuns: 15, timeout: 20000 },
       );
     });
 
@@ -208,9 +216,9 @@ describe('Backward Compatibility Tests', () => {
 
             // Cleanup
             await roomService.deleteRoom(room.id, testUser.user.id);
-          }
+          },
         ),
-        { numRuns: 8, timeout: 25000 }
+        { numRuns: 8, timeout: 25000 },
       );
     });
   });
@@ -225,17 +233,21 @@ describe('Backward Compatibility Tests', () => {
           }),
           async (testData) => {
             // Add some content to the room first
-            await roomService.generateShuffledContent(testRoom.id, testUser.user.id, {
-              genres: ['action', 'comedy'],
-              contentCount: 5,
-            });
+            await roomService.generateShuffledContent(
+              testRoom.id,
+              testUser.user.id,
+              {
+                genres: ['action', 'comedy'],
+                contentCount: 5,
+              },
+            );
 
             // Voting should work as before
             const vote = await interactionService.recordVote(
               testUser.user.id,
               testRoom.id,
               testData.contentId,
-              testData.voteType
+              testData.voteType,
             );
 
             expect(vote).toBeDefined();
@@ -247,22 +259,26 @@ describe('Backward Compatibility Tests', () => {
             // Get vote history should work as before
             const voteHistory = await interactionService.getUserVoteHistory(
               testUser.user.id,
-              testRoom.id
+              testRoom.id,
             );
 
             expect(Array.isArray(voteHistory)).toBe(true);
-            const userVote = voteHistory.find(v => v.contentId === testData.contentId);
+            const userVote = voteHistory.find(
+              (v) => v.contentId === testData.contentId,
+            );
             expect(userVote).toBeDefined();
             expect(userVote?.voteType).toBe(testData.voteType);
 
             // Get room progress should work as before
-            const progress = await interactionService.getRoomProgress(testRoom.id);
+            const progress = await interactionService.getRoomProgress(
+              testRoom.id,
+            );
             expect(progress).toBeDefined();
             expect(typeof progress.totalContent).toBe('number');
             expect(typeof progress.votedContent).toBe('number');
-          }
+          },
         ),
-        { numRuns: 12, timeout: 15000 }
+        { numRuns: 12, timeout: 15000 },
       );
     });
 
@@ -280,31 +296,40 @@ describe('Backward Compatibility Tests', () => {
           }),
           async (testData) => {
             // Get initial queue status
-            const initialStatus = await interactionService.getQueueStatus(testRoom.id, testUser.user.id);
+            const initialStatus = await interactionService.getQueueStatus(
+              testRoom.id,
+              testUser.user.id,
+            );
             expect(initialStatus).toBeDefined();
             expect(typeof initialStatus.currentPosition).toBe('number');
             expect(typeof initialStatus.totalItems).toBe('number');
 
             // Vote on multiple items
             const room = await roomService.getRoomById(testRoom.id);
-            const contentItems = room.shuffledContent?.slice(0, testData.voteCount) || [];
+            const contentItems =
+              room.shuffledContent?.slice(0, testData.voteCount) || [];
 
             for (const contentId of contentItems) {
               await interactionService.recordVote(
                 testUser.user.id,
                 testRoom.id,
                 contentId,
-                'like'
+                'like',
               );
             }
 
             // Queue status should update correctly
-            const updatedStatus = await interactionService.getQueueStatus(testRoom.id, testUser.user.id);
+            const updatedStatus = await interactionService.getQueueStatus(
+              testRoom.id,
+              testUser.user.id,
+            );
             expect(updatedStatus).toBeDefined();
-            expect(updatedStatus.currentPosition).toBeGreaterThanOrEqual(initialStatus.currentPosition);
-          }
+            expect(updatedStatus.currentPosition).toBeGreaterThanOrEqual(
+              initialStatus.currentPosition,
+            );
+          },
         ),
-        { numRuns: 8, timeout: 20000 }
+        { numRuns: 8, timeout: 20000 },
       );
     });
   });
@@ -335,7 +360,7 @@ describe('Backward Compatibility Tests', () => {
           async (testData) => {
             const room = await roomService.getRoomById(testRoom.id);
             const contentId = room.shuffledContent?.[testData.contentIndex];
-            
+
             if (!contentId) return;
 
             // Both users vote the same way
@@ -343,14 +368,14 @@ describe('Backward Compatibility Tests', () => {
               testUser.user.id,
               testRoom.id,
               contentId,
-              testData.voteType
+              testData.voteType,
             );
 
             await interactionService.recordVote(
               secondUser.user.id,
               testRoom.id,
               contentId,
-              testData.voteType
+              testData.voteType,
             );
 
             // Check for matches should work as before
@@ -360,7 +385,7 @@ describe('Backward Compatibility Tests', () => {
             if (testData.voteType === 'like') {
               // Should detect match for 'like' votes
               expect(matchResult.matches.length).toBeGreaterThanOrEqual(0);
-              
+
               if (matchResult.matches.length > 0) {
                 const match = matchResult.matches[0];
                 expect(match.contentId).toBe(contentId);
@@ -371,9 +396,9 @@ describe('Backward Compatibility Tests', () => {
             // Get room matches should work as before
             const roomMatches = await matchService.getRoomMatches(testRoom.id);
             expect(Array.isArray(roomMatches)).toBe(true);
-          }
+          },
         ),
-        { numRuns: 6, timeout: 20000 }
+        { numRuns: 6, timeout: 20000 },
       );
     });
 
@@ -396,14 +421,19 @@ describe('Backward Compatibility Tests', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            searchQuery: fc.constantFrom('action', 'comedy', 'drama', 'thriller'),
+            searchQuery: fc.constantFrom(
+              'action',
+              'comedy',
+              'drama',
+              'thriller',
+            ),
             contentType: fc.constantFrom('movie', 'tv'),
           }),
           async (testData) => {
             // Content search should work as before
             const searchResults = await mediaService.searchContent(
               testData.searchQuery,
-              testData.contentType
+              testData.contentType,
             );
 
             expect(Array.isArray(searchResults)).toBe(true);
@@ -412,15 +442,16 @@ describe('Backward Compatibility Tests', () => {
             // Get content details should work as before
             if (searchResults.length > 0) {
               const contentId = searchResults[0].id;
-              const contentDetails = await mediaService.getContentDetails(contentId);
-              
+              const contentDetails =
+                await mediaService.getContentDetails(contentId);
+
               expect(contentDetails).toBeDefined();
               expect(contentDetails.id).toBe(contentId);
               expect(contentDetails.title).toBeDefined();
             }
-          }
+          },
         ),
-        { numRuns: 10, timeout: 15000 }
+        { numRuns: 10, timeout: 15000 },
       );
     });
 
@@ -428,7 +459,10 @@ describe('Backward Compatibility Tests', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            genres: fc.shuffledSubarray(['action', 'comedy', 'drama', 'thriller'], { minLength: 1, maxLength: 3 }),
+            genres: fc.shuffledSubarray(
+              ['action', 'comedy', 'drama', 'thriller'],
+              { minLength: 1, maxLength: 3 },
+            ),
             contentCount: fc.integer({ min: 1, max: 5 }),
           }),
           async (testData) => {
@@ -439,20 +473,24 @@ describe('Backward Compatibility Tests', () => {
               {
                 genres: testData.genres,
                 contentCount: testData.contentCount,
-              }
+              },
             );
 
             expect(injectionResult).toBeDefined();
             expect(injectionResult.injectedCount).toBe(testData.contentCount);
             expect(Array.isArray(injectionResult.injectedContent)).toBe(true);
-            expect(injectionResult.injectedContent).toHaveLength(testData.contentCount);
+            expect(injectionResult.injectedContent).toHaveLength(
+              testData.contentCount,
+            );
 
             // Verify content was added to room
             const room = await roomService.getRoomById(testRoom.id);
-            expect(room.shuffledContent?.length).toBeGreaterThanOrEqual(testData.contentCount);
-          }
+            expect(room.shuffledContent?.length).toBeGreaterThanOrEqual(
+              testData.contentCount,
+            );
+          },
         ),
-        { numRuns: 8, timeout: 20000 }
+        { numRuns: 8, timeout: 20000 },
       );
     });
   });
@@ -467,27 +505,31 @@ describe('Backward Compatibility Tests', () => {
           }),
           async (testData) => {
             // Room analytics should work as before
-            const roomAnalytics = await analyticsService.getRoomAnalytics(testRoom.id);
+            const roomAnalytics = await analyticsService.getRoomAnalytics(
+              testRoom.id,
+            );
             expect(roomAnalytics).toBeDefined();
             expect(typeof roomAnalytics.totalVotes).toBe('number');
             expect(typeof roomAnalytics.totalMatches).toBe('number');
             expect(typeof roomAnalytics.averageSessionDuration).toBe('number');
 
             // User analytics should work as before
-            const userAnalytics = await analyticsService.getUserBehaviorAnalytics(testUser.user.id);
+            const userAnalytics =
+              await analyticsService.getUserBehaviorAnalytics(testUser.user.id);
             expect(userAnalytics).toBeDefined();
             expect(typeof userAnalytics.totalVotes).toBe('number');
             expect(typeof userAnalytics.averageVotingSpeed).toBe('number');
             expect(Array.isArray(userAnalytics.preferredGenres)).toBe(true);
 
             // Content analytics should work as before
-            const contentAnalytics = await analyticsService.getContentAnalytics();
+            const contentAnalytics =
+              await analyticsService.getContentAnalytics();
             expect(contentAnalytics).toBeDefined();
             expect(Array.isArray(contentAnalytics.popularContent)).toBe(true);
             expect(Array.isArray(contentAnalytics.trendingGenres)).toBe(true);
-          }
+          },
         ),
-        { numRuns: 6, timeout: 15000 }
+        { numRuns: 6, timeout: 15000 },
       );
     });
 
@@ -507,7 +549,9 @@ describe('Backward Compatibility Tests', () => {
       await analyticsService.trackEvent(eventData);
 
       // Analytics should reflect tracked events
-      const roomAnalytics = await analyticsService.getRoomAnalytics(testRoom.id);
+      const roomAnalytics = await analyticsService.getRoomAnalytics(
+        testRoom.id,
+      );
       expect(roomAnalytics).toBeDefined();
     });
   });
@@ -517,7 +561,10 @@ describe('Backward Compatibility Tests', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            genres: fc.shuffledSubarray(['action', 'comedy', 'drama'], { minLength: 1, maxLength: 2 }),
+            genres: fc.shuffledSubarray(['action', 'comedy', 'drama'], {
+              minLength: 1,
+              maxLength: 2,
+            }),
             contentCount: fc.integer({ min: 5, max: 15 }),
           }),
           async (testData) => {
@@ -528,12 +575,16 @@ describe('Backward Compatibility Tests', () => {
               {
                 genres: testData.genres,
                 contentCount: testData.contentCount,
-              }
+              },
             );
 
             expect(shuffleResult).toBeDefined();
-            expect(shuffleResult.masterList).toHaveLength(testData.contentCount);
-            expect(shuffleResult.shuffledList).toHaveLength(testData.contentCount);
+            expect(shuffleResult.masterList).toHaveLength(
+              testData.contentCount,
+            );
+            expect(shuffleResult.shuffledList).toHaveLength(
+              testData.contentCount,
+            );
 
             // Verify shuffle consistency
             const room = await roomService.getRoomById(testRoom.id);
@@ -541,23 +592,28 @@ describe('Backward Compatibility Tests', () => {
             expect(room.shuffledContent).toHaveLength(testData.contentCount);
 
             // Regenerate should work as before
-            const regenerateResult = await roomService.regenerateShuffledContent(
-              testRoom.id,
-              testUser.user.id
-            );
+            const regenerateResult =
+              await roomService.regenerateShuffledContent(
+                testRoom.id,
+                testUser.user.id,
+              );
 
             expect(regenerateResult).toBeDefined();
-            expect(regenerateResult.masterList).toHaveLength(testData.contentCount);
-            expect(regenerateResult.shuffledList).toHaveLength(testData.contentCount);
+            expect(regenerateResult.masterList).toHaveLength(
+              testData.contentCount,
+            );
+            expect(regenerateResult.shuffledList).toHaveLength(
+              testData.contentCount,
+            );
 
             // Verify shuffle stats
             const shuffleStats = await roomService.getShuffleStats(testRoom.id);
             expect(shuffleStats).toBeDefined();
             expect(typeof shuffleStats.totalContent).toBe('number');
             expect(typeof shuffleStats.uniquenessScore).toBe('number');
-          }
+          },
         ),
-        { numRuns: 8, timeout: 25000 }
+        { numRuns: 8, timeout: 25000 },
       );
     });
   });
@@ -582,28 +638,36 @@ describe('Backward Compatibility Tests', () => {
             // Get inactive members should work as before
             const inactiveMembers = await roomService.getInactiveMembers(
               testRoom.id,
-              testData.inactivityMinutes
+              testData.inactivityMinutes,
             );
 
             expect(Array.isArray(inactiveMembers)).toBe(true);
 
             // Activity classification should work as before
-            const activityLevels = await roomService.classifyMemberActivity(testRoom.id);
+            const activityLevels = await roomService.classifyMemberActivity(
+              testRoom.id,
+            );
             expect(activityLevels).toBeDefined();
             expect(Array.isArray(activityLevels.active)).toBe(true);
             expect(Array.isArray(activityLevels.inactive)).toBe(true);
             expect(Array.isArray(activityLevels.dormant)).toBe(true);
 
             // Reactivate member should work as before
-            await roomService.reactivateMember(testRoom.id, inactiveUser.user.id);
+            await roomService.reactivateMember(
+              testRoom.id,
+              inactiveUser.user.id,
+            );
 
             // Member should be active again
-            const updatedActivityLevels = await roomService.classifyMemberActivity(testRoom.id);
-            const isActive = updatedActivityLevels.active.some(member => member.userId === inactiveUser.user.id);
+            const updatedActivityLevels =
+              await roomService.classifyMemberActivity(testRoom.id);
+            const isActive = updatedActivityLevels.active.some(
+              (member) => member.userId === inactiveUser.user.id,
+            );
             expect(isActive).toBe(true);
-          }
+          },
         ),
-        { numRuns: 5, timeout: 20000 }
+        { numRuns: 5, timeout: 20000 },
       );
     });
   });

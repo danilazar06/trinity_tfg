@@ -4,6 +4,7 @@ import { MultiTableService } from '../../infrastructure/database/multi-table.ser
 import { EventTracker } from '../../modules/analytics/event-tracker.service';
 import { AnalyticsService } from '../../modules/analytics/analytics.service';
 import { RealtimeService } from '../../modules/realtime/realtime.service';
+import { RealtimeCompatibilityService } from '../../modules/realtime/realtime-compatibility.service';
 import { RoomService } from '../../modules/room/room.service';
 import { InteractionService } from '../../modules/interaction/interaction.service';
 import { MediaService } from '../../modules/media/media.service';
@@ -82,10 +83,20 @@ describe('Simple Integration Tests - Task 11', () => {
             notifyRoom: jest.fn().mockResolvedValue(undefined),
           },
         },
+        {
+          provide: RealtimeCompatibilityService,
+          useValue: {
+            notifyAutomationAction: jest.fn().mockResolvedValue(undefined),
+            notifyConfigurationChange: jest.fn().mockResolvedValue(undefined),
+            notifyOptimizationResult: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
 
-    roomAutomationService = module.get<RoomAutomationService>(RoomAutomationService);
+    roomAutomationService = module.get<RoomAutomationService>(
+      RoomAutomationService,
+    );
     multiTableService = module.get<MultiTableService>(MultiTableService);
     eventTracker = module.get<EventTracker>(EventTracker);
     analyticsService = module.get<AnalyticsService>(AnalyticsService);
@@ -99,28 +110,32 @@ describe('Simple Integration Tests - Task 11', () => {
           fc.record({
             roomId: fc.string({ minLength: 10, maxLength: 20 }),
             userId: fc.string({ minLength: 10, maxLength: 20 }),
-            automationLevel: fc.constantFrom('basic', 'intermediate', 'advanced'),
+            automationLevel: fc.constantFrom(
+              'basic',
+              'intermediate',
+              'advanced',
+            ),
           }),
           async (testData) => {
             const startTime = Date.now();
-            
+
             const config = await roomAutomationService.createAutomationConfig(
               testData.roomId,
               testData.userId,
               {
                 automationLevel: testData.automationLevel as any,
                 isEnabled: true,
-              }
+              },
             );
-            
+
             const responseTime = Date.now() - startTime;
-            
+
             expect(responseTime).toBeLessThan(300);
             expect(config).toBeDefined();
             expect(config.automationLevel).toBe(testData.automationLevel);
-          }
+          },
         ),
-        { numRuns: 20, timeout: 10000 }
+        { numRuns: 20, timeout: 10000 },
       );
     });
 
@@ -130,16 +145,17 @@ describe('Simple Integration Tests - Task 11', () => {
           fc.string({ minLength: 10, maxLength: 20 }),
           async (roomId) => {
             const startTime = Date.now();
-            
-            const config = await roomAutomationService.getAutomationConfig(roomId);
-            
+
+            const config =
+              await roomAutomationService.getAutomationConfig(roomId);
+
             const responseTime = Date.now() - startTime;
-            
+
             expect(responseTime).toBeLessThan(300);
             // Config can be null if not found, that's expected
-          }
+          },
         ),
-        { numRuns: 25, timeout: 8000 }
+        { numRuns: 25, timeout: 8000 },
       );
     });
 
@@ -149,7 +165,8 @@ describe('Simple Integration Tests - Task 11', () => {
           fc.string({ minLength: 10, maxLength: 20 }),
           async (roomId) => {
             // Mock that config exists
-            jest.spyOn(roomAutomationService, 'getAutomationConfig')
+            jest
+              .spyOn(roomAutomationService, 'getAutomationConfig')
               .mockResolvedValueOnce({
                 id: 'test-config',
                 roomId,
@@ -166,16 +183,17 @@ describe('Simple Integration Tests - Task 11', () => {
               });
 
             const startTime = Date.now();
-            
-            const recommendations = await roomAutomationService.generateSmartRecommendations(roomId);
-            
+
+            const recommendations =
+              await roomAutomationService.generateSmartRecommendations(roomId);
+
             const responseTime = Date.now() - startTime;
-            
+
             expect(responseTime).toBeLessThan(300);
             expect(Array.isArray(recommendations)).toBe(true);
-          }
+          },
         ),
-        { numRuns: 15, timeout: 8000 }
+        { numRuns: 15, timeout: 8000 },
       );
     });
   });
@@ -186,7 +204,11 @@ describe('Simple Integration Tests - Task 11', () => {
         fc.asyncProperty(
           fc.record({
             roomId: fc.string({ minLength: 10, maxLength: 20 }),
-            eventType: fc.constantFrom('automationAction', 'voteUpdate', 'matchFound'),
+            eventType: fc.constantFrom(
+              'automationAction',
+              'voteUpdate',
+              'matchFound',
+            ),
             payloadSize: fc.integer({ min: 1, max: 5 }),
           }),
           async (testData) => {
@@ -196,15 +218,19 @@ describe('Simple Integration Tests - Task 11', () => {
             };
 
             const startTime = Date.now();
-            
-            await realtimeService.notifyRoom(testData.roomId, testData.eventType, payload);
-            
+
+            await realtimeService.notifyRoom(
+              testData.roomId,
+              testData.eventType,
+              payload,
+            );
+
             const notificationTime = Date.now() - startTime;
-            
+
             expect(notificationTime).toBeLessThan(100);
-          }
+          },
         ),
-        { numRuns: 30, timeout: 5000 }
+        { numRuns: 30, timeout: 5000 },
       );
     });
   });
@@ -243,10 +269,14 @@ describe('Simple Integration Tests - Task 11', () => {
                   });
                   break;
                 case 'update':
-                  await multiTableService.update('RoomAutomation', {
-                    PK: `ROOM#test-room-${i}`,
-                    SK: `AUTOMATION#test-config-${i}`,
-                  }, { updated: true });
+                  await multiTableService.update(
+                    'RoomAutomation',
+                    {
+                      PK: `ROOM#test-room-${i}`,
+                      SK: `AUTOMATION#test-config-${i}`,
+                    },
+                    { updated: true },
+                  );
                   break;
               }
 
@@ -254,11 +284,13 @@ describe('Simple Integration Tests - Task 11', () => {
               queryTimes.push(queryTime);
             }
 
-            const averageTime = queryTimes.reduce((sum, time) => sum + time, 0) / queryTimes.length;
+            const averageTime =
+              queryTimes.reduce((sum, time) => sum + time, 0) /
+              queryTimes.length;
             expect(averageTime).toBeLessThan(50);
-          }
+          },
         ),
-        { numRuns: 15, timeout: 10000 }
+        { numRuns: 15, timeout: 10000 },
       );
     });
   });
@@ -275,21 +307,23 @@ describe('Simple Integration Tests - Task 11', () => {
 
             for (let i = 0; i < operationCount; i++) {
               operations.push(
-                roomAutomationService.getAutomationConfig(`test-room-${i}`)
+                roomAutomationService.getAutomationConfig(`test-room-${i}`),
               );
             }
 
             await Promise.all(operations);
 
             const currentMemory = process.memoryUsage();
-            const memoryIncrease = currentMemory.heapUsed - initialMemory.heapUsed;
-            const memoryIncreasePercentage = (memoryIncrease / initialMemory.heapUsed) * 100;
+            const memoryIncrease =
+              currentMemory.heapUsed - initialMemory.heapUsed;
+            const memoryIncreasePercentage =
+              (memoryIncrease / initialMemory.heapUsed) * 100;
 
             // Memory increase should be reasonable (< 20% as per requirements)
             expect(memoryIncreasePercentage).toBeLessThan(20);
-          }
+          },
         ),
-        { numRuns: 5, timeout: 15000 }
+        { numRuns: 5, timeout: 15000 },
       );
     });
   });
@@ -305,7 +339,9 @@ describe('Simple Integration Tests - Task 11', () => {
 
             for (let i = 0; i < concurrentOperations; i++) {
               operations.push(
-                roomAutomationService.getAutomationConfig(`concurrent-room-${i}`)
+                roomAutomationService.getAutomationConfig(
+                  `concurrent-room-${i}`,
+                ),
               );
             }
 
@@ -315,9 +351,9 @@ describe('Simple Integration Tests - Task 11', () => {
 
             // Should handle concurrent operations efficiently
             expect(averageTime).toBeLessThan(100);
-          }
+          },
         ),
-        { numRuns: 8, timeout: 15000 }
+        { numRuns: 8, timeout: 15000 },
       );
     });
   });
@@ -336,18 +372,20 @@ describe('Simple Integration Tests - Task 11', () => {
             // Add valid operations
             for (let i = 0; i < testData.validOperations; i++) {
               operations.push(
-                roomAutomationService.getAutomationConfig(`valid-room-${i}`)
+                roomAutomationService.getAutomationConfig(`valid-room-${i}`),
               );
             }
 
             // Add invalid operations that should fail gracefully
             for (let i = 0; i < testData.invalidOperations; i++) {
               operations.push(
-                roomAutomationService.updateAutomationConfig(
-                  `non-existent-room-${i}`,
-                  'test-user',
-                  { isEnabled: false }
-                ).catch(() => null) // Catch expected errors
+                roomAutomationService
+                  .updateAutomationConfig(
+                    `non-existent-room-${i}`,
+                    'test-user',
+                    { isEnabled: false },
+                  )
+                  .catch(() => null), // Catch expected errors
               );
             }
 
@@ -362,17 +400,19 @@ describe('Simple Integration Tests - Task 11', () => {
             const validResults = results.slice(0, testData.validOperations);
             const invalidResults = results.slice(testData.validOperations);
 
-            validResults.forEach(result => {
+            validResults.forEach((result) => {
               expect(result.status).toBe('fulfilled');
             });
 
             // Invalid operations should either be rejected or fulfilled with null
-            invalidResults.forEach(result => {
-              expect(['fulfilled', 'rejected'].includes(result.status)).toBe(true);
+            invalidResults.forEach((result) => {
+              expect(['fulfilled', 'rejected'].includes(result.status)).toBe(
+                true,
+              );
             });
-          }
+          },
         ),
-        { numRuns: 5, timeout: 15000 }
+        { numRuns: 5, timeout: 15000 },
       );
     });
   });

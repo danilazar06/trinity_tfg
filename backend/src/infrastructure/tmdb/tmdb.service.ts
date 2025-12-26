@@ -31,7 +31,10 @@ export class TMDBService {
 
   constructor(private configService: ConfigService) {
     this.apiKey = this.configService.get('TMDB_API_KEY');
-    this.baseUrl = this.configService.get('TMDB_BASE_URL', 'https://api.themoviedb.org/3');
+    this.baseUrl = this.configService.get(
+      'TMDB_BASE_URL',
+      'https://api.themoviedb.org/3',
+    );
 
     if (!this.apiKey) {
       throw new Error('TMDB_API_KEY is required');
@@ -47,19 +50,25 @@ export class TMDBService {
 
     // Interceptor para logging
     this.httpClient.interceptors.request.use((config) => {
-      this.logger.debug(`TMDB Request: ${config.method?.toUpperCase()} ${config.url}`);
+      this.logger.debug(
+        `TMDB Request: ${config.method?.toUpperCase()} ${config.url}`,
+      );
       return config;
     });
 
     this.httpClient.interceptors.response.use(
       (response) => {
-        this.logger.debug(`TMDB Response: ${response.status} ${response.config.url}`);
+        this.logger.debug(
+          `TMDB Response: ${response.status} ${response.config.url}`,
+        );
         return response;
       },
       (error) => {
-        this.logger.error(`TMDB Error: ${error.response?.status} ${error.config?.url} - ${error.message}`);
+        this.logger.error(
+          `TMDB Error: ${error.response?.status} ${error.config?.url} - ${error.message}`,
+        );
         return Promise.reject(error);
-      }
+      },
     );
   }
 
@@ -79,8 +88,24 @@ export class TMDBService {
           base_url: 'http://image.tmdb.org/',
           secure_base_url: 'https://image.tmdb.org/',
           backdrop_sizes: ['w300', 'w780', 'w1280', 'original'],
-          poster_sizes: ['w92', 'w154', 'w185', 'w342', 'w500', 'w780', 'original'],
-          logo_sizes: ['w45', 'w92', 'w154', 'w185', 'w300', 'w500', 'original'],
+          poster_sizes: [
+            'w92',
+            'w154',
+            'w185',
+            'w342',
+            'w500',
+            'w780',
+            'original',
+          ],
+          logo_sizes: [
+            'w45',
+            'w92',
+            'w154',
+            'w185',
+            'w300',
+            'w500',
+            'original',
+          ],
           profile_sizes: ['w45', 'w185', 'h632', 'original'],
           still_sizes: ['w92', 'w185', 'w300', 'original'],
         },
@@ -115,7 +140,9 @@ export class TMDBService {
         original_language: movie.original_language,
       };
     } catch (error) {
-      this.logger.error(`Error getting movie details ${movieId}: ${error.message}`);
+      this.logger.error(
+        `Error getting movie details ${movieId}: ${error.message}`,
+      );
       return null;
     }
   }
@@ -133,7 +160,9 @@ export class TMDBService {
   /**
    * Buscar películas por filtros
    */
-  async searchMovies(filters: TMDBSearchFilters): Promise<TMDBResponse<TMDBMovie>> {
+  async searchMovies(
+    filters: TMDBSearchFilters,
+  ): Promise<TMDBResponse<TMDBMovie>> {
     const params: any = {
       page: filters.page || 1,
       sort_by: filters.sortBy || 'popularity.desc',
@@ -201,7 +230,10 @@ export class TMDBService {
   /**
    * Buscar contenido mixto (películas y series)
    */
-  async searchMulti(query: string, page: number = 1): Promise<TMDBResponse<any>> {
+  async searchMulti(
+    query: string,
+    page: number = 1,
+  ): Promise<TMDBResponse<any>> {
     const response = await this.httpClient.get('/search/multi', {
       params: { query, page },
     });
@@ -211,16 +243,20 @@ export class TMDBService {
   /**
    * Convertir respuesta TMDB a MediaItem
    */
-  convertToMediaItem(tmdbItem: TMDBMovie, mediaType: 'movie' | 'tv' = 'movie'): MediaItem {
+  convertToMediaItem(
+    tmdbItem: TMDBMovie,
+    mediaType: 'movie' | 'tv' = 'movie',
+  ): MediaItem {
     return {
       tmdbId: tmdbItem.id.toString(),
       title: tmdbItem.title || (tmdbItem as any).name, // TV shows use 'name'
       overview: tmdbItem.overview,
       posterPath: this.getImageUrl(tmdbItem.poster_path, 'poster', 'w500'),
-      backdropPath: tmdbItem.backdrop_path 
+      backdropPath: tmdbItem.backdrop_path
         ? this.getImageUrl(tmdbItem.backdrop_path, 'backdrop', 'w1280')
         : undefined,
-      releaseDate: tmdbItem.release_date || (tmdbItem as any).first_air_date || '',
+      releaseDate:
+        tmdbItem.release_date || (tmdbItem as any).first_air_date || '',
       genres: [], // Se llenará con los IDs de género
       popularity: tmdbItem.popularity,
       voteAverage: tmdbItem.vote_average,
@@ -236,7 +272,11 @@ export class TMDBService {
   /**
    * Obtener URL completa de imagen
    */
-  getImageUrl(imagePath: string | null, type: 'poster' | 'backdrop' | 'profile', size: string = 'original'): string {
+  getImageUrl(
+    imagePath: string | null,
+    type: 'poster' | 'backdrop' | 'profile',
+    size: string = 'original',
+  ): string {
     if (!imagePath || !this.configuration) {
       return '';
     }
@@ -251,10 +291,10 @@ export class TMDBService {
   private async getGenreIds(genreNames: string[]): Promise<number[]> {
     try {
       const genres = await this.getMovieGenres();
-      const genreMap = new Map(genres.map(g => [g.name.toLowerCase(), g.id]));
-      
+      const genreMap = new Map(genres.map((g) => [g.name.toLowerCase(), g.id]));
+
       return genreNames
-        .map(name => genreMap.get(name.toLowerCase()))
+        .map((name) => genreMap.get(name.toLowerCase()))
         .filter((id): id is number => id !== undefined);
     } catch (error) {
       this.logger.error(`Error getting genre IDs: ${error.message}`);
@@ -278,22 +318,29 @@ export class TMDBService {
   /**
    * Obtener trending content
    */
-  async getTrending(mediaType: 'movie' | 'tv' | 'all' = 'movie', timeWindow: 'day' | 'week' = 'week'): Promise<TMDBResponse<any>> {
-    const response = await this.httpClient.get(`/trending/${mediaType}/${timeWindow}`);
+  async getTrending(
+    mediaType: 'movie' | 'tv' | 'all' = 'movie',
+    timeWindow: 'day' | 'week' = 'week',
+  ): Promise<TMDBResponse<any>> {
+    const response = await this.httpClient.get(
+      `/trending/${mediaType}/${timeWindow}`,
+    );
     return response.data;
   }
 
   /**
    * Buscar contenido por múltiples filtros avanzados
    */
-  async discoverContent(filters: TMDBSearchFilters & {
-    mediaType?: 'movie' | 'tv';
-    includeAdult?: boolean;
-    voteCountMin?: number;
-  }): Promise<MediaItem[]> {
+  async discoverContent(
+    filters: TMDBSearchFilters & {
+      mediaType?: 'movie' | 'tv';
+      includeAdult?: boolean;
+      voteCountMin?: number;
+    },
+  ): Promise<MediaItem[]> {
     const mediaType = filters.mediaType || 'movie';
     const endpoint = `/discover/${mediaType}`;
-    
+
     const params: any = {
       page: filters.page || 1,
       sort_by: filters.sortBy || 'popularity.desc',
@@ -309,12 +356,14 @@ export class TMDBService {
     }
 
     if (filters.releaseYearFrom) {
-      const dateField = mediaType === 'movie' ? 'primary_release_date' : 'first_air_date';
+      const dateField =
+        mediaType === 'movie' ? 'primary_release_date' : 'first_air_date';
       params[`${dateField}.gte`] = `${filters.releaseYearFrom}-01-01`;
     }
 
     if (filters.releaseYearTo) {
-      const dateField = mediaType === 'movie' ? 'primary_release_date' : 'first_air_date';
+      const dateField =
+        mediaType === 'movie' ? 'primary_release_date' : 'first_air_date';
       params[`${dateField}.lte`] = `${filters.releaseYearTo}-12-31`;
     }
 
@@ -327,10 +376,10 @@ export class TMDBService {
     }
 
     const response = await this.httpClient.get(endpoint, { params });
-    
+
     // Convertir resultados a MediaItem
-    return response.data.results.map((item: any) => 
-      this.convertToMediaItem(item, mediaType)
+    return response.data.results.map((item: any) =>
+      this.convertToMediaItem(item, mediaType),
     );
   }
 }

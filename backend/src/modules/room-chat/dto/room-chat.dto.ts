@@ -1,11 +1,189 @@
-import { IsString, IsOptional, IsBoolean, IsNumber, IsArray, IsEnum, IsDateString, Min, Max, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsNumber,
+  IsArray,
+  IsEnum,
+  IsDateString,
+  Min,
+  Max,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { 
-  ChatMessageType, 
-  ChatMessageStatus, 
-  ChatAttachment 
+import {
+  ChatMessageType,
+  ChatMessageStatus,
+  ChatAttachment,
 } from '../../../domain/entities/room-chat.entity';
+
+/**
+ * DTO para configuración de detección de spam
+ */
+export class SpamDetectionConfigDto {
+  @ApiPropertyOptional({
+    description: 'Habilitar detección de spam',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Máximo mensajes por minuto',
+    default: 10,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(60)
+  maxMessagesPerMinute?: number;
+
+  @ApiPropertyOptional({
+    description: 'Umbral de mensajes duplicados',
+    default: 3,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(10)
+  duplicateMessageThreshold?: number;
+}
+
+/**
+ * DTO para configuración de filtro de profanidad
+ */
+export class ProfanityFilterConfigDto {
+  @ApiPropertyOptional({
+    description: 'Habilitar filtro de profanidad',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @ApiPropertyOptional({
+    enum: ['delete', 'moderate', 'warn'],
+    description: 'Acción a tomar',
+  })
+  @IsOptional()
+  @IsEnum(['delete', 'moderate', 'warn'])
+  action?: 'delete' | 'moderate' | 'warn';
+
+  @ApiPropertyOptional({
+    description: 'Palabras personalizadas',
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  customWords?: string[];
+}
+
+/**
+ * DTO para configuración de filtro de enlaces
+ */
+export class LinkFilterConfigDto {
+  @ApiPropertyOptional({
+    description: 'Habilitar filtro de enlaces',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Permitir dominios en lista blanca',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowWhitelistedDomains?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Dominios en lista blanca',
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  whitelistedDomains?: string[];
+}
+
+/**
+ * DTO para configuración de filtro de mayúsculas
+ */
+export class CapsFilterConfigDto {
+  @ApiPropertyOptional({
+    description: 'Habilitar filtro de mayúsculas',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Porcentaje máximo de mayúsculas',
+    default: 70,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(10)
+  @Max(100)
+  maxCapsPercentage?: number;
+}
+
+/**
+ * DTO para configuración de notificaciones de chat
+ */
+export class ChatNotificationConfigDto {
+  @ApiPropertyOptional({
+    description: 'Habilitar notificaciones de menciones',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  enableMentions?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Habilitar notificaciones de respuestas',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  enableReplies?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Habilitar notificaciones de reacciones',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  enableReactions?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Habilitar notificaciones de mensajes del sistema',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  enableSystemMessages?: boolean;
+
+  @ApiPropertyOptional({ description: 'Silenciar hasta (ISO string)' })
+  @IsOptional()
+  @IsDateString()
+  muteUntil?: Date;
+
+  @ApiPropertyOptional({
+    description: 'Palabras clave para notificar',
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  keywords?: string[];
+}
 
 /**
  * DTO para enviar mensaje de chat
@@ -15,7 +193,10 @@ export class SendMessageDto {
   @IsString()
   content: string;
 
-  @ApiPropertyOptional({ enum: ChatMessageType, description: 'Tipo de mensaje' })
+  @ApiPropertyOptional({
+    enum: ChatMessageType,
+    description: 'Tipo de mensaje',
+  })
   @IsOptional()
   @IsEnum(ChatMessageType)
   type?: ChatMessageType;
@@ -30,7 +211,10 @@ export class SendMessageDto {
   @IsString()
   replyToId?: string;
 
-  @ApiPropertyOptional({ description: 'IDs de usuarios mencionados', type: [String] })
+  @ApiPropertyOptional({
+    description: 'IDs de usuarios mencionados',
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -99,12 +283,18 @@ export class ChatMessageFiltersDto {
   @IsString()
   userId?: string;
 
-  @ApiPropertyOptional({ enum: ChatMessageType, description: 'Tipo de mensaje' })
+  @ApiPropertyOptional({
+    enum: ChatMessageType,
+    description: 'Tipo de mensaje',
+  })
   @IsOptional()
   @IsEnum(ChatMessageType)
   type?: ChatMessageType;
 
-  @ApiPropertyOptional({ enum: ChatMessageStatus, description: 'Estado del mensaje' })
+  @ApiPropertyOptional({
+    enum: ChatMessageStatus,
+    description: 'Estado del mensaje',
+  })
   @IsOptional()
   @IsEnum(ChatMessageStatus)
   status?: ChatMessageStatus;
@@ -134,7 +324,11 @@ export class ChatMessageFiltersDto {
   @IsBoolean()
   hasReactions?: boolean;
 
-  @ApiPropertyOptional({ description: 'Límite de resultados', minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({
+    description: 'Límite de resultados',
+    minimum: 1,
+    maximum: 100,
+  })
   @IsOptional()
   @IsNumber()
   @Min(1)
@@ -146,12 +340,18 @@ export class ChatMessageFiltersDto {
   @IsString()
   offset?: string;
 
-  @ApiPropertyOptional({ enum: ['createdAt', 'updatedAt'], description: 'Campo para ordenar' })
+  @ApiPropertyOptional({
+    enum: ['createdAt', 'updatedAt'],
+    description: 'Campo para ordenar',
+  })
   @IsOptional()
   @IsEnum(['createdAt', 'updatedAt'])
   sortBy?: 'createdAt' | 'updatedAt';
 
-  @ApiPropertyOptional({ enum: ['asc', 'desc'], description: 'Orden de clasificación' })
+  @ApiPropertyOptional({
+    enum: ['asc', 'desc'],
+    description: 'Orden de clasificación',
+  })
   @IsOptional()
   @IsEnum(['asc', 'desc'])
   sortOrder?: 'asc' | 'desc';
@@ -161,12 +361,18 @@ export class ChatMessageFiltersDto {
  * DTO para crear configuración de chat
  */
 export class CreateChatConfigDto {
-  @ApiPropertyOptional({ description: 'Habilitar chat en la sala', default: true })
+  @ApiPropertyOptional({
+    description: 'Habilitar chat en la sala',
+    default: true,
+  })
   @IsOptional()
   @IsBoolean()
   isEnabled?: boolean;
 
-  @ApiPropertyOptional({ description: 'Permitir subida de archivos', default: true })
+  @ApiPropertyOptional({
+    description: 'Permitir subida de archivos',
+    default: true,
+  })
   @IsOptional()
   @IsBoolean()
   allowFileUploads?: boolean;
@@ -186,21 +392,30 @@ export class CreateChatConfigDto {
   @IsBoolean()
   allowReactions?: boolean;
 
-  @ApiPropertyOptional({ description: 'Longitud máxima de mensaje', default: 1000 })
+  @ApiPropertyOptional({
+    description: 'Longitud máxima de mensaje',
+    default: 1000,
+  })
   @IsOptional()
   @IsNumber()
   @Min(1)
   @Max(5000)
   maxMessageLength?: number;
 
-  @ApiPropertyOptional({ description: 'Retraso en modo lento (segundos)', default: 0 })
+  @ApiPropertyOptional({
+    description: 'Retraso en modo lento (segundos)',
+    default: 0,
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Max(300)
   slowModeDelay?: number;
 
-  @ApiPropertyOptional({ description: 'Días de retención de mensajes', default: 30 })
+  @ApiPropertyOptional({
+    description: 'Días de retención de mensajes',
+    default: 30,
+  })
   @IsOptional()
   @IsNumber()
   @Min(1)
@@ -212,24 +427,36 @@ export class CreateChatConfigDto {
   @IsBoolean()
   moderationEnabled?: boolean;
 
-  @ApiPropertyOptional({ description: 'Habilitar filtro de profanidad', default: false })
+  @ApiPropertyOptional({
+    description: 'Habilitar filtro de profanidad',
+    default: false,
+  })
   @IsOptional()
   @IsBoolean()
   profanityFilterEnabled?: boolean;
 
-  @ApiPropertyOptional({ description: 'Palabras prohibidas personalizadas', type: [String] })
+  @ApiPropertyOptional({
+    description: 'Palabras prohibidas personalizadas',
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   customBannedWords?: string[];
 
-  @ApiPropertyOptional({ description: 'Tipos de archivo permitidos', type: [String] })
+  @ApiPropertyOptional({
+    description: 'Tipos de archivo permitidos',
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   allowedFileTypes?: string[];
 
-  @ApiPropertyOptional({ description: 'Tamaño máximo de archivo en bytes', default: 5242880 })
+  @ApiPropertyOptional({
+    description: 'Tamaño máximo de archivo en bytes',
+    default: 5242880,
+  })
   @IsOptional()
   @IsNumber()
   @Min(1024)
@@ -264,7 +491,10 @@ export class ChatModerationActionDto {
   @IsString()
   messageId: string;
 
-  @ApiProperty({ enum: ['delete', 'edit', 'warn', 'timeout'], description: 'Tipo de acción' })
+  @ApiProperty({
+    enum: ['delete', 'edit', 'warn', 'timeout'],
+    description: 'Tipo de acción',
+  })
   @IsEnum(['delete', 'edit', 'warn', 'timeout'])
   action: 'delete' | 'edit' | 'warn' | 'timeout';
 
@@ -289,7 +519,10 @@ export class ChatModerationActionDto {
  * DTO para actualizar auto-moderación
  */
 export class UpdateAutoModerationDto {
-  @ApiPropertyOptional({ description: 'Habilitar auto-moderación', default: false })
+  @ApiPropertyOptional({
+    description: 'Habilitar auto-moderación',
+    default: false,
+  })
   @IsOptional()
   @IsBoolean()
   enabled?: boolean;
@@ -317,125 +550,6 @@ export class UpdateAutoModerationDto {
   @ValidateNested()
   @Type(() => CapsFilterConfigDto)
   capsFilter?: CapsFilterConfigDto;
-}
-
-/**
- * DTO para configuración de detección de spam
- */
-export class SpamDetectionConfigDto {
-  @ApiPropertyOptional({ description: 'Habilitar detección de spam', default: false })
-  @IsOptional()
-  @IsBoolean()
-  enabled?: boolean;
-
-  @ApiPropertyOptional({ description: 'Máximo mensajes por minuto', default: 10 })
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Max(60)
-  maxMessagesPerMinute?: number;
-
-  @ApiPropertyOptional({ description: 'Umbral de mensajes duplicados', default: 3 })
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Max(10)
-  duplicateMessageThreshold?: number;
-}
-
-/**
- * DTO para configuración de filtro de profanidad
- */
-export class ProfanityFilterConfigDto {
-  @ApiPropertyOptional({ description: 'Habilitar filtro de profanidad', default: false })
-  @IsOptional()
-  @IsBoolean()
-  enabled?: boolean;
-
-  @ApiPropertyOptional({ enum: ['delete', 'moderate', 'warn'], description: 'Acción a tomar' })
-  @IsOptional()
-  @IsEnum(['delete', 'moderate', 'warn'])
-  action?: 'delete' | 'moderate' | 'warn';
-
-  @ApiPropertyOptional({ description: 'Palabras personalizadas', type: [String] })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  customWords?: string[];
-}
-
-/**
- * DTO para configuración de filtro de enlaces
- */
-export class LinkFilterConfigDto {
-  @ApiPropertyOptional({ description: 'Habilitar filtro de enlaces', default: false })
-  @IsOptional()
-  @IsBoolean()
-  enabled?: boolean;
-
-  @ApiPropertyOptional({ description: 'Permitir dominios en lista blanca', default: false })
-  @IsOptional()
-  @IsBoolean()
-  allowWhitelistedDomains?: boolean;
-
-  @ApiPropertyOptional({ description: 'Dominios en lista blanca', type: [String] })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  whitelistedDomains?: string[];
-}
-
-/**
- * DTO para configuración de filtro de mayúsculas
- */
-export class CapsFilterConfigDto {
-  @ApiPropertyOptional({ description: 'Habilitar filtro de mayúsculas', default: false })
-  @IsOptional()
-  @IsBoolean()
-  enabled?: boolean;
-
-  @ApiPropertyOptional({ description: 'Porcentaje máximo de mayúsculas', default: 70 })
-  @IsOptional()
-  @IsNumber()
-  @Min(10)
-  @Max(100)
-  maxCapsPercentage?: number;
-}
-
-/**
- * DTO para configuración de notificaciones de chat
- */
-export class ChatNotificationConfigDto {
-  @ApiPropertyOptional({ description: 'Habilitar notificaciones de menciones', default: true })
-  @IsOptional()
-  @IsBoolean()
-  enableMentions?: boolean;
-
-  @ApiPropertyOptional({ description: 'Habilitar notificaciones de respuestas', default: true })
-  @IsOptional()
-  @IsBoolean()
-  enableReplies?: boolean;
-
-  @ApiPropertyOptional({ description: 'Habilitar notificaciones de reacciones', default: true })
-  @IsOptional()
-  @IsBoolean()
-  enableReactions?: boolean;
-
-  @ApiPropertyOptional({ description: 'Habilitar notificaciones de mensajes del sistema', default: true })
-  @IsOptional()
-  @IsBoolean()
-  enableSystemMessages?: boolean;
-
-  @ApiPropertyOptional({ description: 'Silenciar hasta (ISO string)' })
-  @IsOptional()
-  @IsDateString()
-  muteUntil?: Date;
-
-  @ApiPropertyOptional({ description: 'Palabras clave para notificar', type: [String] })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  keywords?: string[];
 }
 
 /**

@@ -1,33 +1,39 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
 import { DynamoDBKeys } from '../../infrastructure/database/dynamodb.constants';
 import { RealtimeCompatibilityService } from '../realtime/realtime-compatibility.service';
 import { PermissionService } from '../permission/permission.service';
-import { 
-  ChatMessage, 
-  ChatMessageType, 
-  ChatMessageStatus, 
-  RoomChatConfig, 
-  RoomChatStats, 
-  ChatMessageFilters, 
-  ChatSearchResult, 
-  ChatEvent, 
-  TypingStatus, 
-  ChatNotificationConfig, 
-  ChatThread, 
-  ChatModerationAction, 
-  ChatAutoModerationConfig 
+import {
+  ChatMessage,
+  ChatMessageType,
+  ChatMessageStatus,
+  RoomChatConfig,
+  RoomChatStats,
+  ChatMessageFilters,
+  ChatSearchResult,
+  ChatEvent,
+  TypingStatus,
+  ChatNotificationConfig,
+  ChatThread,
+  ChatModerationAction,
+  ChatAutoModerationConfig,
 } from '../../domain/entities/room-chat.entity';
 import { RoomPermission } from '../../domain/entities/room-moderation.entity';
-import { 
-  SendMessageDto, 
-  EditMessageDto, 
-  CreateChatConfigDto, 
-  UpdateChatConfigDto, 
-  ChatMessageFiltersDto, 
-  CreateThreadDto, 
-  ChatModerationActionDto, 
-  UpdateAutoModerationDto 
+import {
+  SendMessageDto,
+  EditMessageDto,
+  CreateChatConfigDto,
+  UpdateChatConfigDto,
+  ChatMessageFiltersDto,
+  CreateThreadDto,
+  ChatModerationActionDto,
+  UpdateAutoModerationDto,
 } from './dto/room-chat.dto';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -48,10 +54,14 @@ export class RoomChatService {
     roomId: string,
     userId: string,
     username: string,
-    sendMessageDto: SendMessageDto
+    sendMessageDto: SendMessageDto,
   ): Promise<ChatMessage> {
     // Verificar permisos de chat
-    await this.permissionService.checkPermission(roomId, userId, RoomPermission.CHAT);
+    await this.permissionService.checkPermission(
+      roomId,
+      userId,
+      RoomPermission.CHAT,
+    );
 
     // Verificar configuración de chat
     const config = await this.getChatConfig(roomId);
@@ -61,7 +71,9 @@ export class RoomChatService {
 
     // Verificar límites de mensaje
     if (sendMessageDto.content.length > config.maxMessageLength) {
-      throw new BadRequestException(`El mensaje excede el límite de ${config.maxMessageLength} caracteres`);
+      throw new BadRequestException(
+        `El mensaje excede el límite de ${config.maxMessageLength} caracteres`,
+      );
     }
 
     // Verificar slow mode
@@ -116,7 +128,9 @@ export class RoomChatService {
         timestamp: now,
       });
 
-      this.logger.log(`Mensaje de chat enviado: ${messageId} en sala ${roomId} por usuario ${userId}`);
+      this.logger.log(
+        `Mensaje de chat enviado: ${messageId} en sala ${roomId} por usuario ${userId}`,
+      );
       return message;
     } catch (error) {
       this.logger.error(`Error enviando mensaje de chat: ${error.message}`);
@@ -131,7 +145,7 @@ export class RoomChatService {
     roomId: string,
     messageId: string,
     userId: string,
-    editMessageDto: EditMessageDto
+    editMessageDto: EditMessageDto,
   ): Promise<ChatMessage> {
     const message = await this.getMessage(roomId, messageId);
 
@@ -191,16 +205,23 @@ export class RoomChatService {
   async deleteMessage(
     roomId: string,
     messageId: string,
-    userId: string
+    userId: string,
   ): Promise<void> {
     const message = await this.getMessage(roomId, messageId);
 
     // Verificar permisos (autor del mensaje o moderador)
-    const canDelete = message.userId === userId || 
-      await this.permissionService.hasPermission(roomId, userId, RoomPermission.MUTE_MEMBERS);
+    const canDelete =
+      message.userId === userId ||
+      (await this.permissionService.hasPermission(
+        roomId,
+        userId,
+        RoomPermission.MUTE_MEMBERS,
+      ));
 
     if (!canDelete) {
-      throw new ForbiddenException('No tienes permisos para eliminar este mensaje');
+      throw new ForbiddenException(
+        'No tienes permisos para eliminar este mensaje',
+      );
     }
 
     const now = new Date();
@@ -244,10 +265,14 @@ export class RoomChatService {
   async getMessages(
     roomId: string,
     userId: string,
-    filters: ChatMessageFiltersDto
+    filters: ChatMessageFiltersDto,
   ): Promise<ChatSearchResult> {
     // Verificar permisos de visualización
-    await this.permissionService.checkPermission(roomId, userId, RoomPermission.VIEW_ROOM);
+    await this.permissionService.checkPermission(
+      roomId,
+      userId,
+      RoomPermission.VIEW_ROOM,
+    );
 
     try {
       const limit = Math.min(filters.limit || 50, 100);
@@ -263,7 +288,7 @@ export class RoomChatService {
 
       // Aplicar filtros
       const filterExpressions: string[] = [];
-      
+
       if (filters.userId) {
         queryParams.ExpressionAttributeValues[':userId'] = filters.userId;
         filterExpressions.push('userId = :userId');
@@ -278,33 +303,40 @@ export class RoomChatService {
       if (filters.status) {
         queryParams.ExpressionAttributeValues[':status'] = filters.status;
         filterExpressions.push('#status = :status');
-        queryParams.ExpressionAttributeNames = { 
+        queryParams.ExpressionAttributeNames = {
           ...queryParams.ExpressionAttributeNames,
-          '#status': 'status' 
+          '#status': 'status',
         };
       }
 
       if (filters.dateFrom) {
-        queryParams.ExpressionAttributeValues[':dateFrom'] = filters.dateFrom.toISOString();
+        queryParams.ExpressionAttributeValues[':dateFrom'] =
+          filters.dateFrom.toISOString();
         filterExpressions.push('createdAt >= :dateFrom');
       }
 
       if (filters.dateTo) {
-        queryParams.ExpressionAttributeValues[':dateTo'] = filters.dateTo.toISOString();
+        queryParams.ExpressionAttributeValues[':dateTo'] =
+          filters.dateTo.toISOString();
         filterExpressions.push('createdAt <= :dateTo');
       }
 
       if (filters.searchText) {
-        queryParams.ExpressionAttributeValues[':searchText'] = filters.searchText;
+        queryParams.ExpressionAttributeValues[':searchText'] =
+          filters.searchText;
         filterExpressions.push('contains(content, :searchText)');
       }
 
       if (filters.hasAttachments !== undefined) {
         if (filters.hasAttachments) {
-          filterExpressions.push('attribute_exists(attachments) AND size(attachments) > :zero');
+          filterExpressions.push(
+            'attribute_exists(attachments) AND size(attachments) > :zero',
+          );
           queryParams.ExpressionAttributeValues[':zero'] = 0;
         } else {
-          filterExpressions.push('(attribute_not_exists(attachments) OR size(attachments) = :zero)');
+          filterExpressions.push(
+            '(attribute_not_exists(attachments) OR size(attachments) = :zero)',
+          );
           queryParams.ExpressionAttributeValues[':zero'] = 0;
         }
       }
@@ -321,18 +353,18 @@ export class RoomChatService {
       }
 
       const result = await this.dynamoDBService.query(queryParams);
-      const messages = result.Items?.map(item => item as ChatMessage) || [];
+      const messages = result.Items?.map((item) => item as ChatMessage) || [];
 
       // Filtrar mensajes eliminados para usuarios normales
       const canViewDeleted = await this.permissionService.hasPermission(
-        roomId, 
-        userId, 
-        RoomPermission.VIEW_MODERATION_LOG
+        roomId,
+        userId,
+        RoomPermission.VIEW_MODERATION_LOG,
       );
 
-      const filteredMessages = canViewDeleted ? 
-        messages : 
-        messages.filter(msg => msg.status !== ChatMessageStatus.DELETED);
+      const filteredMessages = canViewDeleted
+        ? messages
+        : messages.filter((msg) => msg.status !== ChatMessageStatus.DELETED);
 
       return {
         messages: filteredMessages,
@@ -353,21 +385,27 @@ export class RoomChatService {
     roomId: string,
     messageId: string,
     userId: string,
-    emoji: string
+    emoji: string,
   ): Promise<ChatMessage> {
     // Verificar permisos
-    await this.permissionService.checkPermission(roomId, userId, RoomPermission.REACT);
+    await this.permissionService.checkPermission(
+      roomId,
+      userId,
+      RoomPermission.REACT,
+    );
 
     const message = await this.getMessage(roomId, messageId);
-    
+
     // Verificar configuración de reacciones
     const config = await this.getChatConfig(roomId);
     if (!config.allowReactions) {
-      throw new ForbiddenException('Las reacciones están deshabilitadas en esta sala');
+      throw new ForbiddenException(
+        'Las reacciones están deshabilitadas en esta sala',
+      );
     }
 
     const reactions = [...(message.reactions || [])];
-    const existingReaction = reactions.find(r => r.emoji === emoji);
+    const existingReaction = reactions.find((r) => r.emoji === emoji);
 
     if (existingReaction) {
       // Agregar usuario a reacción existente si no está ya
@@ -425,10 +463,14 @@ export class RoomChatService {
   async configureChatConfig(
     roomId: string,
     userId: string,
-    configDto: CreateChatConfigDto | UpdateChatConfigDto
+    configDto: CreateChatConfigDto | UpdateChatConfigDto,
   ): Promise<RoomChatConfig> {
     // Verificar permisos de configuración
-    await this.permissionService.checkPermission(roomId, userId, RoomPermission.MODIFY_SETTINGS);
+    await this.permissionService.checkPermission(
+      roomId,
+      userId,
+      RoomPermission.MODIFY_SETTINGS,
+    );
 
     const now = new Date();
     const config: RoomChatConfig = {
@@ -444,7 +486,11 @@ export class RoomChatService {
       moderationEnabled: configDto.moderationEnabled ?? true,
       profanityFilterEnabled: configDto.profanityFilterEnabled ?? false,
       customBannedWords: configDto.customBannedWords || [],
-      allowedFileTypes: configDto.allowedFileTypes || ['image/jpeg', 'image/png', 'image/gif'],
+      allowedFileTypes: configDto.allowedFileTypes || [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+      ],
       maxFileSize: configDto.maxFileSize ?? 5 * 1024 * 1024, // 5MB
       createdBy: userId,
       createdAt: now,
@@ -473,7 +519,7 @@ export class RoomChatService {
     try {
       const result = await this.dynamoDBService.getItem(
         DynamoDBKeys.roomPK(roomId),
-        'CHAT_CONFIG'
+        'CHAT_CONFIG',
       );
 
       if (!result) {
@@ -501,7 +547,9 @@ export class RoomChatService {
 
       return result as RoomChatConfig;
     } catch (error) {
-      this.logger.error(`Error obteniendo configuración de chat: ${error.message}`);
+      this.logger.error(
+        `Error obteniendo configuración de chat: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -511,12 +559,16 @@ export class RoomChatService {
    */
   async getChatStats(roomId: string, userId: string): Promise<RoomChatStats> {
     // Verificar permisos
-    await this.permissionService.checkPermission(roomId, userId, RoomPermission.VIEW_ROOM);
+    await this.permissionService.checkPermission(
+      roomId,
+      userId,
+      RoomPermission.VIEW_ROOM,
+    );
 
     try {
       const result = await this.dynamoDBService.getItem(
         DynamoDBKeys.roomPK(roomId),
-        'CHAT_STATS'
+        'CHAT_STATS',
       );
 
       if (!result) {
@@ -526,17 +578,22 @@ export class RoomChatService {
 
       return result as RoomChatStats;
     } catch (error) {
-      this.logger.error(`Error obteniendo estadísticas de chat: ${error.message}`);
+      this.logger.error(
+        `Error obteniendo estadísticas de chat: ${error.message}`,
+      );
       throw error;
     }
   }
 
   // Métodos auxiliares privados
 
-  private async getMessage(roomId: string, messageId: string): Promise<ChatMessage> {
+  private async getMessage(
+    roomId: string,
+    messageId: string,
+  ): Promise<ChatMessage> {
     const result = await this.dynamoDBService.getItem(
       DynamoDBKeys.roomPK(roomId),
-      `CHAT_MESSAGE#${messageId}`
+      `CHAT_MESSAGE#${messageId}`,
     );
 
     if (!result) {
@@ -546,7 +603,11 @@ export class RoomChatService {
     return result as ChatMessage;
   }
 
-  private async checkSlowMode(roomId: string, userId: string, slowModeDelay: number): Promise<void> {
+  private async checkSlowMode(
+    roomId: string,
+    userId: string,
+    slowModeDelay: number,
+  ): Promise<void> {
     if (slowModeDelay === 0) return;
 
     // Obtener último mensaje del usuario
@@ -566,26 +627,35 @@ export class RoomChatService {
       const requiredDelay = slowModeDelay * 1000;
 
       if (timeSinceLastMessage < requiredDelay) {
-        const remainingTime = Math.ceil((requiredDelay - timeSinceLastMessage) / 1000);
-        throw new BadRequestException(`Debes esperar ${remainingTime} segundos antes de enviar otro mensaje`);
+        const remainingTime = Math.ceil(
+          (requiredDelay - timeSinceLastMessage) / 1000,
+        );
+        throw new BadRequestException(
+          `Debes esperar ${remainingTime} segundos antes de enviar otro mensaje`,
+        );
       }
     }
   }
 
-  private async checkAutoModeration(roomId: string, content: string): Promise<void> {
+  private async checkAutoModeration(
+    roomId: string,
+    content: string,
+  ): Promise<void> {
     const autoModConfig = await this.getAutoModerationConfig(roomId);
-    
+
     if (!autoModConfig.enabled) return;
 
     // Verificar filtro de profanidad
     if (autoModConfig.profanityFilter.enabled) {
       const bannedWords = [...autoModConfig.profanityFilter.customWords];
-      const containsBannedWord = bannedWords.some(word => 
-        content.toLowerCase().includes(word.toLowerCase())
+      const containsBannedWord = bannedWords.some((word) =>
+        content.toLowerCase().includes(word.toLowerCase()),
       );
 
       if (containsBannedWord) {
-        throw new BadRequestException('El mensaje contiene contenido no permitido');
+        throw new BadRequestException(
+          'El mensaje contiene contenido no permitido',
+        );
       }
     }
 
@@ -593,18 +663,22 @@ export class RoomChatService {
     if (autoModConfig.capsFilter.enabled) {
       const capsCount = (content.match(/[A-Z]/g) || []).length;
       const capsPercentage = (capsCount / content.length) * 100;
-      
+
       if (capsPercentage > autoModConfig.capsFilter.maxCapsPercentage) {
-        throw new BadRequestException('El mensaje contiene demasiadas mayúsculas');
+        throw new BadRequestException(
+          'El mensaje contiene demasiadas mayúsculas',
+        );
       }
     }
   }
 
-  private async getAutoModerationConfig(roomId: string): Promise<ChatAutoModerationConfig> {
+  private async getAutoModerationConfig(
+    roomId: string,
+  ): Promise<ChatAutoModerationConfig> {
     try {
       const result = await this.dynamoDBService.getItem(
         DynamoDBKeys.roomPK(roomId),
-        'CHAT_AUTO_MODERATION'
+        'CHAT_AUTO_MODERATION',
       );
 
       if (!result) {
@@ -638,17 +712,23 @@ export class RoomChatService {
 
       return result as ChatAutoModerationConfig;
     } catch (error) {
-      this.logger.error(`Error obteniendo configuración de auto-moderación: ${error.message}`);
+      this.logger.error(
+        `Error obteniendo configuración de auto-moderación: ${error.message}`,
+      );
       throw error;
     }
   }
 
-  private async updateChatStats(roomId: string, userId: string, username: string): Promise<void> {
+  private async updateChatStats(
+    roomId: string,
+    userId: string,
+    username: string,
+  ): Promise<void> {
     try {
       // Esta es una implementación simplificada
       // En producción, se podría usar un sistema más sofisticado de agregación
       const now = new Date();
-      
+
       await this.dynamoDBService.putItem({
         PK: DynamoDBKeys.roomPK(roomId),
         SK: 'CHAT_STATS',
@@ -659,7 +739,9 @@ export class RoomChatService {
         updatedAt: now,
       });
     } catch (error) {
-      this.logger.warn(`Error actualizando estadísticas de chat: ${error.message}`);
+      this.logger.warn(
+        `Error actualizando estadísticas de chat: ${error.message}`,
+      );
       // No lanzar error para no afectar el envío del mensaje
     }
   }

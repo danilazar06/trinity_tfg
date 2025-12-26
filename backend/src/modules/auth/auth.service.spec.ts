@@ -47,12 +47,11 @@ describe('AuthService Property Tests', () => {
   /**
    * **Feature: trinity-mvp, Property 14: Seguridad de autenticación y autorización**
    * **Valida: Requisitos 8.1, 8.2, 8.4**
-   * 
-   * Para cualquier autenticación de usuario o acceso a sala, el sistema debe usar tokens JWT seguros, 
+   *
+   * Para cualquier autenticación de usuario o acceso a sala, el sistema debe usar tokens JWT seguros,
    * verificar permisos, y generar tokens de invitación criptográficamente seguros
    */
   describe('Property 14: Authentication and authorization security', () => {
-    
     it('should use secure Cognito tokens for all authentication operations', async () => {
       await fc.assert(
         fc.asyncProperty(
@@ -96,7 +95,7 @@ describe('AuthService Property Tests', () => {
               userData.email,
               userData.username,
               userData.password,
-              userData.phoneNumber
+              userData.phoneNumber,
             );
 
             // Verify user profile is created securely
@@ -105,7 +104,7 @@ describe('AuthService Property Tests', () => {
                 email: userData.email,
                 username: userData.username,
                 emailVerified: false, // Requires confirmation
-              })
+              }),
             );
 
             // Test login uses Cognito tokens
@@ -117,7 +116,7 @@ describe('AuthService Property Tests', () => {
             // Verify Cognito authentication is used
             expect(mockCognitoService.signIn).toHaveBeenCalledWith(
               userData.email,
-              userData.password
+              userData.password,
             );
 
             // Verify secure tokens are returned
@@ -126,11 +125,11 @@ describe('AuthService Property Tests', () => {
                 accessToken: expect.any(String),
                 idToken: expect.any(String),
                 refreshToken: expect.any(String),
-              })
+              }),
             );
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -161,11 +160,13 @@ describe('AuthService Property Tests', () => {
             });
 
             // Test token validation
-            const user = await service.validateUserByToken(tokenData.accessToken);
+            const user = await service.validateUserByToken(
+              tokenData.accessToken,
+            );
 
             // Verify Cognito token validation is called
             expect(mockCognitoService.validateAccessToken).toHaveBeenCalledWith(
-              tokenData.accessToken
+              tokenData.accessToken,
             );
 
             // Verify user permissions are properly validated
@@ -175,11 +176,11 @@ describe('AuthService Property Tests', () => {
                 email: tokenData.email,
                 username: tokenData.username,
                 emailVerified: true,
-              })
+              }),
             );
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -197,14 +198,14 @@ describe('AuthService Property Tests', () => {
             // Verify invalid tokens are rejected securely
             expect(result).toBeNull();
             expect(mockCognitoService.validateAccessToken).toHaveBeenCalledWith(
-              invalidToken
+              invalidToken,
             );
 
             // Verify no sensitive information is exposed in logs or responses
             // (This would be verified through log monitoring in real implementation)
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -218,14 +219,16 @@ describe('AuthService Property Tests', () => {
           }),
           async (resetData) => {
             mockCognitoService.forgotPassword.mockResolvedValue(undefined);
-            mockCognitoService.confirmForgotPassword.mockResolvedValue(undefined);
+            mockCognitoService.confirmForgotPassword.mockResolvedValue(
+              undefined,
+            );
 
             // Test forgot password initiation
             await service.forgotPassword({ email: resetData.email });
 
             // Verify secure forgot password flow
             expect(mockCognitoService.forgotPassword).toHaveBeenCalledWith(
-              resetData.email
+              resetData.email,
             );
 
             // Test password reset confirmation
@@ -236,14 +239,16 @@ describe('AuthService Property Tests', () => {
             });
 
             // Verify secure confirmation process
-            expect(mockCognitoService.confirmForgotPassword).toHaveBeenCalledWith(
+            expect(
+              mockCognitoService.confirmForgotPassword,
+            ).toHaveBeenCalledWith(
               resetData.email,
               resetData.confirmationCode,
-              resetData.newPassword
+              resetData.newPassword,
             );
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
 
@@ -256,11 +261,13 @@ describe('AuthService Property Tests', () => {
           }),
           async (confirmData) => {
             mockCognitoService.confirmSignUp.mockResolvedValue(undefined);
-            mockDynamoDBService.query.mockResolvedValue([{
-              id: 'test-user-id',
-              email: confirmData.email,
-              emailVerified: false,
-            }]);
+            mockDynamoDBService.query.mockResolvedValue([
+              {
+                id: 'test-user-id',
+                email: confirmData.email,
+                emailVerified: false,
+              },
+            ]);
             mockDynamoDBService.conditionalUpdate.mockResolvedValue({});
 
             // Test email confirmation
@@ -272,7 +279,7 @@ describe('AuthService Property Tests', () => {
             // Verify Cognito confirmation is required
             expect(mockCognitoService.confirmSignUp).toHaveBeenCalledWith(
               confirmData.email,
-              confirmData.confirmationCode
+              confirmData.confirmationCode,
             );
 
             // Verify email verification status is updated
@@ -284,11 +291,11 @@ describe('AuthService Property Tests', () => {
               undefined,
               expect.objectContaining({
                 ':emailVerified': true,
-              })
+              }),
             );
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
   });

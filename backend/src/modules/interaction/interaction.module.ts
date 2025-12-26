@@ -8,8 +8,8 @@ import { AnalyticsModule } from '../analytics/analytics.module';
 
 @Module({
   imports: [
-    RoomModule, 
-    MediaModule, 
+    forwardRef(() => RoomModule),
+    MediaModule,
     RealtimeModule,
     forwardRef(() => AnalyticsModule),
   ],

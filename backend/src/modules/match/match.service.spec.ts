@@ -6,16 +6,21 @@ import { DynamoDBService } from '../../infrastructure/database/dynamodb.service'
 import { MemberService } from '../room/member.service';
 import { MediaService } from '../media/media.service';
 import { InteractionService } from '../interaction/interaction.service';
-import { RealtimeService } from '../realtime/realtime.service';
-import { 
-  Match, 
-  MatchDetectionResult, 
+import { RealtimeCompatibilityService } from '../realtime/realtime-compatibility.service';
+import { EventTracker } from '../analytics/event-tracker.service';
+import {
+  Match,
+  MatchDetectionResult,
   ConsensusType,
-  MatchSummary 
+  MatchSummary,
 } from '../../domain/entities/match.entity';
 import { VoteType, Vote } from '../../domain/entities/interaction.entity';
 import { MediaItem } from '../../domain/entities/media.entity';
-import { Member, MemberRole, MemberStatus } from '../../domain/entities/room.entity';
+import {
+  Member,
+  MemberRole,
+  MemberStatus,
+} from '../../domain/entities/room.entity';
 
 describe('MatchService', () => {
   let service: MatchService;
@@ -23,6 +28,8 @@ describe('MatchService', () => {
   let memberService: jest.Mocked<MemberService>;
   let mediaService: jest.Mocked<MediaService>;
   let interactionService: jest.Mocked<InteractionService>;
+  let realtimeService: jest.Mocked<RealtimeCompatibilityService>;
+  let eventTracker: jest.Mocked<EventTracker>;
 
   beforeEach(async () => {
     const mockDynamoDBService = {
@@ -42,6 +49,7 @@ describe('MatchService', () => {
 
     const mockMediaService = {
       getMediaDetails: jest.fn(),
+      getMovieDetails: jest.fn(),
     };
 
     const mockInteractionService = {
@@ -60,6 +68,14 @@ describe('MatchService', () => {
       notifyMemberStatusChange: jest.fn(),
     };
 
+    const mockEventTracker = {
+      trackEvent: jest.fn(),
+      trackUserAction: jest.fn(),
+      trackRoomEvent: jest.fn(),
+      trackPerformanceMetric: jest.fn(),
+      trackContentInteraction: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MatchService,
@@ -67,7 +83,8 @@ describe('MatchService', () => {
         { provide: MemberService, useValue: mockMemberService },
         { provide: MediaService, useValue: mockMediaService },
         { provide: InteractionService, useValue: mockInteractionService },
-        { provide: RealtimeService, useValue: mockRealtimeService },
+        { provide: RealtimeCompatibilityService, useValue: mockRealtimeService },
+        { provide: EventTracker, useValue: mockEventTracker },
         { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
@@ -77,6 +94,8 @@ describe('MatchService', () => {
     memberService = module.get(MemberService);
     mediaService = module.get(MediaService);
     interactionService = module.get(InteractionService);
+    realtimeService = module.get(RealtimeCompatibilityService);
+    eventTracker = module.get(EventTracker);
   });
 
   it('should be defined', () => {
@@ -91,9 +110,9 @@ describe('MatchService', () => {
     /**
      * **Feature: trinity-mvp, Property 5: Detección y creación de matches**
      * **Valida: Requisitos 3.1, 3.2, 3.3, 3.5**
-     * 
-     * Para cualquier sala donde todos los miembros activos votan positivamente en el mismo 
-     * elemento multimedia, un match debe crearse, persistirse con metadatos completos, 
+     *
+     * Para cualquier sala donde todos los miembros activos votan positivamente en el mismo
+     * elemento multimedia, un match debe crearse, persistirse con metadatos completos,
      * y todos los miembros notificados inmediatamente
      */
     it('should detect and create matches when unanimous consensus is reached', async () => {
@@ -101,7 +120,10 @@ describe('MatchService', () => {
         fc.asyncProperty(
           fc.string({ minLength: 1, maxLength: 50 }), // roomId
           fc.string({ minLength: 1, maxLength: 20 }), // mediaId
-          fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 2, maxLength: 6 }), // userIds
+          fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+            minLength: 2,
+            maxLength: 6,
+          }), // userIds
           async (roomId, mediaId, userIds) => {
             // Reset mocks for this iteration
             jest.clearAllMocks();
@@ -109,7 +131,7 @@ describe('MatchService', () => {
             const numUsers = userIds.length;
 
             // Arrange: Mock unanimous positive votes
-            const unanimousVotes: Vote[] = userIds.map(userId => ({
+            const unanimousVotes: Vote[] = userIds.map((userId) => ({
               userId,
               roomId,
               mediaId,
@@ -142,8 +164,12 @@ describe('MatchService', () => {
               totalVotes: numUsers,
               activeMembers: numUsers,
             });
-            interactionService.getMediaVotes.mockResolvedValueOnce(unanimousVotes);
-            mediaService.getMediaDetails.mockResolvedValueOnce(mockMediaDetails);
+            interactionService.getMediaVotes.mockResolvedValueOnce(
+              unanimousVotes,
+            );
+            mediaService.getMovieDetails.mockResolvedValueOnce(
+              mockMediaDetails,
+            );
             dynamoDBService.putItem.mockResolvedValueOnce();
             dynamoDBService.conditionalUpdate.mockResolvedValueOnce();
 
@@ -160,13 +186,13 @@ describe('MatchService', () => {
 
             // Verify all participants are included
             const participantSet = new Set(result.participants);
-            userIds.forEach(userId => {
+            userIds.forEach((userId) => {
               expect(participantSet.has(userId)).toBe(true);
             });
 
             // Verify match was persisted
             expect(dynamoDBService.putItem).toHaveBeenCalledTimes(1);
-            
+
             // Verify notifications were marked as sent
             expect(dynamoDBService.conditionalUpdate).toHaveBeenCalledWith(
               expect.any(String),
@@ -174,14 +200,14 @@ describe('MatchService', () => {
               'SET notificationsSent = :sent',
               'attribute_exists(PK)',
               undefined,
-              { ':sent': true }
+              { ':sent': true },
             );
 
             // Verify media details were fetched
-            expect(mediaService.getMediaDetails).toHaveBeenCalledWith(mediaId);
-          }
+            expect(mediaService.getMovieDetails).toHaveBeenCalledWith(mediaId);
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -190,7 +216,10 @@ describe('MatchService', () => {
         fc.asyncProperty(
           fc.string({ minLength: 1, maxLength: 50 }), // roomId
           fc.string({ minLength: 1, maxLength: 20 }), // mediaId
-          fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 3, maxLength: 6 }), // userIds
+          fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+            minLength: 3,
+            maxLength: 6,
+          }), // userIds
           fc.integer({ min: 1, max: 5 }), // numLikes (less than total users)
           async (roomId, mediaId, userIds, numLikes) => {
             // Reset mocks for this iteration
@@ -230,10 +259,10 @@ describe('MatchService', () => {
 
             // Verify no match was persisted
             expect(dynamoDBService.putItem).not.toHaveBeenCalled();
-            expect(mediaService.getMediaDetails).not.toHaveBeenCalled();
-          }
+            expect(mediaService.getMovieDetails).not.toHaveBeenCalled();
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -242,7 +271,10 @@ describe('MatchService', () => {
         fc.asyncProperty(
           fc.string({ minLength: 1, maxLength: 50 }), // roomId
           fc.string({ minLength: 1, maxLength: 20 }), // mediaId
-          fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 2, maxLength: 5 }), // userIds
+          fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+            minLength: 2,
+            maxLength: 5,
+          }), // userIds
           async (roomId, mediaId, userIds) => {
             // Reset mocks for this iteration
             jest.clearAllMocks();
@@ -290,10 +322,12 @@ describe('MatchService', () => {
 
             // Verify no new match was created
             expect(dynamoDBService.putItem).not.toHaveBeenCalled();
-            expect(interactionService.checkUnanimousVote).not.toHaveBeenCalled();
-          }
+            expect(
+              interactionService.checkUnanimousVote,
+            ).not.toHaveBeenCalled();
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -301,8 +335,14 @@ describe('MatchService', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.string({ minLength: 1, maxLength: 50 }), // roomId
-          fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 2, maxLength: 8 }), // mediaIds
-          fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 2, maxLength: 5 }), // userIds
+          fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+            minLength: 2,
+            maxLength: 8,
+          }), // mediaIds
+          fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+            minLength: 2,
+            maxLength: 5,
+          }), // userIds
           async (roomId, mediaIds, userIds) => {
             // Reset mocks for this iteration
             jest.clearAllMocks();
@@ -324,7 +364,7 @@ describe('MatchService', () => {
                 activeMembers: userIds.length,
               });
 
-              const unanimousVotes: Vote[] = userIds.map(userId => ({
+              const unanimousVotes: Vote[] = userIds.map((userId) => ({
                 userId,
                 roomId,
                 mediaId,
@@ -332,8 +372,10 @@ describe('MatchService', () => {
                 timestamp: new Date(),
               }));
 
-              interactionService.getMediaVotes.mockResolvedValueOnce(unanimousVotes);
-              mediaService.getMediaDetails.mockResolvedValueOnce({
+              interactionService.getMediaVotes.mockResolvedValueOnce(
+                unanimousVotes,
+              );
+              mediaService.getMovieDetails.mockResolvedValueOnce({
                 tmdbId: mediaId,
                 title: `Movie ${mediaId}`,
                 overview: `Overview for ${mediaId}`,
@@ -359,7 +401,7 @@ describe('MatchService', () => {
 
             // Assert: All matches should be created consistently
             expect(detectionResults).toHaveLength(numMedia);
-            
+
             detectionResults.forEach((result, index) => {
               expect(result.hasMatch).toBe(true);
               expect(result.matchId).toBeDefined();
@@ -371,15 +413,19 @@ describe('MatchService', () => {
 
             // Verify each match was persisted
             expect(dynamoDBService.putItem).toHaveBeenCalledTimes(numMedia);
-            expect(dynamoDBService.conditionalUpdate).toHaveBeenCalledTimes(numMedia);
+            expect(dynamoDBService.conditionalUpdate).toHaveBeenCalledTimes(
+              numMedia,
+            );
 
             // Verify all match IDs are unique
-            const matchIds = detectionResults.map(r => r.matchId).filter(Boolean);
+            const matchIds = detectionResults
+              .map((r) => r.matchId)
+              .filter(Boolean);
             const uniqueMatchIds = new Set(matchIds);
             expect(uniqueMatchIds.size).toBe(matchIds.length);
-          }
+          },
         ),
-        { numRuns: 25 }
+        { numRuns: 25 },
       );
     });
   });
@@ -403,7 +449,7 @@ describe('MatchService', () => {
         activeMembers: 2,
       });
 
-      const unanimousVotes: Vote[] = userIds.map(userId => ({
+      const unanimousVotes: Vote[] = userIds.map((userId) => ({
         userId,
         roomId,
         mediaId,
@@ -412,11 +458,12 @@ describe('MatchService', () => {
       }));
 
       interactionService.getMediaVotes.mockResolvedValue(unanimousVotes);
-      mediaService.getMediaDetails.mockResolvedValue(null); // Media not found
+      mediaService.getMovieDetails.mockResolvedValue(null); // Media not found
 
       // Act & Assert
-      await expect(service.detectMatch(roomId, mediaId))
-        .rejects.toThrow('Media details not found');
+      await expect(service.detectMatch(roomId, mediaId)).rejects.toThrow(
+        'Media details not found',
+      );
     });
 
     it('should get room matches correctly', async () => {
@@ -505,7 +552,7 @@ describe('MatchService', () => {
         activeMembers: 2,
       });
       interactionService.getMediaVotes.mockResolvedValue([]);
-      mediaService.getMediaDetails.mockResolvedValue(mockMatch.mediaDetails);
+      mediaService.getMovieDetails.mockResolvedValue(mockMatch.mediaDetails);
       dynamoDBService.putItem.mockResolvedValue();
       dynamoDBService.conditionalUpdate.mockResolvedValue();
 

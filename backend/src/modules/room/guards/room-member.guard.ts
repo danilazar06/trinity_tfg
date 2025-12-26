@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { RoomService } from '../room.service';
 
 @Injectable()
@@ -15,7 +20,7 @@ export class RoomMemberGuard implements CanActivate {
     }
 
     const canAccess = await this.roomService.canUserAccessRoom(userId, roomId);
-    
+
     if (!canAccess) {
       throw new ForbiddenException('No tienes acceso a esta sala');
     }

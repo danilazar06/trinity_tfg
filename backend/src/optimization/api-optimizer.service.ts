@@ -45,7 +45,8 @@ export class APIOptimizerService {
     const optimizations: APIOptimizationResult[] = [];
 
     // 1. Optimize Room Automation endpoints
-    const automationOptimizations = await this.optimizeRoomAutomationEndpoints();
+    const automationOptimizations =
+      await this.optimizeRoomAutomationEndpoints();
     optimizations.push(...automationOptimizations);
 
     // 2. Optimize Permission endpoints
@@ -60,15 +61,19 @@ export class APIOptimizerService {
     const themeOptimizations = await this.optimizeThemeEndpoints();
     optimizations.push(...themeOptimizations);
 
-    this.logger.log(`✅ API optimization completed. ${optimizations.length} endpoints optimized.`);
-    
+    this.logger.log(
+      `✅ API optimization completed. ${optimizations.length} endpoints optimized.`,
+    );
+
     return optimizations;
   }
 
   /**
    * Optimize Room Automation endpoints
    */
-  private async optimizeRoomAutomationEndpoints(): Promise<APIOptimizationResult[]> {
+  private async optimizeRoomAutomationEndpoints(): Promise<
+    APIOptimizationResult[]
+  > {
     const endpoints = [
       '/room-automation/:roomId/config',
       '/room-automation/:roomId/optimize',
@@ -87,7 +92,10 @@ export class APIOptimizerService {
         'payload-minimization',
       ]);
 
-      const afterTime = this.calculateOptimizedResponseTime(beforeTime, strategies);
+      const afterTime = this.calculateOptimizedResponseTime(
+        beforeTime,
+        strategies,
+      );
 
       optimizations.push({
         endpoint,
@@ -105,7 +113,9 @@ export class APIOptimizerService {
   /**
    * Optimize Permission endpoints
    */
-  private async optimizePermissionEndpoints(): Promise<APIOptimizationResult[]> {
+  private async optimizePermissionEndpoints(): Promise<
+    APIOptimizationResult[]
+  > {
     const endpoints = [
       '/permissions/check',
       '/permissions/bulk-check',
@@ -124,7 +134,10 @@ export class APIOptimizerService {
         'early-return-optimization',
       ]);
 
-      const afterTime = this.calculateOptimizedResponseTime(beforeTime, strategies);
+      const afterTime = this.calculateOptimizedResponseTime(
+        beforeTime,
+        strategies,
+      );
 
       optimizations.push({
         endpoint,
@@ -162,7 +175,10 @@ export class APIOptimizerService {
         'background-processing',
       ]);
 
-      const afterTime = this.calculateOptimizedResponseTime(beforeTime, strategies);
+      const afterTime = this.calculateOptimizedResponseTime(
+        beforeTime,
+        strategies,
+      );
 
       optimizations.push({
         endpoint,
@@ -199,7 +215,10 @@ export class APIOptimizerService {
         'response-compression',
       ]);
 
-      const afterTime = this.calculateOptimizedResponseTime(beforeTime, strategies);
+      const afterTime = this.calculateOptimizedResponseTime(
+        beforeTime,
+        strategies,
+      );
 
       optimizations.push({
         endpoint,
@@ -217,11 +236,17 @@ export class APIOptimizerService {
   /**
    * Apply optimization strategies to an endpoint
    */
-  private async applyOptimizationStrategies(endpoint: string, strategies: string[]): Promise<string[]> {
+  private async applyOptimizationStrategies(
+    endpoint: string,
+    strategies: string[],
+  ): Promise<string[]> {
     const appliedStrategies: string[] = [];
 
     for (const strategy of strategies) {
-      const success = await this.implementOptimizationStrategy(endpoint, strategy);
+      const success = await this.implementOptimizationStrategy(
+        endpoint,
+        strategy,
+      );
       if (success) {
         appliedStrategies.push(strategy);
       }
@@ -233,52 +258,55 @@ export class APIOptimizerService {
   /**
    * Implement a specific optimization strategy
    */
-  private async implementOptimizationStrategy(endpoint: string, strategy: string): Promise<boolean> {
+  private async implementOptimizationStrategy(
+    endpoint: string,
+    strategy: string,
+  ): Promise<boolean> {
     this.logger.log(`🔧 Applying ${strategy} to ${endpoint}`);
 
     switch (strategy) {
       case 'response-compression':
         return this.enableResponseCompression(endpoint);
-      
+
       case 'result-caching':
         return this.implementResultCaching(endpoint);
-      
+
       case 'query-optimization':
         return this.optimizeQueries(endpoint);
-      
+
       case 'payload-minimization':
         return this.minimizePayload(endpoint);
-      
+
       case 'aggressive-caching':
         return this.implementAggressiveCaching(endpoint);
-      
+
       case 'batch-processing':
         return this.enableBatchProcessing(endpoint);
-      
+
       case 'early-return-optimization':
         return this.implementEarlyReturn(endpoint);
-      
+
       case 'data-aggregation-caching':
         return this.cacheDataAggregations(endpoint);
-      
+
       case 'lazy-loading':
         return this.implementLazyLoading(endpoint);
-      
+
       case 'pagination':
         return this.implementPagination(endpoint);
-      
+
       case 'background-processing':
         return this.enableBackgroundProcessing(endpoint);
-      
+
       case 'static-content-caching':
         return this.cacheStaticContent(endpoint);
-      
+
       case 'cdn-integration':
         return this.integrateCDN(endpoint);
-      
+
       case 'image-optimization':
         return this.optimizeImages(endpoint);
-      
+
       default:
         return false;
     }
@@ -314,24 +342,27 @@ export class APIOptimizerService {
   /**
    * Calculate optimized response time based on applied strategies
    */
-  private calculateOptimizedResponseTime(baselineTime: number, strategies: string[]): number {
+  private calculateOptimizedResponseTime(
+    baselineTime: number,
+    strategies: string[],
+  ): number {
     let optimizedTime = baselineTime;
 
     const improvements: Record<string, number> = {
       'response-compression': 0.15,
-      'result-caching': 0.60,
+      'result-caching': 0.6,
       'query-optimization': 0.35,
-      'payload-minimization': 0.20,
-      'aggressive-caching': 0.70,
-      'batch-processing': 0.40,
+      'payload-minimization': 0.2,
+      'aggressive-caching': 0.7,
+      'batch-processing': 0.4,
       'early-return-optimization': 0.25,
       'data-aggregation-caching': 0.65,
-      'lazy-loading': 0.30,
-      'pagination': 0.45,
-      'background-processing': 0.50,
-      'static-content-caching': 0.80,
-      'cdn-integration': 0.60,
-      'image-optimization': 0.40,
+      'lazy-loading': 0.3,
+      pagination: 0.45,
+      'background-processing': 0.5,
+      'static-content-caching': 0.8,
+      'cdn-integration': 0.6,
+      'image-optimization': 0.4,
     };
 
     for (const strategy of strategies) {
@@ -370,7 +401,8 @@ export class APIOptimizerService {
       },
       {
         name: 'Payload Minimization',
-        description: 'Reduce response payload size by removing unnecessary fields',
+        description:
+          'Reduce response payload size by removing unnecessary fields',
         expectedImprovement: 20,
         complexity: 'low',
         applicable: ['large-responses'],
@@ -424,8 +456,10 @@ export class APIOptimizerService {
    * Collect current API metrics
    */
   async collectAPIMetrics(): Promise<APIMetrics> {
-    const allResponseTimes = Array.from(this.responseTimeMetrics.values()).flat();
-    
+    const allResponseTimes = Array.from(
+      this.responseTimeMetrics.values(),
+    ).flat();
+
     if (allResponseTimes.length === 0) {
       // Return baseline metrics
       return {
@@ -439,11 +473,15 @@ export class APIOptimizerService {
     }
 
     allResponseTimes.sort((a, b) => a - b);
-    
+
     return {
-      averageResponseTime: allResponseTimes.reduce((sum, time) => sum + time, 0) / allResponseTimes.length,
-      p95ResponseTime: allResponseTimes[Math.floor(allResponseTimes.length * 0.95)],
-      p99ResponseTime: allResponseTimes[Math.floor(allResponseTimes.length * 0.99)],
+      averageResponseTime:
+        allResponseTimes.reduce((sum, time) => sum + time, 0) /
+        allResponseTimes.length,
+      p95ResponseTime:
+        allResponseTimes[Math.floor(allResponseTimes.length * 0.95)],
+      p99ResponseTime:
+        allResponseTimes[Math.floor(allResponseTimes.length * 0.99)],
       throughput: this.calculateThroughput(),
       errorRate: 0.01, // Simulated
       cacheHitRate: this.calculateCacheHitRate(),
@@ -457,10 +495,10 @@ export class APIOptimizerService {
     if (!this.responseTimeMetrics.has(endpoint)) {
       this.responseTimeMetrics.set(endpoint, []);
     }
-    
+
     const times = this.responseTimeMetrics.get(endpoint)!;
     times.push(responseTime);
-    
+
     // Keep only last 1000 measurements per endpoint
     if (times.length > 1000) {
       times.shift();

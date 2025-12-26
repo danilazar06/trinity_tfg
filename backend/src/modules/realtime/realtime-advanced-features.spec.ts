@@ -44,7 +44,14 @@ describe('RealtimeService - Advanced Features Integration', () => {
           fc.string({ minLength: 1 }), // roleName
           fc.string({ minLength: 1 }), // assignedBy
           fc.constantFrom('assigned', 'removed'), // action
-          async (roomId, targetUserId, roleId, roleName, assignedBy, action) => {
+          async (
+            roomId,
+            targetUserId,
+            roleId,
+            roleName,
+            assignedBy,
+            action,
+          ) => {
             const roleData = {
               targetUserId,
               roleId,
@@ -54,7 +61,7 @@ describe('RealtimeService - Advanced Features Integration', () => {
             };
 
             await expect(
-              service.notifyRoleAssignment(roomId, roleData)
+              service.notifyRoleAssignment(roomId, roleData),
             ).resolves.not.toThrow();
 
             expect(gateway.notifyRoleAssignment).toHaveBeenCalledWith(
@@ -66,11 +73,11 @@ describe('RealtimeService - Advanced Features Integration', () => {
                 roleName,
                 assignedBy,
                 action,
-              })
+              }),
             );
-          }
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -87,10 +94,17 @@ describe('RealtimeService - Advanced Features Integration', () => {
           fc.constantFrom('WARN', 'MUTE', 'TEMPORARY_BAN', 'PERMANENT_BAN'), // actionType
           fc.string({ minLength: 1 }), // reason
           fc.option(fc.integer({ min: 1, max: 10080 })), // duration (minutes)
-          async (roomId, targetUserId, moderatorId, actionType, reason, duration) => {
-            const expiresAt = duration ? 
-              new Date(Date.now() + duration * 60 * 1000).toISOString() : 
-              undefined;
+          async (
+            roomId,
+            targetUserId,
+            moderatorId,
+            actionType,
+            reason,
+            duration,
+          ) => {
+            const expiresAt = duration
+              ? new Date(Date.now() + duration * 60 * 1000).toISOString()
+              : undefined;
 
             const moderationData = {
               targetUserId,
@@ -102,7 +116,7 @@ describe('RealtimeService - Advanced Features Integration', () => {
             };
 
             await expect(
-              service.notifyModerationAction(roomId, moderationData)
+              service.notifyModerationAction(roomId, moderationData),
             ).resolves.not.toThrow();
 
             expect(gateway.notifyModerationAction).toHaveBeenCalledWith(
@@ -115,11 +129,11 @@ describe('RealtimeService - Advanced Features Integration', () => {
                 reason,
                 duration,
                 expiresAt,
-              })
+              }),
             );
-          }
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -142,14 +156,18 @@ describe('RealtimeService - Advanced Features Integration', () => {
             const scheduleData = {
               scheduleId,
               title,
-              action: action as 'created' | 'updated' | 'cancelled' | 'reminder',
+              action: action as
+                | 'created'
+                | 'updated'
+                | 'cancelled'
+                | 'reminder',
               startTime: startTime.toISOString(),
               endTime: endTime.toISOString(),
               message,
             };
 
             await expect(
-              service.notifyScheduleEvent(roomId, scheduleData)
+              service.notifyScheduleEvent(roomId, scheduleData),
             ).resolves.not.toThrow();
 
             expect(gateway.notifyScheduleEvent).toHaveBeenCalledWith(
@@ -162,11 +180,11 @@ describe('RealtimeService - Advanced Features Integration', () => {
                 startTime: startTime.toISOString(),
                 endTime: endTime.toISOString(),
                 message,
-              })
+              }),
             );
-          }
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -183,7 +201,14 @@ describe('RealtimeService - Advanced Features Integration', () => {
           fc.constantFrom('applied', 'removed', 'updated'), // action
           fc.string({ minLength: 1 }), // appliedBy
           fc.option(fc.object()), // customizations
-          async (roomId, themeId, themeName, action, appliedBy, customizations) => {
+          async (
+            roomId,
+            themeId,
+            themeName,
+            action,
+            appliedBy,
+            customizations,
+          ) => {
             const themeData = {
               themeId,
               themeName,
@@ -193,7 +218,7 @@ describe('RealtimeService - Advanced Features Integration', () => {
             };
 
             await expect(
-              service.notifyThemeChange(roomId, themeData)
+              service.notifyThemeChange(roomId, themeData),
             ).resolves.not.toThrow();
 
             expect(gateway.notifyThemeChange).toHaveBeenCalledWith(
@@ -205,11 +230,11 @@ describe('RealtimeService - Advanced Features Integration', () => {
                 action,
                 appliedBy,
                 customizations,
-              })
+              }),
             );
-          }
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -225,18 +250,36 @@ describe('RealtimeService - Advanced Features Integration', () => {
           fc.anything(), // oldValue
           fc.anything(), // newValue
           fc.string({ minLength: 1 }), // changedBy
-          fc.constantFrom('privacy', 'consensus', 'capacity', 'timeout', 'other'), // category
-          async (roomId, settingKey, oldValue, newValue, changedBy, category) => {
+          fc.constantFrom(
+            'privacy',
+            'consensus',
+            'capacity',
+            'timeout',
+            'other',
+          ), // category
+          async (
+            roomId,
+            settingKey,
+            oldValue,
+            newValue,
+            changedBy,
+            category,
+          ) => {
             const settingsData = {
               settingKey,
               oldValue,
               newValue,
               changedBy,
-              category: category as 'privacy' | 'consensus' | 'capacity' | 'timeout' | 'other',
+              category: category as
+                | 'privacy'
+                | 'consensus'
+                | 'capacity'
+                | 'timeout'
+                | 'other',
             };
 
             await expect(
-              service.notifyRoomSettingsChange(roomId, settingsData)
+              service.notifyRoomSettingsChange(roomId, settingsData),
             ).resolves.not.toThrow();
 
             expect(gateway.notifyRoomSettingsChange).toHaveBeenCalledWith(
@@ -248,11 +291,11 @@ describe('RealtimeService - Advanced Features Integration', () => {
                 newValue,
                 changedBy,
                 category,
-              })
+              }),
             );
-          }
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -293,7 +336,7 @@ describe('RealtimeService - Advanced Features Integration', () => {
                 roleName: 'Test Role',
                 assignedBy: 'admin1',
                 action: 'assigned',
-              })
+              }),
             ).resolves.not.toThrow();
 
             await expect(
@@ -302,7 +345,7 @@ describe('RealtimeService - Advanced Features Integration', () => {
                 moderatorId: 'mod1',
                 actionType: 'WARN',
                 reason: 'Test warning',
-              })
+              }),
             ).resolves.not.toThrow();
 
             await expect(
@@ -312,7 +355,7 @@ describe('RealtimeService - Advanced Features Integration', () => {
                 action: 'created',
                 startTime: new Date().toISOString(),
                 endTime: new Date(Date.now() + 3600000).toISOString(),
-              })
+              }),
             ).resolves.not.toThrow();
 
             await expect(
@@ -321,7 +364,7 @@ describe('RealtimeService - Advanced Features Integration', () => {
                 themeName: 'Test Theme',
                 action: 'applied',
                 appliedBy: 'user1',
-              })
+              }),
             ).resolves.not.toThrow();
 
             await expect(
@@ -331,11 +374,11 @@ describe('RealtimeService - Advanced Features Integration', () => {
                 newValue: 20,
                 changedBy: 'admin1',
                 category: 'capacity',
-              })
+              }),
             ).resolves.not.toThrow();
-          }
+          },
         ),
-        { numRuns: 30 }
+        { numRuns: 30 },
       );
     });
   });
@@ -343,7 +386,7 @@ describe('RealtimeService - Advanced Features Integration', () => {
   describe('Integration Tests', () => {
     it('should maintain consistent notification format across all advanced features', async () => {
       const roomId = 'test-room-123';
-      
+
       // Test role assignment format
       await service.notifyRoleAssignment(roomId, {
         targetUserId: 'user1',
@@ -362,13 +405,13 @@ describe('RealtimeService - Advanced Features Integration', () => {
           roleName: 'Test Role',
           assignedBy: 'admin1',
           action: 'assigned',
-        })
+        }),
       );
     });
 
     it('should handle concurrent notifications without interference', async () => {
       const roomId = 'test-room-concurrent';
-      
+
       // Send multiple notifications concurrently
       const promises = [
         service.notifyRoleAssignment(roomId, {
@@ -393,7 +436,7 @@ describe('RealtimeService - Advanced Features Integration', () => {
       ];
 
       await expect(Promise.all(promises)).resolves.not.toThrow();
-      
+
       // All notifications should have been sent
       expect(gateway.notifyRoleAssignment).toHaveBeenCalledTimes(1);
       expect(gateway.notifyModerationAction).toHaveBeenCalledTimes(1);

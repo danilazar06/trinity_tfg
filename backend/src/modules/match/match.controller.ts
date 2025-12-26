@@ -10,7 +10,13 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RoomMemberGuard } from '../room/guards/room-member.guard';
 import { MatchService } from './match.service';
@@ -27,9 +33,14 @@ export class MatchController {
   @Get()
   @ApiOperation({
     summary: 'Obtener matches de la sala',
-    description: 'Obtiene todos los matches de consenso de la sala'
+    description: 'Obtiene todos los matches de consenso de la sala',
   })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Límite de matches a retornar (default: 50)' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Límite de matches a retornar (default: 50)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Matches obtenidos exitosamente',
@@ -44,10 +55,13 @@ export class MatchController {
           mediaPosterPath: { type: 'string' },
           participantCount: { type: 'number' },
           createdAt: { type: 'string', format: 'date-time' },
-          consensusType: { type: 'string', enum: ['unanimous_like', 'majority_like'] }
-        }
-      }
-    }
+          consensusType: {
+            type: 'string',
+            enum: ['unanimous_like', 'majority_like'],
+          },
+        },
+      },
+    },
   })
   async getRoomMatches(
     @Param('roomId') roomId: string,
@@ -61,7 +75,7 @@ export class MatchController {
   @Get('library')
   @ApiOperation({
     summary: 'Obtener biblioteca de matches',
-    description: 'Obtiene la biblioteca completa de matches con estadísticas'
+    description: 'Obtiene la biblioteca completa de matches con estadísticas',
   })
   @ApiResponse({
     status: 200,
@@ -73,9 +87,9 @@ export class MatchController {
         totalMatches: { type: 'number' },
         recentMatches: { type: 'array' },
         matchesByGenre: { type: 'object' },
-        averageMatchTime: { type: 'number' }
-      }
-    }
+        averageMatchTime: { type: 'number' },
+      },
+    },
   })
   async getRoomMatchLibrary(
     @Param('roomId') roomId: string,
@@ -87,7 +101,7 @@ export class MatchController {
   @Get('stats')
   @ApiOperation({
     summary: 'Obtener estadísticas de matches',
-    description: 'Obtiene estadísticas detalladas de matches de la sala'
+    description: 'Obtiene estadísticas detalladas de matches de la sala',
   })
   @ApiResponse({
     status: 200,
@@ -102,29 +116,26 @@ export class MatchController {
         mostPopularGenre: { type: 'string' },
         fastestMatch: { type: 'number' },
         slowestMatch: { type: 'number' },
-        matchRate: { type: 'number' }
-      }
-    }
+        matchRate: { type: 'number' },
+      },
+    },
   })
-  async getMatchStats(
-    @Param('roomId') roomId: string,
-    @Request() req: any,
-  ) {
+  async getMatchStats(@Param('roomId') roomId: string, @Request() req: any) {
     return this.matchService.getMatchStats(roomId);
   }
 
   @Get(':matchId')
   @ApiOperation({
     summary: 'Obtener detalles de un match específico',
-    description: 'Obtiene los detalles completos de un match por su ID'
+    description: 'Obtiene los detalles completos de un match por su ID',
   })
   @ApiResponse({
     status: 200,
-    description: 'Detalles del match obtenidos exitosamente'
+    description: 'Detalles del match obtenidos exitosamente',
   })
   @ApiResponse({
     status: 404,
-    description: 'Match no encontrado'
+    description: 'Match no encontrado',
   })
   async getMatchById(
     @Param('roomId') roomId: string,
@@ -132,11 +143,11 @@ export class MatchController {
     @Request() req: any,
   ) {
     const match = await this.matchService.getMatchById(matchId);
-    
+
     if (!match) {
       return { message: 'Match no encontrado' };
     }
-    
+
     return match;
   }
 
@@ -144,7 +155,8 @@ export class MatchController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Detectar match para contenido específico',
-    description: 'Verifica si hay consenso para un contenido específico y crea un match si es necesario'
+    description:
+      'Verifica si hay consenso para un contenido específico y crea un match si es necesario',
   })
   @ApiResponse({
     status: 200,
@@ -157,17 +169,19 @@ export class MatchController {
         consensusType: { type: 'string' },
         participants: { type: 'array', items: { type: 'string' } },
         totalVotes: { type: 'number' },
-        requiredVotes: { type: 'number' }
-      }
-    }
+        requiredVotes: { type: 'number' },
+      },
+    },
   })
   async detectMatch(
     @Param('roomId') roomId: string,
     @Param('mediaId') mediaId: string,
     @Request() req: any,
   ) {
-    this.logger.log(`Detecting match for media ${mediaId} in room ${roomId} by user ${req.user.sub}`);
-    
+    this.logger.log(
+      `Detecting match for media ${mediaId} in room ${roomId} by user ${req.user.sub}`,
+    );
+
     return this.matchService.detectMatch(roomId, mediaId);
   }
 
@@ -175,11 +189,11 @@ export class MatchController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Verificar matches pendientes',
-    description: 'Verifica si hay matches pendientes después de una votación'
+    description: 'Verifica si hay matches pendientes después de una votación',
   })
   @ApiResponse({
     status: 200,
-    description: 'Verificación completada'
+    description: 'Verificación completada',
   })
   async checkPendingMatches(
     @Param('roomId') roomId: string,
@@ -187,7 +201,7 @@ export class MatchController {
     @Request() req: any,
   ) {
     const match = await this.matchService.checkPendingMatches(roomId, mediaId);
-    
+
     if (match) {
       return {
         hasNewMatch: true,
@@ -196,10 +210,10 @@ export class MatchController {
           mediaTitle: match.mediaDetails.title,
           participantCount: match.participants.length,
           createdAt: match.createdAt,
-        }
+        },
       };
     }
-    
+
     return { hasNewMatch: false };
   }
 }
@@ -216,12 +230,18 @@ export class UserMatchController {
   @Get('recent')
   @ApiOperation({
     summary: 'Obtener matches recientes del usuario',
-    description: 'Obtiene los matches más recientes de todas las salas del usuario'
+    description:
+      'Obtiene los matches más recientes de todas las salas del usuario',
   })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Límite de matches a retornar (default: 20)' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Límite de matches a retornar (default: 20)',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Matches recientes obtenidos exitosamente'
+    description: 'Matches recientes obtenidos exitosamente',
   })
   async getUserRecentMatches(
     @Query('limit') limit: string = '20',

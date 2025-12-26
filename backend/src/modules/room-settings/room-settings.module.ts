@@ -5,10 +5,7 @@ import { DatabaseModule } from '../../infrastructure/database/database.module';
 import { RoomModule } from '../room/room.module';
 
 @Module({
-  imports: [
-    DatabaseModule,
-    RoomModule,
-  ],
+  imports: [DatabaseModule, RoomModule],
   controllers: [RoomSettingsController],
   providers: [RoomSettingsService],
   exports: [RoomSettingsService],

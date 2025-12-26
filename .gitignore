@@ -8,12 +8,27 @@ build/
 */dist/
 */build/
 
-# Environment variables
+# Environment variables and credentials
 .env
+.env.*
+!.env.example
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# AWS credentials
+.aws/
+aws-credentials.json
+credentials.json
+
+# API Keys and secrets
+*api-key*
+*secret*
+*token*
+*credentials*
+!*example*
+!*template*
 
 # IDE
 .vscode/
