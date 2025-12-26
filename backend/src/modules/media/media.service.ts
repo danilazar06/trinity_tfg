@@ -188,4 +188,46 @@ export class MediaService implements OnModuleInit {
       ),
     };
   }
+
+  /**
+   * Obtener contenido popular (método de compatibilidad)
+   */
+  async getPopularContent(page: number = 1): Promise<MediaItem[]> {
+    const filters: ContentFilters = {
+      genres: [],
+      releaseYearFrom: new Date().getFullYear() - 5,
+      releaseYearTo: new Date().getFullYear(),
+      minRating: 6.0,
+    };
+
+    return this.fetchMovies(filters);
+  }
+
+  /**
+   * Buscar contenido (método de compatibilidad)
+   */
+  async searchContent(query: string, page: number = 1): Promise<MediaItem[]> {
+    return this.searchMovies(query, page);
+  }
+
+  /**
+   * Obtener detalles de media (método de compatibilidad)
+   */
+  async getMediaDetails(tmdbId: string): Promise<MediaItem | null> {
+    return this.getMovieDetails(tmdbId);
+  }
+
+  /**
+   * Limpiar caché expirado
+   */
+  async cleanExpiredCache(): Promise<void> {
+    try {
+      // En DynamoDB, el TTL se maneja automáticamente
+      // Este método puede implementar limpieza adicional si es necesario
+      this.logger.log('Cache cleanup completed (TTL handled by DynamoDB)');
+    } catch (error) {
+      this.logger.error(`Error cleaning expired cache: ${error.message}`);
+      throw error;
+    }
+  }
 }

@@ -17,35 +17,26 @@ export class MultiTableService {
   private readonly tables: MultiTableConfig;
 
   constructor(private configService: ConfigService) {
-    // Configuración para desarrollo local o AWS
-    const isLocal = this.configService.get('NODE_ENV') === 'development';
-
-    if (isLocal) {
-      this.dynamodb = new AWS.DynamoDB.DocumentClient({
-        region: 'localhost',
-        endpoint: 'http://localhost:8000',
-        accessKeyId: 'fakeMyKeyId',
-        secretAccessKey: 'fakeSecretAccessKey',
-      });
-    } else {
-      AWS.config.update({
-        region: this.configService.get('AWS_REGION', 'us-east-1'),
-      });
-      this.dynamodb = new AWS.DynamoDB.DocumentClient();
-    }
+    // Siempre usar DynamoDB real de AWS
+    AWS.config.update({
+      region: this.configService.get('AWS_REGION', 'eu-west-1'),
+      accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID'),
+      secretAccessKey: this.configService.get('AWS_SECRET_ACCESS_KEY'),
+    });
+    this.dynamodb = new AWS.DynamoDB.DocumentClient();
 
     // Configuración de tablas desde variables de entorno
     this.tables = {
-      usersTable: this.configService.get('USERS_TABLE', 'Trinity_Users_dev'),
-      roomsTable: this.configService.get('ROOMS_TABLE', 'Trinity_Rooms_dev'),
+      usersTable: this.configService.get('USERS_TABLE', 'trinity-users-dev'),
+      roomsTable: this.configService.get('ROOMS_TABLE', 'trinity-rooms-dev'),
       roomMembersTable: this.configService.get(
         'ROOM_MEMBERS_TABLE',
-        'Trinity_RoomMembers_dev',
+        'trinity-room-members-dev',
       ),
-      votesTable: this.configService.get('VOTES_TABLE', 'Trinity_Votes_dev'),
+      votesTable: this.configService.get('VOTES_TABLE', 'trinity-votes-dev'),
       moviesCacheTable: this.configService.get(
         'MOVIES_CACHE_TABLE',
-        'Trinity_MoviesCache_dev',
+        'trinity-movies-cache-dev',
       ),
     };
   }
@@ -366,6 +357,121 @@ export class MultiTableService {
   }
 
   // ==================== UTILIDADES ====================
+
+  async putItem(tableName: string, item: any): Promise<void> {
+    try {
+      await this.dynamodb
+        .put({
+          TableName: tableName,
+          Item: {
+            ...item,
+            updatedAt: new Date().toISOString(),
+          },
+        })
+        .promise();
+
+      this.logger.debug(`Item put in table: ${tableName}`);
+    } catch (error) {
+      this.logger.error(`Error putting item: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async query(tableName: string, params: any): Promise<any[]> {
+    try {
+      const result = await this.dynamodb
+        .query({
+          TableName: tableName,
+          ...params,
+        })
+        .promise();
+
+      return result.Items || [];
+    } catch (error) {
+      this.logger.error(`Error querying table: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async scan(tableName: string, params: any = {}): Promise<any[]> {
+    try {
+      const result = await this.dynamodb
+        .scan({
+          TableName: tableName,
+          ...params,
+        })
+        .promise();
+
+      return result.Items || [];
+    } catch (error) {
+      this.logger.error(`Error scanning table: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async update(tableName: string, key: any, updateParams: any): Promise<any> {
+    try {
+      const result = await this.dynamodb
+        .update({
+          TableName: tableName,
+          Key: key,
+          ...updateParams,
+          ExpressionAttributeValues: {
+            ...updateParams.ExpressionAttributeValues,
+            ':updatedAt': new Date().toISOString(),
+          },
+          UpdateExpression: updateParams.UpdateExpression + ', updatedAt = :updatedAt',
+          ReturnValues: 'ALL_NEW',
+        })
+        .promise();
+
+      this.logger.debug(`Item updated in table: ${tableName}`);
+      return result.Attributes;
+    } catch (error) {
+      this.logger.error(`Error updating item: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async create(tableName: string, item: any): Promise<void> {
+    try {
+      await this.dynamodb
+        .put({
+          TableName: tableName,
+          Item: {
+            ...item,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        })
+        .promise();
+
+      this.logger.debug(`Item created in table: ${tableName}`);
+    } catch (error) {
+      this.logger.error(`Error creating item: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async deleteItem(tableName: string, key: any): Promise<void> {
+    try {
+      await this.dynamodb
+        .delete({
+          TableName: tableName,
+          Key: key,
+        })
+        .promise();
+
+      this.logger.debug(`Item deleted from table: ${tableName}`);
+    } catch (error) {
+      this.logger.error(`Error deleting item: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async batchWriteItems(tableName: string, items: any[]): Promise<void> {
+    return this.batchWrite(tableName, items);
+  }
 
   async batchWrite(tableName: string, items: any[]): Promise<void> {
     if (items.length === 0) return;

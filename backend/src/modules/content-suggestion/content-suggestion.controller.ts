@@ -486,7 +486,7 @@ export class ContentSuggestionController {
     @Query('type') type?: string,
     @Query('status') status?: string,
     @Query('limit') limit?: number,
-    @Request() req: any,
+    @Request() req?: any,
   ): Promise<SuggestionSearchResult> {
     const { userId } = req.user;
     const filters: SuggestionFiltersDto = {
@@ -523,7 +523,7 @@ export class ContentSuggestionController {
   async getPendingSuggestions(
     @Param('roomId') roomId: string,
     @Query('limit') limit?: number,
-    @Request() req: any,
+    @Request() req?: any,
   ): Promise<SuggestionSearchResult> {
     const { userId } = req.user;
     const filters: SuggestionFiltersDto = {
@@ -565,7 +565,7 @@ export class ContentSuggestionController {
     @Param('roomId') roomId: string,
     @Query('limit') limit?: number,
     @Query('timeframe') timeframe?: string,
-    @Request() req: any,
+    @Request() req?: any,
   ): Promise<SuggestionSearchResult> {
     const { userId } = req.user;
 
@@ -617,7 +617,7 @@ export class ContentSuggestionController {
     @Param('roomId') roomId: string,
     @Query('status') status?: string,
     @Query('limit') limit?: number,
-    @Request() req: any,
+    @Request() req?: any,
   ): Promise<SuggestionSearchResult> {
     const { userId } = req.user;
     const filters: SuggestionFiltersDto = {
@@ -655,7 +655,7 @@ export class ContentSuggestionController {
     @Param('roomId') roomId: string,
     @Param('genre') genre: string,
     @Query('limit') limit?: number,
-    @Request() req: any,
+    @Request() req?: any,
   ): Promise<SuggestionSearchResult> {
     const { userId } = req.user;
     const filters: SuggestionFiltersDto = {

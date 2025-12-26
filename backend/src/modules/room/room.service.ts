@@ -95,7 +95,7 @@ export class RoomService {
         DynamoDBKeys.roomSK(),
       );
 
-      return item ? (item as Room) : null;
+      return item ? (item as unknown as Room) : null;
     } catch (error) {
       this.logger.error(`Error getting room ${roomId}: ${error.message}`);
       throw error;
@@ -119,7 +119,7 @@ export class RoomService {
         },
       });
 
-      return items.length > 0 ? (items[0] as Room) : null;
+      return items.length > 0 ? (items[0] as unknown as Room) : null;
     } catch (error) {
       this.logger.error(`Error getting room by invite code: ${error.message}`);
       throw error;
@@ -449,5 +449,118 @@ export class RoomService {
       totalMatches: matches.length,
       averageProgress: Math.round(averageProgress),
     };
+  }
+
+  /**
+   * Obtener sala por ID (método de compatibilidad)
+   */
+  async getRoom(roomId: string): Promise<Room | null> {
+    return this.getRoomById(roomId);
+  }
+
+  /**
+   * Eliminar sala (solo creador)
+   */
+  async deleteRoom(userId: string, roomId: string): Promise<void> {
+    const room = await this.getRoomById(roomId);
+    if (!room) {
+      throw new NotFoundException('Sala no encontrada');
+    }
+
+    if (room.creatorId !== userId) {
+      throw new ForbiddenException('Solo el creador puede eliminar la sala');
+    }
+
+    // Marcar como eliminada en lugar de eliminar físicamente
+    await this.dynamoDBService.conditionalUpdate(
+      DynamoDBKeys.roomPK(roomId),
+      DynamoDBKeys.roomSK(),
+      'SET isActive = :isActive, deletedAt = :deletedAt, updatedAt = :updatedAt',
+      'attribute_exists(PK)',
+      undefined,
+      {
+        ':isActive': false,
+        ':deletedAt': new Date().toISOString(),
+        ':updatedAt': new Date().toISOString(),
+      },
+    );
+
+    this.logger.log(`Sala ${roomId} eliminada por usuario ${userId}`);
+  }
+
+  /**
+   * Pausar sala (solo creador)
+   */
+  async pauseRoom(roomId: string, userId: string): Promise<void> {
+    const room = await this.getRoomById(roomId);
+    if (!room) {
+      throw new NotFoundException('Sala no encontrada');
+    }
+
+    if (room.creatorId !== userId && userId !== 'system') {
+      throw new ForbiddenException('Solo el creador puede pausar la sala');
+    }
+
+    await this.dynamoDBService.conditionalUpdate(
+      DynamoDBKeys.roomPK(roomId),
+      DynamoDBKeys.roomSK(),
+      'SET #status = :status, pausedAt = :pausedAt, updatedAt = :updatedAt',
+      'attribute_exists(PK)',
+      {
+        '#status': 'status',
+      },
+      {
+        ':status': 'paused',
+        ':pausedAt': new Date().toISOString(),
+        ':updatedAt': new Date().toISOString(),
+      },
+    );
+
+    // Notificar cambio de estado en tiempo real
+    await this.realtimeService.notifyRoomStateChange(roomId, {
+      status: 'paused',
+      queueLength: room.masterList?.length || 0,
+      activeMembers: (await this.memberService.getRoomMembers(roomId)).length,
+    });
+
+    this.logger.log(`Sala ${roomId} pausada por ${userId}`);
+  }
+
+  /**
+   * Reanudar sala (solo creador)
+   */
+  async resumeRoom(roomId: string, userId: string): Promise<void> {
+    const room = await this.getRoomById(roomId);
+    if (!room) {
+      throw new NotFoundException('Sala no encontrada');
+    }
+
+    if (room.creatorId !== userId && userId !== 'system') {
+      throw new ForbiddenException('Solo el creador puede reanudar la sala');
+    }
+
+    await this.dynamoDBService.conditionalUpdate(
+      DynamoDBKeys.roomPK(roomId),
+      DynamoDBKeys.roomSK(),
+      'SET #status = :status, resumedAt = :resumedAt, updatedAt = :updatedAt',
+      'attribute_exists(PK)',
+      {
+        '#status': 'status',
+      },
+      {
+        ':status': 'active',
+        ':resumedAt': new Date().toISOString(),
+        ':updatedAt': new Date().toISOString(),
+      },
+    );
+
+    // Notificar cambio de estado en tiempo real
+    await this.realtimeService.notifyRoomStateChange(roomId, {
+      status: 'active',
+      queueLength: room.masterList?.length || 0,
+      activeMembers: (await this.memberService.getRoomMembers(roomId)).length,
+    });
+
+    this.logger.log(`Sala ${roomId} reanudada por ${userId}`);
   }
 }

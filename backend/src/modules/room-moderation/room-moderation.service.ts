@@ -176,7 +176,7 @@ export class RoomModerationService {
         },
       });
 
-      const customRoles = result.Items?.map((item) => item as CustomRole) || [];
+      const customRoles = (result as any).Items?.map((item: any) => item as CustomRole) || [];
 
       // Agregar roles del sistema
       const systemRoles: CustomRole[] = Object.entries(
@@ -635,7 +635,7 @@ export class RoomModerationService {
       }
 
       const result = await this.dynamoDBService.query(queryParams);
-      return result.Items?.map((item) => item as ModerationAction) || [];
+      return (result as any).Items?.map((item: any) => item as ModerationAction) || [];
     } catch (error) {
       this.logger.error(
         `Error obteniendo historial de moderación: ${error.message}`,
@@ -739,7 +739,7 @@ export class RoomModerationService {
       throw new NotFoundException('Rol no encontrado');
     }
 
-    return result as CustomRole;
+    return result as unknown as CustomRole;
   }
 
   private async getUserRolesInternal(
@@ -757,7 +757,7 @@ export class RoomModerationService {
       });
 
       const assignments =
-        result.Items?.map((item) => item as MemberRoleAssignment) || [];
+        (result as any).Items?.map((item: any) => item as MemberRoleAssignment) || [];
 
       // Filtrar asignaciones expiradas
       const activeAssignments = assignments.filter(
@@ -881,7 +881,7 @@ export class RoomModerationService {
   ): Promise<void> {
     try {
       const room = await this.roomService.getRoom(roomId);
-      const isMember = room.members?.some((member) => member.userId === userId);
+      const isMember = room && (room as any).members?.some((member: any) => member.userId === userId);
 
       if (!isMember) {
         throw new ForbiddenException('El usuario no es miembro de la sala');
@@ -900,10 +900,6 @@ export class RoomModerationService {
   ): Promise<MemberRoleAssignment[]> {
     const result = await this.dynamoDBService.query({
       KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
-      ExpressionAttributeValues: {
-        ':pk': DynamoDBKeys.roomPK(roomId),
-        ':sk': 'MEMBER_ROLE#',
-      },
       FilterExpression: 'roleId = :roleId',
       ExpressionAttributeValues: {
         ':pk': DynamoDBKeys.roomPK(roomId),
@@ -912,7 +908,7 @@ export class RoomModerationService {
       },
     });
 
-    return result.Items?.map((item) => item as MemberRoleAssignment) || [];
+    return (result as any).Items?.map((item: any) => item as MemberRoleAssignment) || [];
   }
 
   private async getActiveModerationActions(
@@ -922,10 +918,6 @@ export class RoomModerationService {
     const result = await this.dynamoDBService.query({
       IndexName: 'GSI1',
       KeyConditionExpression: 'GSI1PK = :pk AND begins_with(GSI1SK, :sk)',
-      ExpressionAttributeValues: {
-        ':pk': `USER#${userId}`,
-        ':sk': 'MODERATION#',
-      },
       FilterExpression:
         'roomId = :roomId AND isActive = :isActive AND (attribute_not_exists(expiresAt) OR expiresAt > :now)',
       ExpressionAttributeValues: {
@@ -937,7 +929,7 @@ export class RoomModerationService {
       },
     });
 
-    return result.Items?.map((item) => item as ModerationAction) || [];
+    return (result as any).Items?.map((item: any) => item as ModerationAction) || [];
   }
 
   private async getUserWarnings(
@@ -947,10 +939,6 @@ export class RoomModerationService {
     const result = await this.dynamoDBService.query({
       IndexName: 'GSI1',
       KeyConditionExpression: 'GSI1PK = :pk AND begins_with(GSI1SK, :sk)',
-      ExpressionAttributeValues: {
-        ':pk': `USER#${userId}`,
-        ':sk': 'MODERATION#',
-      },
       FilterExpression: 'roomId = :roomId AND actionType = :actionType',
       ExpressionAttributeValues: {
         ':pk': `USER#${userId}`,
@@ -961,7 +949,7 @@ export class RoomModerationService {
       ScanIndexForward: false,
     });
 
-    return result.Items?.map((item) => item as ModerationAction) || [];
+    return (result as any).Items?.map((item: any) => item as ModerationAction) || [];
   }
 
   private getSystemRoleName(role: SystemRole): string {

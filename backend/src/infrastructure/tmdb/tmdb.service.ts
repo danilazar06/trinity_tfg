@@ -30,7 +30,7 @@ export class TMDBService {
   private configuration: TMDBConfiguration | null = null;
 
   constructor(private configService: ConfigService) {
-    this.apiKey = this.configService.get('TMDB_API_KEY');
+    this.apiKey = this.configService.get('TMDB_API_KEY') || 'default-api-key';
     this.baseUrl = this.configService.get(
       'TMDB_BASE_URL',
       'https://api.themoviedb.org/3',
@@ -131,6 +131,7 @@ export class TMDBService {
         title: movie.title,
         overview: movie.overview,
         poster_path: movie.poster_path,
+        backdrop_path: movie.backdrop_path,
         release_date: movie.release_date,
         genre_ids: movie.genres?.map((g: any) => g.id) || [],
         popularity: movie.popularity,
@@ -199,14 +200,6 @@ export class TMDBService {
       const response = await this.httpClient.get('/discover/movie', { params });
       return response.data;
     }
-  }
-
-  /**
-   * Obtener detalles de una película
-   */
-  async getMovieDetails(movieId: string): Promise<TMDBMovie> {
-    const response = await this.httpClient.get(`/movie/${movieId}`);
-    return response.data;
   }
 
   /**

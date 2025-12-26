@@ -98,7 +98,7 @@ export class RoomTemplateController {
         .map((tag) => tag.trim());
     }
 
-    return this.roomTemplateService.getPublicTemplates(filters);
+    return this.roomTemplateService.getPublicTemplates(filters as any);
   }
 
   @Get('my-templates')
@@ -150,7 +150,7 @@ export class RoomTemplateController {
         .map((tag) => tag.trim());
     }
 
-    return this.roomTemplateService.searchTemplates(query, filters);
+    return this.roomTemplateService.searchTemplates(query, filters as any);
   }
 
   @Get(':id')

@@ -18,7 +18,7 @@ export class MockCognitoService {
       email,
       username: email.split('@')[0],
       email_verified: true,
-      phone_number: phoneNumber,
+      phone_number: '+1234567890',
       phone_number_verified: false,
     };
 

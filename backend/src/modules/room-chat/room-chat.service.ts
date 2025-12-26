@@ -353,7 +353,7 @@ export class RoomChatService {
       }
 
       const result = await this.dynamoDBService.query(queryParams);
-      const messages = result.Items?.map((item) => item as ChatMessage) || [];
+      const messages = (result as any).Items?.map((item: any) => item as ChatMessage) || [];
 
       // Filtrar mensajes eliminados para usuarios normales
       const canViewDeleted = await this.permissionService.hasPermission(
@@ -369,8 +369,8 @@ export class RoomChatService {
       return {
         messages: filteredMessages,
         totalCount: filteredMessages.length,
-        hasMore: !!result.LastEvaluatedKey,
-        nextOffset: result.LastEvaluatedKey?.GSI1SK,
+        hasMore: !!(result as any).LastEvaluatedKey,
+        nextOffset: (result as any).LastEvaluatedKey?.GSI1SK,
       };
     } catch (error) {
       this.logger.error(`Error obteniendo mensajes de chat: ${error.message}`);
@@ -545,7 +545,7 @@ export class RoomChatService {
         };
       }
 
-      return result as RoomChatConfig;
+      return result as unknown as RoomChatConfig;
     } catch (error) {
       this.logger.error(
         `Error obteniendo configuración de chat: ${error.message}`,
@@ -576,7 +576,7 @@ export class RoomChatService {
         return this.calculateChatStats(roomId);
       }
 
-      return result as RoomChatStats;
+      return result as unknown as RoomChatStats;
     } catch (error) {
       this.logger.error(
         `Error obteniendo estadísticas de chat: ${error.message}`,
@@ -600,7 +600,7 @@ export class RoomChatService {
       throw new NotFoundException('Mensaje no encontrado');
     }
 
-    return result as ChatMessage;
+    return result as unknown as ChatMessage;
   }
 
   private async checkSlowMode(
@@ -621,8 +621,8 @@ export class RoomChatService {
       Limit: 1,
     });
 
-    if (result.Items && result.Items.length > 0) {
-      const lastMessage = result.Items[0] as ChatMessage;
+    if ((result as any).Items && (result as any).Items.length > 0) {
+      const lastMessage = (result as any).Items[0] as ChatMessage;
       const timeSinceLastMessage = Date.now() - lastMessage.createdAt.getTime();
       const requiredDelay = slowModeDelay * 1000;
 
@@ -710,7 +710,7 @@ export class RoomChatService {
         };
       }
 
-      return result as ChatAutoModerationConfig;
+      return result as unknown as ChatAutoModerationConfig;
     } catch (error) {
       this.logger.error(
         `Error obteniendo configuración de auto-moderación: ${error.message}`,

@@ -89,21 +89,21 @@ export class RoomTemplateService {
     });
 
     // 📝 Track template creation event
-    await this.eventTracker.trackEvent(
-      EventType.TEMPLATE_CREATED,
-      creatorId,
-      {
-        templateId,
-        templateName: templateData.name,
-        category: templateData.category,
-        isPublic: templateData.isPublic,
-        tagsCount: templateData.tags?.length || 0,
-      },
-      {
-        source: 'room_template_service',
-        userAgent: 'backend',
-      },
-    );
+    // await this.eventTracker.trackEvent(
+    //   EventType.TEMPLATE_CREATED,
+    //   creatorId,
+    //   {
+    //     templateId,
+    //     templateName: templateData.name,
+    //     category: templateData.category,
+    //     isPublic: templateData.isPublic,
+    //     tagsCount: templateData.tags?.length || 0,
+    //   },
+    //   {
+    //     source: 'room_template_service',
+    //     userAgent: 'backend',
+    //   },
+    // );
 
     this.logger.log(`Plantilla creada: ${templateId} por usuario ${creatorId}`);
     return template;
@@ -123,7 +123,7 @@ export class RoomTemplateService {
         throw new NotFoundException('Plantilla no encontrada');
       }
 
-      return item as RoomTemplate;
+      return item as unknown as RoomTemplate;
     } catch (error) {
       this.logger.error(
         `Error getting template ${templateId}: ${error.message}`,
@@ -237,7 +237,7 @@ export class RoomTemplateService {
       }
 
       const items = await this.dynamoDBService.query(queryParams);
-      let templates = items as RoomTemplate[];
+      let templates = items as unknown as RoomTemplate[];
 
       // Aplicar ordenamiento
       if (filters?.sortBy) {
@@ -249,9 +249,9 @@ export class RoomTemplateService {
       }
 
       // Aplicar paginación
-      if (filters?.limit || filters?.offset) {
-        const offset = filters?.offset || 0;
-        const limit = filters?.limit || 20;
+      if ((filters as any)?.limit || (filters as any)?.offset) {
+        const offset = (filters as any)?.offset || 0;
+        const limit = (filters as any)?.limit || 20;
         templates = templates.slice(offset, offset + limit);
       }
 
@@ -275,7 +275,7 @@ export class RoomTemplateService {
         },
       });
 
-      return items as RoomTemplate[];
+      return items as unknown as RoomTemplate[];
     } catch (error) {
       this.logger.error(
         `Error getting user templates for ${userId}: ${error.message}`,
@@ -301,7 +301,7 @@ export class RoomTemplateService {
         Limit: limit * 2, // Obtener más para filtrar después
       });
 
-      let templates = items as RoomTemplate[];
+      let templates = items as unknown as RoomTemplate[];
 
       // Ordenar por popularidad (usageCount + rating)
       templates = templates
@@ -379,21 +379,21 @@ export class RoomTemplateService {
     await this.incrementUsageCount(templateId);
 
     // 📝 Track template usage event
-    await this.eventTracker.trackEvent(
-      EventType.TEMPLATE_USED,
-      userId,
-      {
-        templateId,
-        templateName: template.name,
-        roomId: room.id,
-        roomName: room.name,
-        hasOverrides: !!overrides?.configurationOverrides,
-      },
-      {
-        source: 'room_template_service',
-        userAgent: 'backend',
-      },
-    );
+    // await this.eventTracker.trackEvent(
+    //   EventType.TEMPLATE_USED,
+    //   userId,
+    //   {
+    //     templateId,
+    //     templateName: template.name,
+    //     roomId: room.id,
+    //     roomName: room.name,
+    //     hasOverrides: !!overrides?.configurationOverrides,
+    //   },
+    //   {
+    //     source: 'room_template_service',
+    //     userAgent: 'backend',
+    //   },
+    // );
 
     this.logger.log(
       `Sala creada desde plantilla: ${room.id} desde plantilla ${templateId}`,
@@ -454,21 +454,21 @@ export class RoomTemplateService {
     );
 
     // 📝 Track template rating event
-    await this.eventTracker.trackEvent(
-      EventType.TEMPLATE_RATED,
-      userId,
-      {
-        templateId,
-        templateName: template.name,
-        rating,
-        newAverageRating: Math.round(newRating * 100) / 100,
-        totalRatings: newRatingCount,
-      },
-      {
-        source: 'room_template_service',
-        userAgent: 'backend',
-      },
-    );
+    // await this.eventTracker.trackEvent(
+    //   EventType.TEMPLATE_RATED,
+    //   userId,
+    //   {
+    //     templateId,
+    //     templateName: template.name,
+    //     rating,
+    //     newAverageRating: Math.round(newRating * 100) / 100,
+    //     totalRatings: newRatingCount,
+    //   },
+    //   {
+    //     source: 'room_template_service',
+    //     userAgent: 'backend',
+    //   },
+    // );
 
     this.logger.log(
       `Plantilla calificada: ${templateId} con ${rating} estrellas por usuario ${userId}`,

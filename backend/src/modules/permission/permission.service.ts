@@ -89,6 +89,32 @@ export class PermissionService {
   }
 
   /**
+   * Verificar un solo permiso (método de compatibilidad)
+   */
+  async checkPermission(
+    roomId: string,
+    userId: string,
+    permission: RoomPermission,
+    options: PermissionCheckOptions = {},
+  ): Promise<PermissionCheckResult> {
+    const results = await this.checkPermissions(roomId, userId, [permission], options);
+    return results[0];
+  }
+
+  /**
+   * Verificar si un usuario tiene un permiso específico (método de compatibilidad)
+   */
+  async hasPermission(
+    roomId: string,
+    userId: string,
+    permission: RoomPermission,
+    options: PermissionCheckOptions = {},
+  ): Promise<boolean> {
+    const result = await this.checkPermission(roomId, userId, permission, options);
+    return result.hasPermission;
+  }
+
+  /**
    * Verificar permisos en lote para múltiples usuarios
    */
   async bulkCheckPermissions(

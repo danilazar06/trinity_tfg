@@ -29,7 +29,7 @@ export class EventTracker {
         properties: event.properties || {},
         context: event.context || {},
         processed: false,
-        ttl: this.calculateTTL(event.eventType),
+        ttl: this.calculateTTL(event.eventType || EventType.USER_LOGIN),
       };
 
       // Store event in analytics events table

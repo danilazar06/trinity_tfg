@@ -151,7 +151,7 @@ export class MatchService {
           totalVotes,
           participantCount: participants.length,
           mediaTitle: mediaDetails.title,
-          mediaGenres: mediaDetails.genres?.map((g) => g.name) || [],
+          mediaGenres: mediaDetails.genres?.map((g: any) => typeof g === 'string' ? g : g.name) || [],
         },
         {
           source: 'match_service',
@@ -200,7 +200,7 @@ export class MatchService {
         },
       });
 
-      return items.length > 0 ? (items[0] as Match) : null;
+      return items.length > 0 ? (items[0] as unknown as Match) : null;
     } catch (error) {
       this.logger.error(`Error getting match ${matchId}: ${error.message}`);
       throw error;
@@ -220,7 +220,7 @@ export class MatchService {
         DynamoDBKeys.matchSK(mediaId),
       );
 
-      return item ? (item as Match) : null;
+      return item ? (item as unknown as Match) : null;
     } catch (error) {
       this.logger.error(
         `Error getting match for media ${mediaId}: ${error.message}`,
@@ -247,7 +247,7 @@ export class MatchService {
         Limit: limit,
       });
 
-      return items.map((item) => this.convertToMatchSummary(item as Match));
+      return items.map((item) => this.convertToMatchSummary(item as unknown as Match));
     } catch (error) {
       this.logger.error(`Error getting room matches: ${error.message}`);
       throw error;

@@ -12,11 +12,11 @@ import {
 import { Type } from 'class-transformer';
 import {
   AutomationLevel,
-  RoomAutomationConfig,
   SmartRecommendation,
   OptimizationDecision,
   AutomationPerformanceMetrics,
 } from '../../../domain/entities/room-automation.entity';
+import type { RoomAutomationConfig } from '../../../domain/entities/room-automation.entity';
 
 // Content Optimization DTOs
 export class SmartInjectionDto {

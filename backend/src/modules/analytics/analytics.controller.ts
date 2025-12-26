@@ -24,9 +24,9 @@ import {
   ContentPreferenceAnalytics,
   PredictiveInsights,
   TimeRange,
-  ExportRequest,
   ExportResponse,
 } from './interfaces/analytics.interfaces';
+import type { ExportRequest } from './interfaces/analytics.interfaces';
 
 @ApiTags('Analytics')
 @Controller('analytics')

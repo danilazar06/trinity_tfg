@@ -38,6 +38,11 @@ export enum EventType {
   MATCH_FOUND = 'match_found',
   CONSENSUS_ACHIEVED = 'consensus_achieved',
 
+  // Automation Events
+  AUTOMATION_CREATED = 'automation_created',
+  AUTOMATION_UPDATED = 'automation_updated',
+  AUTOMATION_FEEDBACK = 'automation_feedback',
+
   // AI Events
   AI_RECOMMENDATION_REQUESTED = 'ai_recommendation_requested',
   AI_RECOMMENDATION_ACCEPTED = 'ai_recommendation_accepted',
