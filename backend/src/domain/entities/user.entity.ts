@@ -9,6 +9,8 @@ export interface User {
   cognitoUsername?: string;
   phoneNumber?: string;
   phoneNumberVerified?: boolean;
+  displayName?: string; // Nombre completo del usuario
+  avatarUrl?: string;
 }
 
 export interface CreateUserDto {
@@ -16,6 +18,7 @@ export interface CreateUserDto {
   username: string;
   password: string;
   phoneNumber?: string;
+  displayName?: string;
 }
 
 export interface LoginUserDto {
@@ -44,11 +47,14 @@ export interface ResetPasswordDto {
 
 export interface UserProfile {
   id: string;
+  sub: string; // Alias for id - compatibility with JWT/Cognito
   email: string;
   username: string;
   emailVerified: boolean;
   createdAt: Date;
   phoneNumber?: string;
+  displayName?: string;
+  avatarUrl?: string;
 }
 
 export interface CognitoTokens {

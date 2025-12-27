@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,26 @@ import {
   Linking,
   ActivityIndicator,
   Alert,
-  Clipboard,
+  Animated,
+  Image,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, fontSize, borderRadius } from '../utils/theme';
-import { roomService, Room, ContentFilters } from '../services/roomService';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, spacing, fontSize, borderRadius, shadows } from '../utils/theme';
+import { roomService, Room } from '../services/roomService';
 
-const { height } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+// Posters para el fondo animado
+const MOVIE_POSTERS = [
+  'https://image.tmdb.org/t/p/w200/qNBAXBIQlnOThrVvA6mA2B5ber9.jpg',
+  'https://image.tmdb.org/t/p/w200/d5NXSklXo0qyIYkgV94XAgMIckC.jpg',
+  'https://image.tmdb.org/t/p/w200/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg',
+  'https://image.tmdb.org/t/p/w200/rCzpDGLbOoPwLjy3OAm5NUPOTrC.jpg',
+  'https://image.tmdb.org/t/p/w200/velWPhVMQeQKcxggNEU8YmIo52R.jpg',
+  'https://image.tmdb.org/t/p/w200/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
+];
 
 type Step = 'initial' | 'preferences' | 'participants' | 'share';
 
@@ -29,119 +42,108 @@ interface CreateRoomModalProps {
   onRoomCreated?: (room: Room) => void;
 }
 
-const PLATFORMS = [
-  { id: 'netflix', name: 'Netflix' },
-  { id: 'prime', name: 'Prime Video' },
-  { id: 'disney', name: 'Disney+' },
-  { id: 'hbo', name: 'HBO Max' },
-  { id: 'apple', name: 'Apple TV+' },
-  { id: 'paramount', name: 'Paramount+' },
-];
-
 const GENRES = [
-  { id: 28, name: 'Acción' },
-  { id: 12, name: 'Aventura' },
-  { id: 878, name: 'Ciencia Ficción' },
-  { id: 35, name: 'Comedia' },
-  { id: 18, name: 'Drama' },
-  { id: 27, name: 'Terror' },
-  { id: 53, name: 'Thriller' },
-  { id: 10749, name: 'Romance' },
-  { id: 14, name: 'Fantasía' },
-  { id: 99, name: 'Documental' },
-  { id: 16, name: 'Animación' },
-  { id: 80, name: 'Crimen' },
-  { id: 9648, name: 'Misterio' },
-  { id: 10402, name: 'Musical' },
-];
-
-const EXAMPLE_TOPICS = [
-  'Afrontar el bullying escolar',
-  'Superación y motivación',
-  'Diversidad e inclusión',
-  'Salud mental y bienestar',
+  { id: '28', name: 'Acción', icon: '💥' },
+  { id: '12', name: 'Aventura', icon: '🗺️' },
+  { id: '878', name: 'Ciencia Ficción', icon: '🚀' },
+  { id: '35', name: 'Comedia', icon: '😂' },
+  { id: '18', name: 'Drama', icon: '🎭' },
+  { id: '27', name: 'Terror', icon: '👻' },
+  { id: '53', name: 'Thriller', icon: '😱' },
+  { id: '10749', name: 'Romance', icon: '💕' },
+  { id: '14', name: 'Fantasía', icon: '🧙' },
+  { id: '99', name: 'Documental', icon: '📹' },
+  { id: '16', name: 'Animación', icon: '🎨' },
+  { id: '80', name: 'Crimen', icon: '🔍' },
 ];
 
 export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomCreated }: CreateRoomModalProps) {
   const [step, setStep] = useState<Step>('initial');
   const [aiPrompt, setAiPrompt] = useState('');
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const [selectedGenres, setSelectedGenres] = useState<number[]>([]);
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [participants, setParticipants] = useState(2);
   const [roomCode, setRoomCode] = useState('');
   const [roomName, setRoomName] = useState('');
-  const [roomId, setRoomId] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+
+  // Animaciones
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const posterScrollAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      fadeAnim.setValue(0);
+      slideAnim.setValue(30);
+      scaleAnim.setValue(0.9);
+      
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.spring(slideAnim, { toValue: 0, tension: 65, friction: 10, useNativeDriver: true }),
+        Animated.spring(scaleAnim, { toValue: 1, tension: 65, friction: 10, useNativeDriver: true }),
+      ]).start();
+
+      // Animación continua de posters
+      Animated.loop(
+        Animated.timing(posterScrollAnim, { toValue: 1, duration: 20000, useNativeDriver: true })
+      ).start();
+    }
+  }, [visible]);
 
   const resetAndClose = () => {
     setStep('initial');
     setAiPrompt('');
-    setSelectedPlatforms([]);
     setSelectedGenres([]);
     setParticipants(2);
     setRoomCode('');
     setRoomName('');
-    setRoomId('');
     setIsCreating(false);
     onClose();
   };
 
-  const togglePlatform = (id: string) => {
-    setSelectedPlatforms(prev =>
-      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
-    );
-  };
-
-  const toggleGenre = (id: number) => {
+  const toggleGenre = (id: string) => {
     setSelectedGenres(prev =>
       prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]
     );
   };
 
-  const clearFilters = () => {
-    setSelectedPlatforms([]);
-    setSelectedGenres([]);
-    setAiPrompt('');
-  };
-
   const createRoom = async () => {
     setIsCreating(true);
     
-    // Generar nombre basado en filtros o AI prompt
+    const token = await AsyncStorage.getItem('authToken');
+    if (!token) {
+      Alert.alert('Sesión expirada', 'Por favor, inicia sesión de nuevo.');
+      setIsCreating(false);
+      return;
+    }
+    
     const name = aiPrompt 
       ? aiPrompt.substring(0, 30) 
       : selectedGenres.length > 0 
         ? `Búsqueda: ${GENRES.find(g => g.id === selectedGenres[0])?.name}`
         : 'Nueva sala';
 
-    const filters: ContentFilters = {
+    const filters = {
       genres: selectedGenres.length > 0 ? selectedGenres : undefined,
-      platforms: selectedPlatforms.length > 0 ? selectedPlatforms : undefined,
-      aiPrompt: aiPrompt || undefined,
-      contentType: 'all',
+      contentTypes: ['movie', 'tv'] as ('movie' | 'tv')[],
     };
 
     try {
-      const room = await roomService.createRoom({
-        name,
-        filters,
-        participantCount: participants,
-      });
-
+      const room = await roomService.createRoom({ name, filters });
       setRoomCode(room.inviteCode);
       setRoomName(room.name);
-      setRoomId(room.id);
       setStep('share');
-      
-      if (onRoomCreated) {
-        onRoomCreated(room);
-      }
+      if (onRoomCreated) onRoomCreated(room);
     } catch (error: any) {
-      console.error('Error creating room:', error);
-      Alert.alert(
-        'Error', 
-        error.message || 'No se pudo crear la sala. Inténtalo de nuevo.'
-      );
+      let errorMessage = 'No se pudo crear la sala. Inténtalo de nuevo.';
+      if (error.response?.status === 401) {
+        errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión de nuevo.';
+      } else if (error.response?.data?.message) {
+        const msg = error.response.data.message;
+        errorMessage = Array.isArray(msg) ? msg.join('. ') : msg;
+      }
+      Alert.alert('Error', errorMessage);
     } finally {
       setIsCreating(false);
     }
@@ -158,171 +160,188 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
     await Share.share({ message: url });
   };
 
-  const renderInitialStep = () => (
-    <View style={styles.initialContainer}>
-      <View style={styles.logoCircle}>
-        <View style={styles.logoInner}>
-          <View style={[styles.logoBar, { height: 14, backgroundColor: '#00D4FF' }]} />
-          <View style={[styles.logoBar, { height: 18, backgroundColor: '#6366F1' }]} />
-          <View style={[styles.logoBar, { height: 12, backgroundColor: '#EC4899' }]} />
+  const renderInitialStep = () => {
+    const translateX = posterScrollAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, -width * 0.5],
+    });
+
+    return (
+      <View style={styles.initialContainer}>
+        {/* Fondo de posters animado */}
+        <View style={styles.posterBg}>
+          <Animated.View style={[styles.posterRow, { transform: [{ translateX }] }]}>
+            {[...MOVIE_POSTERS, ...MOVIE_POSTERS].map((poster, i) => (
+              <Image key={i} source={{ uri: poster }} style={styles.posterThumb} blurRadius={2} />
+            ))}
+          </Animated.View>
+          <LinearGradient
+            colors={['rgba(21, 21, 32, 0.4)', 'rgba(21, 21, 32, 0.95)', colors.surface]}
+            style={StyleSheet.absoluteFill}
+          />
         </View>
+
+        {/* Círculos decorativos */}
+        <View style={styles.glowPurple} />
+        <View style={styles.glowCyan} />
+
+        {/* Logo Trinity animado */}
+        <Animated.View style={[styles.logoCircle, { transform: [{ scale: scaleAnim }] }]}>
+          <LinearGradient
+            colors={['rgba(139, 92, 246, 0.3)', 'rgba(6, 182, 212, 0.2)']}
+            style={styles.logoGlow}
+          />
+          <View style={styles.logoInner}>
+            <LinearGradient colors={[colors.secondary, colors.secondaryLight]} style={[styles.logoBar, styles.logoBarBlue]} />
+            <LinearGradient colors={[colors.primary, colors.primaryLight]} style={[styles.logoBar, styles.logoBarPurple]} />
+            <LinearGradient colors={[colors.accent, colors.accentLight]} style={[styles.logoBar, styles.logoBarRed]} />
+          </View>
+        </Animated.View>
+        
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+          <Text style={styles.initialTitle}>¿Qué deseas hacer?</Text>
+          <Text style={styles.initialSubtitle}>Crea una nueva sala o revisa tus salas activas</Text>
+        </Animated.View>
+
+        <Animated.View style={[styles.optionsContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+          <TouchableOpacity 
+            style={styles.primaryOption} 
+            onPress={() => setStep('preferences')}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={[colors.primary, '#6366F1']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.primaryOptionGradient}
+            >
+              <View style={styles.optionIcon}>
+                <Ionicons name="add" size={24} color="#FFF" />
+              </View>
+              <View style={styles.optionText}>
+                <Text style={styles.optionTitle}>Crear nueva sala</Text>
+                <Text style={styles.optionSubtitle}>Configura filtros y empieza</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.secondaryOption} 
+            onPress={() => { resetAndClose(); onGoToRooms(); }}
+            activeOpacity={0.8}
+          >
+            <View style={styles.secondaryIcon}>
+              <Ionicons name="list" size={20} color={colors.secondary} />
+            </View>
+            <View style={styles.optionText}>
+              <Text style={styles.secondaryTitle}>Ir a mis salas</Text>
+              <Text style={styles.secondarySubtitle}>Revisa tus salas activas</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+        </Animated.View>
+
+        <TouchableOpacity onPress={resetAndClose}>
+          <Text style={styles.cancelText}>Cancelar</Text>
+        </TouchableOpacity>
       </View>
-      
-      <Text style={styles.initialTitle}>¿Qué deseas hacer?</Text>
-      <Text style={styles.initialSubtitle}>Crea una nueva sala o revisa tus salas activas</Text>
-
-      <TouchableOpacity 
-        style={styles.primaryOption} 
-        onPress={() => setStep('preferences')}
-        activeOpacity={0.8}
-      >
-        <View style={styles.optionIcon}>
-          <Ionicons name="add" size={24} color="#FFF" />
-        </View>
-        <View style={styles.optionText}>
-          <Text style={styles.optionTitle}>Crear nueva sala</Text>
-          <Text style={styles.optionSubtitle}>Configura filtros y empieza a hacer swipe</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color="#FFF" />
-      </TouchableOpacity>
-
-      <TouchableOpacity 
-        style={styles.secondaryOption} 
-        onPress={() => { resetAndClose(); onGoToRooms(); }}
-        activeOpacity={0.8}
-      >
-        <View style={[styles.optionIcon, styles.secondaryIcon]}>
-          <Ionicons name="list" size={20} color={colors.primary} />
-        </View>
-        <View style={styles.optionText}>
-          <Text style={[styles.optionTitle, styles.secondaryTitle]}>Ir a mis salas</Text>
-          <Text style={styles.optionSubtitle}>Revisa tus salas activas</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={resetAndClose}>
-        <Text style={styles.cancelText}>Cancelar</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   const renderPreferencesStep = () => (
     <View style={styles.stepContainer}>
+      {/* Círculos decorativos */}
+      <View style={styles.stepGlowPurple} />
+      <View style={styles.stepGlowCyan} />
+
       <View style={styles.stepHeader}>
-        <TouchableOpacity onPress={() => setStep('initial')}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+        <TouchableOpacity onPress={() => setStep('initial')} style={styles.backButton}>
+          <LinearGradient
+            colors={['rgba(139, 92, 246, 0.2)', 'rgba(6, 182, 212, 0.1)']}
+            style={styles.backButtonGradient}
+          >
+            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          </LinearGradient>
         </TouchableOpacity>
-        <View style={styles.stepTitleContainer}>
-          <View style={styles.stepIconCircle}>
-            <Ionicons name="funnel" size={18} color={colors.primary} />
-          </View>
-          <View>
-            <Text style={styles.stepTitle}>Nueva Sala</Text>
-            <Text style={styles.stepSubtitle}>Configura tus preferencias</Text>
-          </View>
-        </View>
-        <TouchableOpacity onPress={resetAndClose}>
-          <Ionicons name="close" size={24} color={colors.textMuted} />
+        <Text style={styles.stepTitle}>Nueva Sala</Text>
+        <TouchableOpacity onPress={resetAndClose} style={styles.closeButton}>
+          <Ionicons name="close" size={22} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
         {/* Asistente IA */}
         <View style={styles.aiSection}>
+          <LinearGradient
+            colors={['rgba(139, 92, 246, 0.15)', 'rgba(6, 182, 212, 0.08)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.aiGradient}
+          />
           <View style={styles.aiHeader}>
-            <Ionicons name="sparkles" size={18} color={colors.primary} />
+            <View style={styles.aiIconBg}>
+              <Ionicons name="sparkles" size={16} color={colors.primary} />
+            </View>
             <Text style={styles.aiTitle}>Asistente IA</Text>
+            <View style={styles.aiBadge}>
+              <Text style={styles.aiBadgeText}>BETA</Text>
+            </View>
           </View>
-          <Text style={styles.aiDescription}>
-            Describe qué tema te interesa o qué situación quieres explorar. Puedo ayudarte a encontrar contenido educativo, motivacional o sobre temas sociales importantes.
-          </Text>
-          <View style={styles.aiInputContainer}>
-            <TextInput
-              style={styles.aiInput}
-              placeholder="Ej: Quiero ver algo sobre cómo afrontar el bullying en la escuela..."
-              placeholderTextColor={colors.textMuted}
-              value={aiPrompt}
-              onChangeText={setAiPrompt}
-              multiline
-            />
-            <TouchableOpacity style={styles.aiSendButton}>
-              <Ionicons name="send" size={18} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.examplesLabel}>Ejemplos de temas:</Text>
-          <View style={styles.exampleChips}>
-            {EXAMPLE_TOPICS.map((topic, index) => (
-              <TouchableOpacity 
-                key={index} 
-                style={styles.exampleChip}
-                onPress={() => setAiPrompt(topic)}
-              >
-                <Text style={styles.exampleChipText}>{topic}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Plataformas */}
-        <View style={styles.filterSection}>
-          <Text style={styles.filterTitle}>Plataformas</Text>
-          <View style={styles.filterGrid}>
-            {PLATFORMS.map((platform) => (
-              <TouchableOpacity
-                key={platform.id}
-                style={[
-                  styles.filterChip,
-                  selectedPlatforms.includes(platform.id) && styles.filterChipSelected,
-                ]}
-                onPress={() => togglePlatform(platform.id)}
-              >
-                <Text style={[
-                  styles.filterChipText,
-                  selectedPlatforms.includes(platform.id) && styles.filterChipTextSelected,
-                ]}>
-                  {platform.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <Text style={styles.aiDescription}>Describe qué tema te interesa</Text>
+          <TextInput
+            style={styles.aiInput}
+            placeholder="Ej: Películas sobre superación..."
+            placeholderTextColor={colors.textMuted}
+            value={aiPrompt}
+            onChangeText={setAiPrompt}
+            multiline
+          />
         </View>
 
         {/* Géneros */}
-        <View style={styles.filterSection}>
-          <Text style={styles.filterTitle}>Géneros</Text>
-          <View style={styles.filterGrid}>
-            {GENRES.map((genre) => (
+        <Text style={styles.filterTitle}>🎬 Géneros</Text>
+        <View style={styles.filterGrid}>
+          {GENRES.map((genre, index) => {
+            const isSelected = selectedGenres.includes(genre.id);
+            const colorIndex = index % 3;
+            const gradientColors = colorIndex === 0 
+              ? ['rgba(6, 182, 212, 0.2)', 'rgba(6, 182, 212, 0.05)']
+              : colorIndex === 1 
+                ? ['rgba(139, 92, 246, 0.2)', 'rgba(139, 92, 246, 0.05)']
+                : ['rgba(239, 68, 68, 0.2)', 'rgba(239, 68, 68, 0.05)'];
+            
+            return (
               <TouchableOpacity
                 key={genre.id}
-                style={[
-                  styles.filterChip,
-                  selectedGenres.includes(genre.id) && styles.filterChipSelected,
-                ]}
+                style={[styles.filterChip, isSelected && styles.filterChipSelected]}
                 onPress={() => toggleGenre(genre.id)}
+                activeOpacity={0.7}
               >
-                <Text style={[
-                  styles.filterChipText,
-                  selectedGenres.includes(genre.id) && styles.filterChipTextSelected,
-                ]}>
+                {isSelected && (
+                  <LinearGradient colors={gradientColors} style={StyleSheet.absoluteFill} />
+                )}
+                <Text style={styles.genreIcon}>{genre.icon}</Text>
+                <Text style={[styles.filterChipText, isSelected && styles.filterChipTextSelected]}>
                   {genre.name}
                 </Text>
               </TouchableOpacity>
-            ))}
-          </View>
+            );
+          })}
         </View>
       </ScrollView>
 
       <View style={styles.stepFooter}>
-        <TouchableOpacity 
-          style={styles.continueButton} 
-          onPress={() => setStep('participants')}
-        >
-          <Text style={styles.continueButtonText}>Continuar</Text>
-          <Ionicons name="chevron-forward" size={20} color="#FFF" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={clearFilters}>
-          <Text style={styles.clearFiltersText}>Limpiar filtros</Text>
+        <TouchableOpacity style={styles.continueButtonWrapper} onPress={() => setStep('participants')}>
+          <LinearGradient
+            colors={[colors.secondary, '#3B82F6']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.continueButton}
+          >
+            <Text style={styles.continueButtonText}>Continuar</Text>
+            <Ionicons name="chevron-forward" size={20} color="#FFF" />
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </View>
@@ -330,77 +349,90 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
 
   const renderParticipantsStep = () => (
     <View style={styles.stepContainer}>
+      <View style={styles.stepGlowPurple} />
+      <View style={styles.stepGlowRed} />
+
       <View style={styles.stepHeader}>
-        <TouchableOpacity onPress={() => setStep('preferences')}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+        <TouchableOpacity onPress={() => setStep('preferences')} style={styles.backButton}>
+          <LinearGradient
+            colors={['rgba(139, 92, 246, 0.2)', 'rgba(6, 182, 212, 0.1)']}
+            style={styles.backButtonGradient}
+          >
+            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          </LinearGradient>
         </TouchableOpacity>
-        <View style={styles.stepTitleContainer}>
-          <View style={styles.stepIconCircle}>
-            <Ionicons name="people" size={18} color={colors.primary} />
-          </View>
-          <View>
-            <Text style={styles.stepTitle}>Participantes</Text>
-            <Text style={styles.stepSubtitle}>¿Cuántos sois?</Text>
-          </View>
-        </View>
-        <TouchableOpacity onPress={resetAndClose}>
-          <Ionicons name="close" size={24} color={colors.textMuted} />
+        <Text style={styles.stepTitle}>Participantes</Text>
+        <TouchableOpacity onPress={resetAndClose} style={styles.closeButton}>
+          <Ionicons name="close" size={22} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.participantsContent}>
+        <View style={styles.participantsIconBg}>
+          <Ionicons name="people" size={32} color={colors.primary} />
+        </View>
         <Text style={styles.participantsDescription}>
-          Selecciona cuántas personas deben estar de acuerdo para hacer match
+          ¿Cuántas personas deben estar de acuerdo para hacer match?
         </Text>
 
         <View style={styles.participantsGrid}>
-          {[2, 3, 4, 5, 6].map((num) => (
-            <TouchableOpacity
-              key={num}
-              style={[
-                styles.participantCard,
-                participants === num && styles.participantCardSelected,
-              ]}
-              onPress={() => setParticipants(num)}
-            >
-              <Ionicons 
-                name="people-outline" 
-                size={28} 
-                color={participants === num ? colors.primary : colors.textMuted} 
-              />
-              <Text style={[
-                styles.participantNumber,
-                participants === num && styles.participantNumberSelected,
-              ]}>
-                {num}
-              </Text>
-              <Text style={styles.participantLabel}>personas</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.participantHint}>
-          <Text style={styles.participantHintText}>
-            {participants === 2 
-              ? 'Perfecto para una cita o con un amigo'
-              : participants <= 4
-                ? 'Ideal para un grupo pequeño'
-                : 'Para reuniones familiares o grupos grandes'}
-          </Text>
+          {[2, 3, 4, 5, 6].map((num, index) => {
+            const isSelected = participants === num;
+            const gradientColors = index % 3 === 0 
+              ? [colors.secondary, '#3B82F6']
+              : index % 3 === 1 
+                ? [colors.primary, '#6366F1']
+                : [colors.accent, '#EC4899'];
+            
+            return (
+              <TouchableOpacity
+                key={num}
+                style={[styles.participantCard, isSelected && styles.participantCardSelected]}
+                onPress={() => setParticipants(num)}
+                activeOpacity={0.8}
+              >
+                {isSelected && (
+                  <LinearGradient
+                    colors={gradientColors}
+                    style={StyleSheet.absoluteFill}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  />
+                )}
+                <Text style={[styles.participantNumber, isSelected && styles.participantNumberSelected]}>
+                  {num}
+                </Text>
+                <Text style={[styles.participantLabel, isSelected && styles.participantLabelSelected]}>
+                  personas
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
       <View style={styles.stepFooter}>
         <TouchableOpacity 
-          style={[styles.continueButton, isCreating && styles.buttonDisabled]} 
+          style={[styles.continueButtonWrapper, isCreating && styles.buttonDisabled]} 
           onPress={createRoom}
           disabled={isCreating}
+          activeOpacity={0.85}
         >
-          {isCreating ? (
-            <ActivityIndicator size="small" color="#FFF" />
-          ) : (
-            <Text style={styles.continueButtonText}>Crear sala</Text>
-          )}
+          <LinearGradient
+            colors={[colors.primary, '#6366F1']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.continueButton}
+          >
+            {isCreating ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <>
+                <Ionicons name="rocket" size={18} color="#FFF" style={{ marginRight: 8 }} />
+                <Text style={styles.continueButtonText}>Crear sala</Text>
+              </>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </View>
@@ -408,74 +440,78 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
 
   const renderShareStep = () => (
     <View style={styles.shareContainer}>
+      {/* Círculos decorativos */}
+      <View style={styles.shareGlowGreen} />
+      <View style={styles.shareGlowPurple} />
+
       <View style={styles.shareHeader}>
-        <Ionicons name="share-social" size={20} color={colors.textPrimary} />
-        <Text style={styles.shareTitle}>Compartir sala</Text>
+        <View style={styles.successIconBg}>
+          <Ionicons name="checkmark" size={28} color="#FFF" />
+        </View>
+        <Text style={styles.shareTitle}>¡Sala creada!</Text>
         <TouchableOpacity onPress={resetAndClose} style={styles.closeButton}>
-          <Ionicons name="close" size={24} color={colors.textMuted} />
+          <Ionicons name="close" size={22} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.roomInfoCard}>
-        <Text style={styles.roomName}>{roomName}</Text>
-        <Text style={styles.roomWaiting}>
-          Esperando {participants} personas para hacer match
-        </Text>
+        <LinearGradient
+          colors={['rgba(139, 92, 246, 0.15)', 'rgba(6, 182, 212, 0.08)']}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.roomInfoIcon}>
+          <Ionicons name="film" size={20} color={colors.primary} />
+        </View>
+        <View style={styles.roomInfoText}>
+          <Text style={styles.roomNameText}>{roomName}</Text>
+          <Text style={styles.roomWaiting}>Esperando {participants} personas</Text>
+        </View>
       </View>
 
-      <TouchableOpacity 
-        style={styles.whatsappButton} 
-        onPress={shareViaWhatsApp}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="logo-whatsapp" size={22} color="#FFF" />
-        <Text style={styles.whatsappButtonText}>Compartir por WhatsApp</Text>
+      <TouchableOpacity style={styles.whatsappButton} onPress={shareViaWhatsApp} activeOpacity={0.85}>
+        <LinearGradient
+          colors={['#25D366', '#128C7E']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.whatsappGradient}
+        >
+          <Ionicons name="logo-whatsapp" size={22} color="#FFF" />
+          <Text style={styles.whatsappButtonText}>Compartir por WhatsApp</Text>
+        </LinearGradient>
       </TouchableOpacity>
 
-      <Text style={styles.orText}>O copia el enlace para compartirlo</Text>
+      <Text style={styles.orText}>O copia el enlace</Text>
 
       <View style={styles.linkContainer}>
-        <Text style={styles.linkText} numberOfLines={1}>
-          https://trinity.app/room/{roomCode}
-        </Text>
-        <TouchableOpacity style={styles.copyButton} onPress={copyLink}>
-          <Ionicons name="copy-outline" size={20} color={colors.textMuted} />
+        <Text style={styles.linkText} numberOfLines={1}>trinity.app/room/{roomCode}</Text>
+        <TouchableOpacity style={styles.copyButton} onPress={copyLink} activeOpacity={0.7}>
+          <LinearGradient
+            colors={['rgba(6, 182, 212, 0.2)', 'rgba(139, 92, 246, 0.1)']}
+            style={styles.copyButtonGradient}
+          >
+            <Ionicons name="copy-outline" size={18} color={colors.secondary} />
+          </LinearGradient>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.waitingText}>
-        Espera a que todos estén listos antes de empezar
-      </Text>
-
-      {/* Botón para empezar */}
-      <TouchableOpacity 
-        style={styles.startButton} 
-        onPress={resetAndClose}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.startButtonText}>Empezar a hacer swipe</Text>
-        <Ionicons name="play" size={20} color="#FFF" />
-      </TouchableOpacity>
-
-      {/* Botón cancelar */}
-      <TouchableOpacity onPress={resetAndClose}>
-        <Text style={styles.cancelShareText}>Cancelar</Text>
+      <TouchableOpacity style={styles.startButtonWrapper} onPress={resetAndClose} activeOpacity={0.85}>
+        <LinearGradient
+          colors={[colors.primary, '#6366F1']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.startButton}
+        >
+          <Text style={styles.startButtonText}>Empezar a hacer swipe</Text>
+          <Ionicons name="play" size={18} color="#FFF" />
+        </LinearGradient>
       </TouchableOpacity>
     </View>
   );
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={resetAndClose}
-    >
+    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={resetAndClose}>
       <View style={styles.overlay}>
-        <View style={[
-          styles.modalContainer,
-          step === 'initial' && styles.modalInitial,
-        ]}>
+        <View style={[styles.modalContainer, step === 'initial' && styles.modalInitial]}>
           {step === 'initial' && renderInitialStep()}
           {step === 'preferences' && renderPreferencesStep()}
           {step === 'participants' && renderParticipantsStep()}
@@ -487,424 +523,160 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'flex-end',
+  overlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.8)', justifyContent: 'flex-end' },
+  modalContainer: { backgroundColor: colors.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: height * 0.9, overflow: 'hidden' },
+  modalInitial: { paddingBottom: spacing.xl },
+  
+  // Fondo de posters
+  posterBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 120, overflow: 'hidden' },
+  posterRow: { flexDirection: 'row', height: 100 },
+  posterThumb: { width: 70, height: 100, marginHorizontal: 3, borderRadius: 8, opacity: 0.6 },
+  
+  // Círculos decorativos
+  glowPurple: { position: 'absolute', top: 60, left: -40, width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(139, 92, 246, 0.2)' },
+  glowCyan: { position: 'absolute', top: 40, right: -30, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(6, 182, 212, 0.15)' },
+  stepGlowPurple: { position: 'absolute', top: -50, right: -50, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(139, 92, 246, 0.12)' },
+  stepGlowCyan: { position: 'absolute', bottom: 100, left: -60, width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(6, 182, 212, 0.08)' },
+  stepGlowRed: { position: 'absolute', bottom: 150, right: -40, width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(239, 68, 68, 0.1)' },
+  shareGlowGreen: { position: 'absolute', top: -30, left: -30, width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(16, 185, 129, 0.15)' },
+  shareGlowPurple: { position: 'absolute', bottom: 50, right: -40, width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(139, 92, 246, 0.1)' },
+  
+  // Initial
+  initialContainer: { padding: spacing.xl, paddingTop: 140, alignItems: 'center', position: 'relative' },
+  logoCircle: { 
+    width: 80, height: 80, borderRadius: 24, backgroundColor: 'rgba(255, 255, 255, 0.08)', 
+    justifyContent: 'center', alignItems: 'center', marginBottom: spacing.lg,
+    borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)', position: 'relative',
   },
-  modalContainer: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: height * 0.9,
+  logoGlow: { position: 'absolute', width: 110, height: 110, borderRadius: 55, opacity: 0.8 },
+  logoInner: { flexDirection: 'row', alignItems: 'flex-end', gap: 5 },
+  logoBar: { width: 10, borderRadius: 5 },
+  logoBarBlue: { height: 18 },
+  logoBarPurple: { height: 26 },
+  logoBarRed: { height: 14 },
+  initialTitle: { fontSize: 24, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.xs, textAlign: 'center' },
+  initialSubtitle: { fontSize: fontSize.sm, color: colors.textMuted, textAlign: 'center', marginBottom: spacing.lg },
+  optionsContainer: { width: '100%' },
+  primaryOption: { borderRadius: borderRadius.lg, overflow: 'hidden', marginBottom: spacing.md, ...shadows.glow },
+  primaryOptionGradient: { flexDirection: 'row', alignItems: 'center', padding: spacing.md },
+  optionIcon: { 
+    width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', 
+    justifyContent: 'center', alignItems: 'center', marginRight: spacing.md,
   },
-  modalInitial: {
-    paddingBottom: spacing.xl,
+  optionText: { flex: 1 },
+  optionTitle: { fontSize: fontSize.md, fontWeight: '600', color: '#FFF' },
+  optionSubtitle: { fontSize: fontSize.sm, color: 'rgba(255,255,255,0.7)' },
+  secondaryOption: { 
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: borderRadius.lg, padding: spacing.md, marginBottom: spacing.xl,
+    borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  // Initial Step
-  initialContainer: {
-    padding: spacing.xl,
-    alignItems: 'center',
+  secondaryIcon: { 
+    width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(6, 182, 212, 0.15)', 
+    justifyContent: 'center', alignItems: 'center', marginRight: spacing.md,
   },
-  logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.primary + '30',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
+  secondaryTitle: { fontSize: fontSize.md, fontWeight: '600', color: colors.textPrimary },
+  secondarySubtitle: { fontSize: fontSize.sm, color: colors.textMuted },
+  cancelText: { fontSize: fontSize.md, color: colors.textMuted, paddingVertical: spacing.sm },
+  
+  // Step
+  stepContainer: { height: height * 0.85, position: 'relative', overflow: 'hidden' },
+  stepHeader: { 
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', 
+    padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
-  logoInner: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+  backButton: { borderRadius: 20, overflow: 'hidden' },
+  backButtonGradient: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  closeButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  stepTitle: { fontSize: fontSize.lg, fontWeight: '700', color: colors.textPrimary },
+  stepContent: { flex: 1, padding: spacing.lg },
+  stepFooter: { padding: spacing.lg, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.06)' },
+  continueButtonWrapper: { borderRadius: borderRadius.lg, overflow: 'hidden', ...shadows.glow },
+  continueButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.md + 2 },
+  continueButtonText: { fontSize: fontSize.md, fontWeight: '600', color: '#FFF', marginRight: spacing.xs },
+  
+  // AI
+  aiSection: { 
+    borderRadius: borderRadius.xl, padding: spacing.md, marginBottom: spacing.lg, 
+    borderWidth: 1, borderColor: 'rgba(139, 92, 246, 0.2)', overflow: 'hidden', position: 'relative',
   },
-  logoBar: {
-    width: 6,
-    marginHorizontal: 1,
-    borderRadius: 2,
+  aiGradient: { ...StyleSheet.absoluteFillObject },
+  aiHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  aiIconBg: { width: 28, height: 28, borderRadius: 8, backgroundColor: 'rgba(139, 92, 246, 0.2)', justifyContent: 'center', alignItems: 'center' },
+  aiTitle: { fontSize: fontSize.md, fontWeight: '600', color: colors.textPrimary, marginLeft: spacing.sm, flex: 1 },
+  aiBadge: { backgroundColor: 'rgba(6, 182, 212, 0.2)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  aiBadgeText: { fontSize: 10, fontWeight: '700', color: colors.secondary },
+  aiDescription: { fontSize: fontSize.sm, color: colors.textMuted, marginBottom: spacing.md },
+  aiInput: { 
+    backgroundColor: 'rgba(0, 0, 0, 0.3)', borderRadius: borderRadius.md, padding: spacing.md,
+    fontSize: fontSize.sm, color: colors.textPrimary, maxHeight: 70,
+    borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  initialTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
+  
+  // Filter
+  filterTitle: { fontSize: fontSize.md, fontWeight: '600', color: colors.textPrimary, marginBottom: spacing.md },
+  filterGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  filterChip: { 
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: borderRadius.full, paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
+    borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', gap: 6, overflow: 'hidden',
   },
-  initialSubtitle: {
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  primaryOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    width: '100%',
-    marginBottom: spacing.md,
-  },
-  secondaryOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    width: '100%',
-    marginBottom: spacing.xl,
-  },
-  optionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
-  },
-  secondaryIcon: {
-    backgroundColor: colors.primary + '20',
-  },
-  optionText: {
-    flex: 1,
-  },
-  optionTitle: {
-    fontSize: fontSize.md,
-    fontWeight: '600',
-    color: '#FFF',
-    marginBottom: 2,
-  },
-  secondaryTitle: {
-    color: colors.textPrimary,
-  },
-  optionSubtitle: {
-    fontSize: fontSize.sm,
-    color: 'rgba(255,255,255,0.7)',
-  },
-  cancelText: {
-    fontSize: fontSize.md,
-    color: colors.textMuted,
-  },
-  // Step Container
-  stepContainer: {
-    height: height * 0.85,
-  },
-  stepHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  stepTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  stepIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primary + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.sm,
-  },
-  stepTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-  },
-  stepSubtitle: {
-    fontSize: fontSize.xs,
-    color: colors.textMuted,
-  },
-  stepContent: {
-    flex: 1,
-    padding: spacing.lg,
-  },
-  stepFooter: {
-    padding: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  continueButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.md,
-  },
-  continueButtonText: {
-    fontSize: fontSize.md,
-    fontWeight: '600',
-    color: '#FFF',
-    marginRight: spacing.xs,
-  },
-  clearFiltersText: {
-    fontSize: fontSize.md,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
-  // AI Section
-  aiSection: {
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.xl,
-  },
-  aiHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  aiTitle: {
-    fontSize: fontSize.md,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginLeft: spacing.xs,
-  },
-  aiDescription: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: spacing.md,
-  },
-  aiInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  aiInput: {
-    flex: 1,
-    fontSize: fontSize.sm,
-    color: colors.textPrimary,
-    maxHeight: 80,
-  },
-  aiSendButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primary + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  examplesLabel: {
-    fontSize: fontSize.xs,
-    color: colors.textMuted,
-    marginBottom: spacing.sm,
-  },
-  exampleChips: {
-    gap: spacing.xs,
-  },
-  exampleChip: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.xs,
-  },
-  exampleChipText: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-  },
-  // Filter Section
-  filterSection: {
-    marginBottom: spacing.xl,
-  },
-  filterTitle: {
-    fontSize: fontSize.md,
-    fontWeight: '600',
-    color: colors.primary,
-    marginBottom: spacing.md,
-  },
-  filterGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  filterChip: {
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.full,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterChipSelected: {
-    backgroundColor: colors.primary + '20',
-    borderColor: colors.primary,
-  },
-  filterChipText: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-  },
-  filterChipTextSelected: {
-    color: colors.primary,
-    fontWeight: '500',
-  },
+  filterChipSelected: { borderColor: 'rgba(139, 92, 246, 0.4)' },
+  genreIcon: { fontSize: 14 },
+  filterChipText: { fontSize: fontSize.sm, color: colors.textMuted },
+  filterChipTextSelected: { color: colors.textPrimary, fontWeight: '500' },
+  
   // Participants
-  participantsContent: {
-    flex: 1,
-    padding: spacing.lg,
+  participantsContent: { flex: 1, padding: spacing.lg, alignItems: 'center', justifyContent: 'center' },
+  participantsIconBg: { 
+    width: 70, height: 70, borderRadius: 35, backgroundColor: 'rgba(139, 92, 246, 0.15)', 
+    justifyContent: 'center', alignItems: 'center', marginBottom: spacing.lg,
   },
-  participantsDescription: {
-    fontSize: fontSize.md,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
+  participantsDescription: { fontSize: fontSize.md, color: colors.textMuted, textAlign: 'center', marginBottom: spacing.xl, lineHeight: 22 },
+  participantsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.md },
+  participantCard: { 
+    width: 75, height: 85, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: borderRadius.lg,
+    justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden',
   },
-  participantsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: spacing.md,
-  },
-  participantCard: {
-    width: 90,
-    height: 100,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.lg,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  participantCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary + '10',
-  },
-  participantNumber: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginTop: spacing.xs,
-  },
-  participantNumberSelected: {
-    color: colors.primary,
-  },
-  participantLabel: {
-    fontSize: fontSize.xs,
-    color: colors.textMuted,
-  },
-  participantHint: {
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginTop: spacing.xl,
-  },
-  participantHintText: {
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
+  participantCardSelected: { borderColor: 'transparent' },
+  participantNumber: { fontSize: 26, fontWeight: '700', color: colors.textPrimary },
+  participantNumberSelected: { color: '#FFF' },
+  participantLabel: { fontSize: fontSize.xs, color: colors.textMuted, marginTop: 2 },
+  participantLabelSelected: { color: 'rgba(255, 255, 255, 0.8)' },
+  
   // Share
-  shareContainer: {
-    padding: spacing.xl,
+  shareContainer: { padding: spacing.xl, position: 'relative', overflow: 'hidden' },
+  shareHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
+  successIconBg: { 
+    width: 44, height: 44, borderRadius: 22, backgroundColor: colors.success, 
+    justifyContent: 'center', alignItems: 'center',
   },
-  shareHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
+  shareTitle: { fontSize: fontSize.xl, fontWeight: '700', color: colors.textPrimary, flex: 1, marginLeft: spacing.md },
+  roomInfoCard: { 
+    flexDirection: 'row', alignItems: 'center', borderRadius: borderRadius.lg, padding: spacing.md,
+    marginBottom: spacing.lg, borderWidth: 1, borderColor: 'rgba(139, 92, 246, 0.2)', overflow: 'hidden',
   },
-  shareTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    flex: 1,
-    marginLeft: spacing.sm,
+  roomInfoIcon: { 
+    width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(139, 92, 246, 0.2)', 
+    justifyContent: 'center', alignItems: 'center', marginRight: spacing.md,
   },
-  roomInfoCard: {
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
+  roomInfoText: { flex: 1 },
+  roomNameText: { fontSize: fontSize.md, fontWeight: '600', color: colors.textPrimary, marginBottom: 2 },
+  roomWaiting: { fontSize: fontSize.sm, color: colors.textMuted },
+  whatsappButton: { borderRadius: borderRadius.lg, overflow: 'hidden', marginBottom: spacing.md },
+  whatsappGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.md, gap: spacing.sm },
+  whatsappButtonText: { fontSize: fontSize.md, fontWeight: '600', color: '#FFF' },
+  orText: { fontSize: fontSize.sm, color: colors.textMuted, textAlign: 'center', marginBottom: spacing.md },
+  linkContainer: { 
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: borderRadius.lg, padding: spacing.md, marginBottom: spacing.lg,
+    borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  roomName: {
-    fontSize: fontSize.lg,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  roomWaiting: {
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-  },
-  whatsappButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#25D366',
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  whatsappButtonText: {
-    fontSize: fontSize.md,
-    fontWeight: '600',
-    color: '#FFF',
-    marginLeft: spacing.sm,
-  },
-  orText: {
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-  },
-  linkContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.xl,
-  },
-  linkText: {
-    flex: 1,
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-  },
-  copyButton: {
-    padding: spacing.sm,
-  },
-  waitingText: {
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
-  closeButton: {
-    padding: spacing.xs,
-  },
-  startButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.md,
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  startButtonText: {
-    fontSize: fontSize.md,
-    fontWeight: '600',
-    color: '#FFF',
-    marginRight: spacing.sm,
-  },
-  cancelShareText: {
-    fontSize: fontSize.md,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
+  linkText: { flex: 1, fontSize: fontSize.sm, color: colors.textMuted },
+  copyButton: { borderRadius: 18, overflow: 'hidden' },
+  copyButtonGradient: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  startButtonWrapper: { borderRadius: borderRadius.lg, overflow: 'hidden', ...shadows.glow },
+  startButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.md, gap: spacing.sm },
+  startButtonText: { fontSize: fontSize.md, fontWeight: '600', color: '#FFF' },
+  buttonDisabled: { opacity: 0.6 },
 });

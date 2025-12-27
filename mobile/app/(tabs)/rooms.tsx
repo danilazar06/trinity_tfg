@@ -17,6 +17,7 @@ import { colors, spacing, fontSize, borderRadius } from '../../src/utils/theme';
 import { roomService, RoomSummary } from '../../src/services/roomService';
 import CreateRoomModal from '../../src/components/CreateRoomModal';
 import JoinRoomModal from '../../src/components/JoinRoomModal';
+import Logo from '../../src/components/Logo';
 
 interface RoomMember {
   id: string;
@@ -119,11 +120,7 @@ export default function RoomsScreen() {
             >
               <Ionicons name="enter-outline" size={20} color={colors.primary} />
             </TouchableOpacity>
-            <View style={styles.logoShape}>
-              <View style={[styles.logoBar, styles.logoBar1]} />
-              <View style={[styles.logoBar, styles.logoBar2]} />
-              <View style={[styles.logoBar, styles.logoBar3]} />
-            </View>
+            <Logo size="small" />
           </View>
         </View>
 
@@ -342,28 +339,6 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     letterSpacing: 1,
     marginTop: 4,
-  },
-  logoShape: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    height: 40,
-  },
-  logoBar: {
-    width: 10,
-    marginHorizontal: 1,
-    borderRadius: 3,
-  },
-  logoBar1: {
-    height: 25,
-    backgroundColor: '#00D4FF',
-  },
-  logoBar2: {
-    height: 32,
-    backgroundColor: '#6366F1',
-  },
-  logoBar3: {
-    height: 22,
-    backgroundColor: '#EC4899',
   },
   statsContainer: {
     flexDirection: 'row',

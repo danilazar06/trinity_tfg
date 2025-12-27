@@ -2,17 +2,19 @@ import React, { createContext, useContext, useReducer, useEffect, ReactNode } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthState, User, LoginCredentials, RegisterData } from '../types';
 import { authService } from '../services/authService';
+import { setOnUnauthorizedCallback } from '../services/apiClient';
 
 // Flag para usar mock o backend real
 const USE_MOCK = false; // Cambiar a false para usar el backend real
 
 interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
+  register: (data: RegisterData) => Promise<{ success: boolean; message?: string } | undefined>;
   logout: () => Promise<void>;
   clearError: () => void;
   loginWithGoogle: () => Promise<void>;
   loginWithApple: () => Promise<void>;
+  updateUser: (user: User) => Promise<void>;
 }
 
 type AuthAction =
@@ -67,15 +69,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     checkAuthStatus();
+    
+    // Registrar callback para logout automático en caso de 401
+    setOnUnauthorizedCallback(() => {
+      logout();
+    });
   }, []);
 
   const checkAuthStatus = async () => {
     try {
       const token = await AsyncStorage.getItem('authToken');
       if (token) {
+        // Si es un token mock, limpiar automáticamente
+        if (token.startsWith('mock-token-')) {
+          await AsyncStorage.removeItem('authToken');
+          await AsyncStorage.removeItem('userData');
+          dispatch({ type: 'SET_USER', payload: null });
+          return;
+        }
+        
         const savedUser = await AsyncStorage.getItem('userData');
         if (savedUser) {
-          dispatch({ type: 'SET_USER', payload: JSON.parse(savedUser) });
+          // Verificar si el token es válido haciendo una petición de prueba
+          try {
+            await authService.getProfile();
+            dispatch({ type: 'SET_USER', payload: JSON.parse(savedUser) });
+          } catch (error: any) {
+            // Si el token es inválido, limpiar todo
+            await AsyncStorage.removeItem('authToken');
+            await AsyncStorage.removeItem('userData');
+            dispatch({ type: 'SET_USER', payload: null });
+          }
         } else {
           await AsyncStorage.removeItem('authToken');
           dispatch({ type: 'SET_USER', payload: null });
@@ -84,6 +108,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         dispatch({ type: 'SET_USER', payload: null });
       }
     } catch {
+      // En caso de error, limpiar todo
+      await AsyncStorage.removeItem('authToken');
+      await AsyncStorage.removeItem('userData');
       dispatch({ type: 'SET_USER', payload: null });
     }
   };
@@ -113,9 +140,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const response = await authService.login(credentials);
         if (response.success && response.data) {
           const { accessToken, idToken, user } = response.data;
-          await AsyncStorage.setItem('authToken', accessToken || idToken);
-          await AsyncStorage.setItem('userData', JSON.stringify(user));
-          dispatch({ type: 'SET_USER', payload: user });
+          
+          // Usar accessToken preferentemente, luego idToken
+          let tokenToSave = '';
+          if (accessToken && accessToken.length > 0) {
+            tokenToSave = accessToken;
+          } else if (idToken && idToken.length > 0) {
+            tokenToSave = idToken;
+          } else {
+            dispatch({ type: 'SET_ERROR', payload: 'No se recibieron tokens válidos' });
+            return;
+          }
+          
+          // Verificar que el token tenga formato JWT válido
+          const tokenParts = tokenToSave.split('.');
+          if (tokenParts.length !== 3) {
+            dispatch({ type: 'SET_ERROR', payload: 'Token recibido no es válido' });
+            return;
+          }
+          
+          // Asegurar que el usuario tenga los campos correctos
+          const userWithAvatar = {
+            ...user,
+            name: user.displayName || user.username || user.email?.split('@')[0],
+            displayName: user.displayName || user.username,
+            avatar: user.avatarUrl || user.avatar || undefined,
+            avatarUrl: user.avatarUrl || user.avatar || undefined,
+          };
+          
+          await AsyncStorage.setItem('authToken', tokenToSave);
+          await AsyncStorage.setItem('userData', JSON.stringify(userWithAvatar));
+          dispatch({ type: 'SET_USER', payload: userWithAvatar });
         } else {
           dispatch({ type: 'SET_ERROR', payload: response.error || 'Error al iniciar sesión' });
         }
@@ -136,7 +191,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           id: 'mock-user-new',
           email: data.email,
           name: data.name,
-          avatar: 'https://i.pravatar.cc/150?img=2',
+          avatar: undefined, // Cambiar null por undefined
         };
         await AsyncStorage.setItem('authToken', 'mock-token-register');
         await AsyncStorage.setItem('userData', JSON.stringify(mockUser));
@@ -144,17 +199,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } else {
         const response = await authService.register(data);
         if (response.success) {
-          // Después del registro, el usuario necesita confirmar su email
-          // Por ahora, mostramos un mensaje de éxito
+          // Registro exitoso - el usuario puede hacer login directamente
+          // (Cognito está configurado para no requerir confirmación por email)
           dispatch({ type: 'SET_LOADING', payload: false });
-          // Podrías navegar a una pantalla de confirmación aquí
+          return { success: true, message: 'Cuenta creada exitosamente. Ya puedes iniciar sesión.' };
         } else {
           dispatch({ type: 'SET_ERROR', payload: response.error || 'Error al registrarse' });
+          return { success: false };
         }
       }
     } catch (error: any) {
       console.error('Register error:', error);
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Error de conexión' });
+      return { success: false };
     }
   };
 
@@ -169,16 +226,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const loginWithGoogle = async () => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      // Por ahora, mock - Google Sign-In requiere configuración adicional
-      const mockUser: User = {
-        id: 'mock-user-123',
-        email: 'usuario@trinity.app',
-        name: 'Usuario Demo',
-        avatar: 'https://i.pravatar.cc/150?img=3',
-      };
-      await AsyncStorage.setItem('authToken', 'mock-token-google');
-      await AsyncStorage.setItem('userData', JSON.stringify(mockUser));
-      dispatch({ type: 'SET_USER', payload: mockUser });
+      if (USE_MOCK) {
+        // Mock para desarrollo
+        const mockUser: User = {
+          id: 'mock-user-123',
+          email: 'usuario@trinity.app',
+          name: 'Usuario Demo',
+          avatar: 'https://i.pravatar.cc/150?img=3',
+        };
+        await AsyncStorage.setItem('authToken', 'mock-token-google');
+        await AsyncStorage.setItem('userData', JSON.stringify(mockUser));
+        dispatch({ type: 'SET_USER', payload: mockUser });
+      } else {
+        // Google Sign-In no está implementado aún - usar login normal
+        dispatch({ type: 'SET_ERROR', payload: 'Google Sign-In no está disponible. Usa email y contraseña.' });
+      }
     } catch (error: any) {
       dispatch({ type: 'SET_ERROR', payload: 'Error con Google' });
     }
@@ -187,19 +249,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const loginWithApple = async () => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      // Por ahora, mock - Apple Sign-In requiere configuración adicional
-      const mockUser: User = {
-        id: 'mock-user-456',
-        email: 'apple@trinity.app',
-        name: 'Usuario Apple',
-        avatar: 'https://i.pravatar.cc/150?img=5',
-      };
-      await AsyncStorage.setItem('authToken', 'mock-token-apple');
-      await AsyncStorage.setItem('userData', JSON.stringify(mockUser));
-      dispatch({ type: 'SET_USER', payload: mockUser });
+      if (USE_MOCK) {
+        // Mock para desarrollo
+        const mockUser: User = {
+          id: 'mock-user-456',
+          email: 'apple@trinity.app',
+          name: 'Usuario Apple',
+          avatar: 'https://i.pravatar.cc/150?img=5',
+        };
+        await AsyncStorage.setItem('authToken', 'mock-token-apple');
+        await AsyncStorage.setItem('userData', JSON.stringify(mockUser));
+        dispatch({ type: 'SET_USER', payload: mockUser });
+      } else {
+        // Apple Sign-In no está implementado aún - usar login normal
+        dispatch({ type: 'SET_ERROR', payload: 'Apple Sign-In no está disponible. Usa email y contraseña.' });
+      }
     } catch (error: any) {
       dispatch({ type: 'SET_ERROR', payload: 'Error con Apple' });
     }
+  };
+
+  const updateUser = async (updatedUser: User) => {
+    await AsyncStorage.setItem('userData', JSON.stringify(updatedUser));
+    dispatch({ type: 'SET_USER', payload: updatedUser });
   };
 
   return (
@@ -212,6 +284,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         clearError,
         loginWithGoogle,
         loginWithApple,
+        updateUser,
       }}
     >
       {children}

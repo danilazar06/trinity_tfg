@@ -34,7 +34,7 @@ export class PermissionGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest();
     const user = request.user;
-    const roomId = request.params.roomId || request.body.roomId;
+    const roomId = request.params.id || request.params.roomId || request.body.roomId;
 
     if (!user) {
       throw new ForbiddenException('Usuario no autenticado');

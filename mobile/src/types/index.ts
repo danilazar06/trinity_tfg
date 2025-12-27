@@ -4,6 +4,9 @@ export interface User {
   email: string;
   name: string;
   avatar?: string;
+  displayName?: string;
+  avatarUrl?: string;
+  username?: string;
 }
 
 // Tipos de autenticación
@@ -22,7 +25,8 @@ export interface LoginCredentials {
 export interface RegisterData {
   email: string;
   password: string;
-  name: string;
+  name: string; // username
+  fullName?: string; // nombre completo (opcional)
 }
 
 // Tipos de navegación

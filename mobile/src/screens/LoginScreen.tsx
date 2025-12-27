@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,34 @@ import {
   Alert,
   TouchableOpacity,
   StatusBar,
+  Dimensions,
+  Animated,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
-import { Button, Input } from '../components';
-import { colors, spacing, fontSize, borderRadius } from '../utils/theme';
+import { Input } from '../components';
+import { colors, spacing, fontSize, borderRadius, shadows } from '../utils/theme';
 import { LoginCredentials } from '../types';
+
+const { width, height } = Dimensions.get('window');
+
+// Posters de películas populares para el fondo
+const MOVIE_POSTERS = [
+  'https://image.tmdb.org/t/p/w300/qNBAXBIQlnOThrVvA6mA2B5ber9.jpg', // The Matrix
+  'https://image.tmdb.org/t/p/w300/d5NXSklXo0qyIYkgV94XAgMIckC.jpg', // Dune
+  'https://image.tmdb.org/t/p/w300/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg', // Interstellar
+  'https://image.tmdb.org/t/p/w300/rCzpDGLbOoPwLjy3OAm5NUPOTrC.jpg', // The Dark Knight
+  'https://image.tmdb.org/t/p/w300/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg', // Fight Club
+  'https://image.tmdb.org/t/p/w300/velWPhVMQeQKcxggNEU8YmIo52R.jpg', // Inception
+  'https://image.tmdb.org/t/p/w300/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg', // Pulp Fiction
+  'https://image.tmdb.org/t/p/w300/3bhkrj58Vtu7enYsRolD1fZdja1.jpg', // The Godfather
+  'https://image.tmdb.org/t/p/w300/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg', // Parasite
+  'https://image.tmdb.org/t/p/w300/udDclJoHjfjb8Ekgsd4FDteOkCU.jpg', // Joker
+  'https://image.tmdb.org/t/p/w300/7WsyChQLEftFiDOVTGkv3hFpyyt.jpg', // Avengers
+  'https://image.tmdb.org/t/p/w300/aKuFiU82s5ISJpGZp7YkIr3kCUd.jpg', // Blade Runner
+];
 
 interface LoginScreenProps {
   navigation: any;
@@ -27,6 +49,44 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     password: '',
   });
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  
+  // Animaciones
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(40)).current;
+  const logoScale = useRef(new Animated.Value(0.8)).current;
+  const posterScrollAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Animación de entrada
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.spring(logoScale, {
+        toValue: 1,
+        tension: 100,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Animación continua del fondo de posters
+    Animated.loop(
+      Animated.timing(posterScrollAnim, {
+        toValue: 1,
+        duration: 30000,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, []);
 
   useEffect(() => {
     if (error) {
@@ -66,108 +126,196 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
   };
 
-  // Iconos simples con emojis (se pueden reemplazar por react-native-vector-icons)
-  const EmailIcon = () => <Text style={styles.inputIcon}>✉️</Text>;
-  const LockIcon = () => <Text style={styles.inputIcon}>🔒</Text>;
-  const GoogleIcon = () => <Text style={styles.socialIcon}>G</Text>;
-  const AppleIcon = () => <Text style={styles.socialIcon}></Text>;
+  const translateX = posterScrollAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -width],
+  });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      
+      {/* Fondo con collage de películas */}
+      <View style={styles.posterBackground}>
+        <Animated.View style={[styles.posterRow, { transform: [{ translateX }] }]}>
+          {[...MOVIE_POSTERS, ...MOVIE_POSTERS].map((poster, index) => (
+            <Image
+              key={index}
+              source={{ uri: poster }}
+              style={styles.posterImage}
+              blurRadius={1}
+            />
+          ))}
+        </Animated.View>
+        <Animated.View style={[styles.posterRow, styles.posterRowOffset, { transform: [{ translateX: Animated.multiply(translateX, -0.7) }] }]}>
+          {[...MOVIE_POSTERS.slice(6), ...MOVIE_POSTERS.slice(0, 6), ...MOVIE_POSTERS].map((poster, index) => (
+            <Image
+              key={index}
+              source={{ uri: poster }}
+              style={styles.posterImage}
+              blurRadius={1}
+            />
+          ))}
+        </Animated.View>
+      </View>
+
+      {/* Overlay gradiente */}
+      <LinearGradient
+        colors={['rgba(10, 10, 15, 0.3)', 'rgba(10, 10, 15, 0.85)', 'rgba(10, 10, 15, 0.98)']}
+        locations={[0, 0.4, 0.7]}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Círculos de color decorativos */}
+      <View style={styles.glowCirclePurple} />
+      <View style={styles.glowCircleCyan} />
+      <View style={styles.glowCircleRed} />
+
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
         >
-          {/* Logo */}
-          <View style={styles.logoContainer}>
-            <View style={styles.logo}>
-              <View style={styles.logoShape}>
-                <View style={[styles.logoBar, styles.logoBar1]} />
-                <View style={[styles.logoBar, styles.logoBar2]} />
-                <View style={[styles.logoBar, styles.logoBar3]} />
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.View 
+              style={[
+                styles.content,
+                { 
+                  opacity: fadeAnim,
+                  transform: [{ translateY: slideAnim }]
+                }
+              ]}
+            >
+              {/* Logo animado */}
+              <Animated.View style={[styles.logoContainer, { transform: [{ scale: logoScale }] }]}>
+                <LinearGradient
+                  colors={['rgba(139, 92, 246, 0.4)', 'rgba(6, 182, 212, 0.2)']}
+                  style={styles.logoGlow}
+                />
+                <View style={styles.logo}>
+                  <View style={styles.logoShape}>
+                    <LinearGradient
+                      colors={[colors.secondary, colors.secondaryLight]}
+                      style={[styles.logoBar, { height: 28 }]}
+                    />
+                    <LinearGradient
+                      colors={[colors.primary, colors.primaryLight]}
+                      style={[styles.logoBar, { height: 38 }]}
+                    />
+                    <LinearGradient
+                      colors={[colors.accent, colors.accentLight]}
+                      style={[styles.logoBar, { height: 22 }]}
+                    />
+                  </View>
+                </View>
+              </Animated.View>
+
+              {/* Título */}
+              <Text style={styles.welcomeText}>Bienvenido a</Text>
+              <Text style={styles.brandName}>Trinity</Text>
+              <Text style={styles.subtitle}>Descubre qué ver juntos ✨</Text>
+
+              {/* Formulario con efecto glass */}
+              <View style={styles.formContainer}>
+                <View style={styles.inputWrapper}>
+                  <Text style={styles.inputLabel}>Correo electrónico</Text>
+                  <View style={[styles.inputContainer, errors.email && styles.inputError]}>
+                    <Text style={styles.inputIcon}>✉️</Text>
+                    <Input
+                      placeholder="tu@email.com"
+                      value={credentials.email}
+                      onChangeText={(v) => handleChange('email', v)}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      style={styles.input}
+                      placeholderTextColor={colors.textMuted}
+                    />
+                  </View>
+                  {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+                </View>
+
+                <View style={styles.inputWrapper}>
+                  <Text style={styles.inputLabel}>Contraseña</Text>
+                  <View style={[styles.inputContainer, errors.password && styles.inputError]}>
+                    <Text style={styles.inputIcon}>🔒</Text>
+                    <Input
+                      placeholder="••••••••"
+                      value={credentials.password}
+                      onChangeText={(v) => handleChange('password', v)}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      style={styles.input}
+                      placeholderTextColor={colors.textMuted}
+                    />
+                  </View>
+                  {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+                </View>
+
+                {/* Botón principal con gradiente */}
+                <TouchableOpacity
+                  onPress={handleLogin}
+                  disabled={isLoading}
+                  activeOpacity={0.85}
+                  style={styles.loginButtonWrapper}
+                >
+                  <LinearGradient
+                    colors={[colors.primary, '#6366F1']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.loginButton}
+                  >
+                    <Text style={styles.loginButtonText}>
+                      {isLoading ? 'Entrando...' : 'Iniciar sesión'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
               </View>
-            </View>
-          </View>
 
-          {/* Título */}
-          <Text style={styles.title}>Bienvenido a Trinity</Text>
-          <Text style={styles.subtitle}>Ponte de acuerdo en un chin</Text>
+              {/* Separador */}
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>o continúa con</Text>
+                <View style={styles.dividerLine} />
+              </View>
 
-          {/* Formulario */}
-          <View style={styles.form}>
-            <Input
-              label="Correo electrónico"
-              placeholder="tu@email.com"
-              value={credentials.email}
-              onChangeText={(v) => handleChange('email', v)}
-              error={errors.email}
-              leftIcon={<EmailIcon />}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+              {/* Botones sociales */}
+              <View style={styles.socialButtons}>
+                <TouchableOpacity 
+                  style={styles.socialButton}
+                  onPress={loginWithGoogle}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.socialIcon}>G</Text>
+                  <Text style={styles.socialButtonText}>Google</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.socialButton}
+                  onPress={loginWithApple}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.socialIcon}></Text>
+                  <Text style={styles.socialButtonText}>Apple</Text>
+                </TouchableOpacity>
+              </View>
 
-            <Input
-              label="Contraseña"
-              placeholder="••••••••"
-              value={credentials.password}
-              onChangeText={(v) => handleChange('password', v)}
-              error={errors.password}
-              leftIcon={<LockIcon />}
-              secureTextEntry
-              autoCapitalize="none"
-            />
-
-            <Button
-              title="Iniciar sesión"
-              onPress={handleLogin}
-              loading={isLoading}
-              disabled={isLoading}
-              style={styles.loginButton}
-            />
-          </View>
-
-          {/* Separador */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>o continúa con</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Botones sociales */}
-          <View style={styles.socialButtons}>
-            <Button
-              title="Google"
-              onPress={loginWithGoogle}
-              variant="social"
-              icon={<GoogleIcon />}
-              style={styles.socialButton}
-            />
-            <Button
-              title="Apple"
-              onPress={loginWithApple}
-              variant="social"
-              icon={<AppleIcon />}
-              style={styles.socialButton}
-            />
-          </View>
-
-          {/* Registro */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>¿No tienes cuenta? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.registerLink}>Regístrate aquí</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+              {/* Footer */}
+              <View style={styles.footer}>
+                <Text style={styles.footerText}>¿No tienes cuenta? </Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+                  <Text style={styles.registerLink}>Regístrate aquí</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 };
 
@@ -176,99 +324,235 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  // Fondo de posters
+  posterBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: height * 0.5,
+    overflow: 'hidden',
+  },
+  posterRow: {
+    flexDirection: 'row',
+    height: height * 0.25,
+  },
+  posterRowOffset: {
+    marginLeft: -50,
+  },
+  posterImage: {
+    width: 100,
+    height: height * 0.22,
+    marginHorizontal: 4,
+    borderRadius: 8,
+    opacity: 0.7,
+  },
+  // Círculos de glow
+  glowCirclePurple: {
+    position: 'absolute',
+    top: height * 0.15,
+    left: -80,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(139, 92, 246, 0.25)',
+  },
+  glowCircleCyan: {
+    position: 'absolute',
+    top: height * 0.3,
+    right: -60,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(6, 182, 212, 0.2)',
+  },
+  glowCircleRed: {
+    position: 'absolute',
+    bottom: height * 0.2,
+    left: width * 0.3,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+  },
+  safeArea: {
+    flex: 1,
+  },
   keyboardView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
+    paddingTop: height * 0.12,
+    paddingBottom: spacing.xl,
+    justifyContent: 'center',
+  },
+  content: {
+    alignItems: 'center',
   },
   // Logo
   logoContainer: {
     alignItems: 'center',
-    marginBottom: spacing.xl,
-    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
+    position: 'relative',
+  },
+  logoGlow: {
+    position: 'absolute',
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    opacity: 0.8,
   },
   logo: {
-    width: 80,
-    height: 80,
+    width: 90,
+    height: 90,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   logoShape: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    height: 60,
+    height: 45,
+    gap: 6,
   },
   logoBar: {
-    width: 16,
-    marginHorizontal: 2,
-    borderRadius: 4,
-  },
-  logoBar1: {
-    height: 40,
-    backgroundColor: '#00D4FF',
-  },
-  logoBar2: {
-    height: 50,
-    backgroundColor: '#6366F1',
-  },
-  logoBar3: {
-    height: 35,
-    backgroundColor: '#EC4899',
+    width: 14,
+    borderRadius: 7,
   },
   // Títulos
-  title: {
-    fontSize: fontSize.xxl,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    textAlign: 'center',
+  welcomeText: {
+    fontSize: fontSize.md,
+    color: colors.textSecondary,
     marginBottom: spacing.xs,
+    fontWeight: '500',
+  },
+  brandName: {
+    fontSize: 44,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+    letterSpacing: -1,
   },
   subtitle: {
     fontSize: fontSize.md,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.xxl,
+    color: colors.textMuted,
+    marginBottom: spacing.xl,
   },
   // Formulario
-  form: {
-    marginBottom: spacing.lg,
+  formContainer: {
+    width: '100%',
+    gap: spacing.md,
   },
-  loginButton: {
-    marginTop: spacing.md,
+  inputWrapper: {
+    width: '100%',
   },
-  // Iconos
+  inputLabel: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+    marginLeft: spacing.xs,
+    fontWeight: '500',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: spacing.md,
+    height: 56,
+  },
+  inputError: {
+    borderColor: colors.error,
+  },
   inputIcon: {
     fontSize: 18,
+    marginRight: spacing.sm,
+  },
+  input: {
+    flex: 1,
+    fontSize: fontSize.md,
+    color: colors.textPrimary,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+  },
+  errorText: {
+    fontSize: fontSize.xs,
+    color: colors.error,
+    marginTop: spacing.xs,
+    marginLeft: spacing.xs,
+  },
+  // Botón de login
+  loginButtonWrapper: {
+    width: '100%',
+    marginTop: spacing.md,
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    ...shadows.glow,
+  },
+  loginButton: {
+    paddingVertical: spacing.md + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loginButtonText: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   // Separador
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: spacing.lg,
+    marginVertical: spacing.xl,
+    width: '100%',
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   dividerText: {
     color: colors.textMuted,
     fontSize: fontSize.sm,
-    marginHorizontal: spacing.md,
+    paddingHorizontal: spacing.md,
   },
   // Botones sociales
   socialButtons: {
+    flexDirection: 'row',
     gap: spacing.md,
+    width: '100%',
   },
   socialButton: {
-    marginBottom: spacing.sm,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    gap: spacing.sm,
   },
   socialIcon: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: colors.textPrimary,
+  },
+  socialButtonText: {
+    fontSize: fontSize.md,
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
   // Footer
   footer: {

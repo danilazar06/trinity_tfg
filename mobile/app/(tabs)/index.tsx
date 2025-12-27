@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,319 +7,297 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  Dimensions,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { colors, spacing, fontSize } from '../../src/utils/theme';
-import { mediaService, MediaItem } from '../../src/services/mediaService';
+import { colors, spacing, fontSize, borderRadius, shadows } from '../../src/utils/theme';
+import { roomService, RoomSummary } from '../../src/services/roomService';
 import CreateRoomModal from '../../src/components/CreateRoomModal';
+import Logo from '../../src/components/Logo';
+
+const { width } = Dimensions.get('window');
+
+// Posters para el header
+const TRENDING_POSTERS = [
+  'https://image.tmdb.org/t/p/w300/qNBAXBIQlnOThrVvA6mA2B5ber9.jpg',
+  'https://image.tmdb.org/t/p/w300/d5NXSklXo0qyIYkgV94XAgMIckC.jpg',
+  'https://image.tmdb.org/t/p/w300/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg',
+  'https://image.tmdb.org/t/p/w300/velWPhVMQeQKcxggNEU8YmIo52R.jpg',
+  'https://image.tmdb.org/t/p/w300/udDclJoHjfjb8Ekgsd4FDteOkCU.jpg',
+];
 
 export default function HomeScreen() {
-  const [recentMatches, setRecentMatches] = useState<MediaItem[]>([]);
+  const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const posterScrollAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    loadRecentContent();
+    loadData();
+    
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, tension: 50, friction: 8, useNativeDriver: true }),
+    ]).start();
+
+    // Animación de posters
+    Animated.loop(
+      Animated.timing(posterScrollAnim, { toValue: 1, duration: 20000, useNativeDriver: true })
+    ).start();
   }, []);
 
-  const loadRecentContent = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const trending = await mediaService.getTrending('week');
-      // Tomar los primeros 5 como "matches recientes"
-      setRecentMatches(trending.results.slice(0, 5));
+      const userRooms = await roomService.getUserRooms();
+      setRooms(userRooms);
     } catch (error) {
-      console.error('Error loading content:', error);
+      console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoToRooms = () => {
-    router.push('/rooms');
-  };
+  const handleRoomCreated = () => loadData();
+  const totalMatches = rooms.reduce((sum, room) => sum + room.matchCount, 0);
+
+  const translateX = posterScrollAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -width * 0.5],
+  });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Inicio</Text>
-          <View style={styles.logo}>
-            <View style={[styles.logoBar, { height: 20, backgroundColor: '#00D4FF' }]} />
-            <View style={[styles.logoBar, { height: 26, backgroundColor: '#6366F1' }]} />
-            <View style={[styles.logoBar, { height: 16, backgroundColor: '#EC4899' }]} />
-          </View>
-        </View>
+    <View style={styles.container}>
+      {/* Header con posters animados */}
+      <View style={styles.headerBackground}>
+        <Animated.View style={[styles.posterRow, { transform: [{ translateX }] }]}>
+          {[...TRENDING_POSTERS, ...TRENDING_POSTERS].map((poster, index) => (
+            <Image key={index} source={{ uri: poster }} style={styles.headerPoster} />
+          ))}
+        </Animated.View>
+        <LinearGradient
+          colors={['transparent', 'rgba(10, 10, 15, 0.7)', colors.background]}
+          style={styles.headerGradient}
+        />
+      </View>
 
-        {/* Banner principal */}
-        <TouchableOpacity 
-          style={styles.banner}
-          onPress={() => setShowCreateModal(true)}
-          activeOpacity={0.9}
-        >
-          <View style={styles.bannerHeader}>
-            <Ionicons name="grid" size={16} color="#FFF" />
-            <Text style={styles.bannerLabel}>Descubre</Text>
-            <Ionicons name="chevron-forward" size={20} color="#FFF" style={styles.bannerArrow} />
-          </View>
-          <Text style={styles.bannerTitle}>¿Qué vemos hoy?</Text>
-          <Text style={styles.bannerSubtitle}>Crea una sala y empieza a hacer swipe</Text>
-        </TouchableOpacity>
+      {/* Círculos decorativos */}
+      <View style={styles.glowPurple} />
+      <View style={styles.glowCyan} />
 
-        {/* Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <View style={styles.statHeader}>
-              <Ionicons name="heart" size={16} color="#EC4899" />
-              <Text style={styles.statLabel}>CHINES</Text>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+            {/* Header */}
+            <View style={styles.header}>
+              <View>
+                <Text style={styles.greeting}>¡Hola! 👋</Text>
+                <Text style={styles.headerTitle}>¿Qué vemos hoy?</Text>
+              </View>
+              <Logo size="small" />
             </View>
-            <Text style={styles.statNumber}>3</Text>
-            <Text style={styles.statDescription}>Matches guardados</Text>
-          </View>
-          <View style={styles.statCard}>
-            <View style={styles.statHeader}>
-              <Ionicons name="people" size={16} color={colors.primary} />
-              <Text style={styles.statLabel}>SALAS</Text>
-            </View>
-            <Text style={[styles.statNumber, { color: colors.primary }]}>4</Text>
-            <Text style={styles.statDescription}>Salas activas</Text>
-          </View>
-        </View>
 
-        {/* Matches recientes */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="heart" size={18} color="#EC4899" />
-            <Text style={styles.sectionTitle}>CHINES RECIENTES</Text>
-          </View>
-
-          {loading ? (
-            <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 20 }} />
-          ) : (
-            recentMatches.map((match) => (
-              <TouchableOpacity 
-                key={match.id} 
-                style={styles.matchCard} 
-                activeOpacity={0.8}
-                onPress={() => router.push(`/media/${match.id}`)}
+            {/* Banner crear sala */}
+            <TouchableOpacity 
+              style={styles.bannerWrapper}
+              onPress={() => setShowCreateModal(true)}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={[colors.primary, '#6366F1']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.banner}
               >
-                <Image source={{ uri: match.posterPath || '' }} style={styles.matchImage} />
-                <View style={styles.matchInfo}>
-                  <Text style={styles.matchTitle} numberOfLines={1}>{match.title}</Text>
-                  <Text style={styles.matchMeta}>
-                    {match.mediaType === 'movie' ? 'Película' : 'Serie'} · {match.year}
-                  </Text>
-                  <View style={styles.matchPlatform}>
-                    <View style={styles.matchBadge}>
-                      <Ionicons name="heart" size={10} color="#FFF" />
-                      <Text style={styles.matchBadgeText}>Match</Text>
-                    </View>
-                    {/* Mostrar plataformas de streaming reales */}
-                    {match.streamingProviders && match.streamingProviders.length > 0 ? (
-                      <View style={styles.streamingLogos}>
-                        {match.streamingProviders.slice(0, 3).map((provider) => (
-                          <Image
-                            key={provider.id}
-                            source={{ uri: provider.logoPath }}
-                            style={styles.streamingLogoSmall}
-                          />
-                        ))}
-                      </View>
-                    ) : (
-                      <Text style={styles.platformText}>{match.platform}</Text>
-                    )}
+                <View style={styles.bannerContent}>
+                  <View style={styles.bannerIconBg}>
+                    <Ionicons name="add" size={28} color="#FFF" />
                   </View>
+                  <View style={styles.bannerText}>
+                    <Text style={styles.bannerTitle}>Crear nueva sala</Text>
+                    <Text style={styles.bannerSubtitle}>Invita amigos y haz swipe juntos</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.7)" />
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-      </ScrollView>
+                {/* Decoración */}
+                <View style={styles.bannerDecor1} />
+                <View style={styles.bannerDecor2} />
+              </LinearGradient>
+            </TouchableOpacity>
 
-      {/* Modal de crear sala */}
+            {/* Stats */}
+            <View style={styles.statsContainer}>
+              <View style={styles.statCard}>
+                <LinearGradient colors={['rgba(239, 68, 68, 0.15)', 'rgba(239, 68, 68, 0.05)']} style={StyleSheet.absoluteFill} />
+                <View style={[styles.statIconBg, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}>
+                  <Ionicons name="heart" size={20} color={colors.accent} />
+                </View>
+                <Text style={[styles.statNumber, { color: colors.accent }]}>{totalMatches}</Text>
+                <Text style={styles.statLabel}>Matches</Text>
+              </View>
+              
+              <View style={styles.statCard}>
+                <LinearGradient colors={['rgba(139, 92, 246, 0.15)', 'rgba(139, 92, 246, 0.05)']} style={StyleSheet.absoluteFill} />
+                <View style={[styles.statIconBg, { backgroundColor: 'rgba(139, 92, 246, 0.2)' }]}>
+                  <Ionicons name="people" size={20} color={colors.primary} />
+                </View>
+                <Text style={[styles.statNumber, { color: colors.primary }]}>{loading ? '...' : rooms.length}</Text>
+                <Text style={styles.statLabel}>Salas</Text>
+              </View>
+
+              <View style={styles.statCard}>
+                <LinearGradient colors={['rgba(6, 182, 212, 0.15)', 'rgba(6, 182, 212, 0.05)']} style={StyleSheet.absoluteFill} />
+                <View style={[styles.statIconBg, { backgroundColor: 'rgba(6, 182, 212, 0.2)' }]}>
+                  <Ionicons name="film" size={20} color={colors.secondary} />
+                </View>
+                <Text style={[styles.statNumber, { color: colors.secondary }]}>∞</Text>
+                <Text style={styles.statLabel}>Contenido</Text>
+              </View>
+            </View>
+
+            {/* Salas activas */}
+            {rooms.length > 0 && (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionTitleRow}>
+                    <View style={styles.sectionIconBg}>
+                      <Ionicons name="flash" size={14} color={colors.primary} />
+                    </View>
+                    <Text style={styles.sectionTitle}>Salas activas</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => router.push('/rooms')}>
+                    <Text style={styles.seeAllText}>Ver todas</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {rooms.slice(0, 3).map((room, index) => (
+                  <TouchableOpacity 
+                    key={room.id} 
+                    style={styles.roomCard} 
+                    activeOpacity={0.8}
+                    onPress={() => router.push(`/room/${room.id}`)}
+                  >
+                    <LinearGradient
+                      colors={index === 0 ? ['rgba(139, 92, 246, 0.12)', 'transparent'] : ['rgba(6, 182, 212, 0.08)', 'transparent']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={StyleSheet.absoluteFill}
+                    />
+                    <View style={[styles.roomIcon, { backgroundColor: index === 0 ? 'rgba(139, 92, 246, 0.2)' : 'rgba(6, 182, 212, 0.2)' }]}>
+                      <Ionicons name="people" size={18} color={index === 0 ? colors.primary : colors.secondary} />
+                    </View>
+                    <View style={styles.roomInfo}>
+                      <Text style={styles.roomTitle} numberOfLines={1}>{room.name}</Text>
+                      <Text style={styles.roomMeta}>{room.memberCount} miembros · {room.matchCount} matches</Text>
+                    </View>
+                    <View style={[
+                      styles.statusBadge,
+                      { backgroundColor: room.isActive ? 'rgba(16, 185, 129, 0.15)' : 'rgba(113, 113, 122, 0.15)' }
+                    ]}>
+                      <View style={[styles.statusDot, { backgroundColor: room.isActive ? colors.success : colors.textMuted }]} />
+                      <Text style={[styles.statusText, { color: room.isActive ? colors.success : colors.textMuted }]}>
+                        {room.isActive ? 'Activa' : 'Inactiva'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* Estado vacío */}
+            {!loading && rooms.length === 0 && (
+              <View style={styles.emptyState}>
+                <LinearGradient
+                  colors={['rgba(139, 92, 246, 0.2)', 'rgba(6, 182, 212, 0.1)']}
+                  style={styles.emptyIconBg}
+                >
+                  <Ionicons name="film-outline" size={48} color={colors.primary} />
+                </LinearGradient>
+                <Text style={styles.emptyTitle}>¡Empieza tu aventura!</Text>
+                <Text style={styles.emptySubtitle}>Crea tu primera sala y descubre qué ver con tus amigos</Text>
+                <TouchableOpacity style={styles.emptyButtonWrapper} onPress={() => setShowCreateModal(true)}>
+                  <LinearGradient colors={[colors.primary, '#6366F1']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.emptyButton}>
+                    <Ionicons name="add" size={20} color="#FFF" />
+                    <Text style={styles.emptyButtonText}>Crear sala</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            )}
+          </Animated.View>
+        </ScrollView>
+      </SafeAreaView>
+
       <CreateRoomModal
         visible={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        onGoToRooms={handleGoToRooms}
+        onGoToRooms={() => router.push('/rooms')}
+        onRoomCreated={handleRoomCreated}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-  },
-  logo: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  logoBar: {
-    width: 8,
-    marginHorizontal: 1,
-    borderRadius: 2,
-  },
-  banner: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-    padding: spacing.lg,
-    borderRadius: 20,
-    backgroundColor: colors.primary,
-    overflow: 'hidden',
-  },
-  bannerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  bannerLabel: {
-    color: '#FFF',
-    fontSize: fontSize.sm,
-    marginLeft: spacing.xs,
-    opacity: 0.9,
-  },
-  bannerArrow: {
-    marginLeft: 'auto',
-  },
-  bannerTitle: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#FFF',
-    marginBottom: spacing.xs,
-  },
-  bannerSubtitle: {
-    fontSize: fontSize.sm,
-    color: '#FFF',
-    opacity: 0.8,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-    gap: spacing.md,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  statHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginLeft: spacing.xs,
-    fontWeight: '600',
-  },
-  statNumber: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#EC4899',
-  },
-  statDescription: {
-    fontSize: fontSize.xs,
-    color: colors.textMuted,
-  },
-  section: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginLeft: spacing.sm,
-    letterSpacing: 1,
-  },
-  matchCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  matchImage: {
-    width: 60,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceLight,
-  },
-  matchInfo: {
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  matchTitle: {
-    fontSize: fontSize.md,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 2,
-  },
-  matchMeta: {
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-    marginBottom: spacing.xs,
-  },
-  matchPlatform: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  matchBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EC4899',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    marginRight: spacing.sm,
-  },
-  matchBadgeText: {
-    fontSize: 10,
-    color: '#FFF',
-    marginLeft: 4,
-    fontWeight: '600',
-  },
-  platformText: {
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-  },
-  streamingLogos: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  streamingLogoSmall: {
-    width: 22,
-    height: 22,
-    borderRadius: 4,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  // Header con posters
+  headerBackground: { position: 'absolute', top: 0, left: 0, right: 0, height: 180, overflow: 'hidden' },
+  posterRow: { flexDirection: 'row', height: 160 },
+  headerPoster: { width: 100, height: 150, marginHorizontal: 4, borderRadius: 8, opacity: 0.5 },
+  headerGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 120 },
+  // Glows
+  glowPurple: { position: 'absolute', top: 100, left: -60, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(139, 92, 246, 0.15)' },
+  glowCyan: { position: 'absolute', top: 200, right: -40, width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(6, 182, 212, 0.12)' },
+  safeArea: { flex: 1 },
+  scrollContent: { paddingBottom: 100 },
+  // Header
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.lg, paddingTop: spacing.md, marginBottom: spacing.lg },
+  greeting: { fontSize: fontSize.sm, color: colors.textSecondary, marginBottom: 2 },
+  headerTitle: { fontSize: 26, fontWeight: '700', color: colors.textPrimary },
+  // Banner
+  bannerWrapper: { marginHorizontal: spacing.lg, marginBottom: spacing.lg, borderRadius: borderRadius.xl, overflow: 'hidden', ...shadows.glow },
+  banner: { padding: spacing.lg, position: 'relative', overflow: 'hidden' },
+  bannerContent: { flexDirection: 'row', alignItems: 'center' },
+  bannerIconBg: { width: 48, height: 48, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginRight: spacing.md },
+  bannerText: { flex: 1 },
+  bannerTitle: { fontSize: fontSize.lg, fontWeight: '700', color: '#FFF', marginBottom: 2 },
+  bannerSubtitle: { fontSize: fontSize.sm, color: 'rgba(255,255,255,0.8)' },
+  bannerDecor1: { position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.1)' },
+  bannerDecor2: { position: 'absolute', bottom: -30, right: 50, width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.05)' },
+  // Stats
+  statsContainer: { flexDirection: 'row', paddingHorizontal: spacing.lg, marginBottom: spacing.lg, gap: spacing.sm },
+  statCard: { flex: 1, backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
+  statIconBg: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.xs },
+  statNumber: { fontSize: 24, fontWeight: '800' },
+  statLabel: { fontSize: fontSize.xs, color: colors.textMuted },
+  // Section
+  section: { paddingHorizontal: spacing.lg, marginBottom: spacing.lg },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  sectionIconBg: { width: 28, height: 28, borderRadius: 8, backgroundColor: 'rgba(139, 92, 246, 0.15)', justifyContent: 'center', alignItems: 'center' },
+  sectionTitle: { fontSize: fontSize.md, fontWeight: '600', color: colors.textPrimary },
+  seeAllText: { fontSize: fontSize.sm, color: colors.primary, fontWeight: '500' },
+  // Room card
+  roomCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
+  roomIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: spacing.md },
+  roomInfo: { flex: 1 },
+  roomTitle: { fontSize: fontSize.md, fontWeight: '600', color: colors.textPrimary, marginBottom: 2 },
+  roomMeta: { fontSize: fontSize.sm, color: colors.textMuted },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: borderRadius.full, gap: 4 },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusText: { fontSize: fontSize.xs, fontWeight: '500' },
+  // Empty
+  emptyState: { alignItems: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing.xxl },
+  emptyIconBg: { width: 100, height: 100, borderRadius: 50, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.lg },
+  emptyTitle: { fontSize: fontSize.xl, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.sm },
+  emptySubtitle: { fontSize: fontSize.md, color: colors.textMuted, textAlign: 'center', marginBottom: spacing.xl, lineHeight: 22 },
+  emptyButtonWrapper: { borderRadius: borderRadius.lg, overflow: 'hidden', ...shadows.glow },
+  emptyButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing.md, gap: spacing.sm },
+  emptyButtonText: { fontSize: fontSize.md, fontWeight: '600', color: '#FFF' },
 });

@@ -5,19 +5,16 @@ import { apiClient } from './apiClient';
 const USE_MOCK = false; // Cambiar a false cuando el backend esté disponible
 
 export interface ContentFilters {
-  genres?: number[];
-  platforms?: string[];
-  yearFrom?: number;
-  yearTo?: number;
+  genres?: string[];
+  releaseYearFrom?: number;
+  releaseYearTo?: number;
   minRating?: number;
-  contentType?: 'movie' | 'tv' | 'all';
-  aiPrompt?: string;
+  contentTypes?: ('movie' | 'tv')[];
 }
 
 export interface CreateRoomDto {
   name: string;
   filters: ContentFilters;
-  participantCount?: number;
 }
 
 export interface Room {
@@ -88,7 +85,7 @@ class RoomService {
       return await apiClient.post<Room>('/rooms', dto);
     } catch (error) {
       console.error('Error creating room:', error);
-      if (USE_MOCK || __DEV__) {
+      if (USE_MOCK) {
         return this.mockCreateRoom(dto);
       }
       throw error;
@@ -103,13 +100,19 @@ class RoomService {
       if (USE_MOCK) {
         return this.mockGetUserRooms();
       }
-      return await apiClient.get<RoomSummary[]>('/rooms');
-    } catch (error) {
-      console.error('Error getting user rooms:', error);
-      if (USE_MOCK || __DEV__) {
+      const result = await apiClient.get<RoomSummary[]>('/rooms');
+      return result;
+    } catch (error: any) {
+      // Si hay error de autenticación o no hay salas, devolver array vacío
+      if (error.response?.status === 401 || error.response?.status === 404) {
+        return [];
+      }
+      // Solo usar mock en desarrollo si está habilitado
+      if (USE_MOCK) {
         return this.mockGetUserRooms();
       }
-      throw error;
+      // En producción, devolver array vacío en caso de error
+      return [];
     }
   }
 
@@ -124,7 +127,7 @@ class RoomService {
       return await apiClient.get<RoomDetails>(`/rooms/${roomId}`);
     } catch (error) {
       console.error('Error getting room details:', error);
-      if (USE_MOCK || __DEV__) {
+      if (USE_MOCK) {
         return this.mockGetRoomDetails(roomId);
       }
       throw error;
@@ -142,7 +145,7 @@ class RoomService {
       return await apiClient.get<RoomStats>(`/rooms/${roomId}/stats`);
     } catch (error) {
       console.error('Error getting room stats:', error);
-      if (USE_MOCK || __DEV__) {
+      if (USE_MOCK) {
         return this.mockGetRoomStats();
       }
       throw error;
@@ -190,7 +193,7 @@ class RoomService {
       return await apiClient.post<Room>('/rooms/join', { inviteCode });
     } catch (error) {
       console.error('Error joining room:', error);
-      if (USE_MOCK || __DEV__) {
+      if (USE_MOCK) {
         return this.mockJoinRoom(inviteCode);
       }
       throw error;
@@ -317,9 +320,8 @@ class RoomService {
         name: 'Noche de películas',
         creatorId: 'mock-user-id',
         filters: {
-          genres: [28, 12],
-          platforms: ['netflix', 'prime'],
-          contentType: 'movie',
+          genres: ['28', '12'],
+          contentTypes: ['movie'],
         },
         masterList: ['550', '551', '552', '553', '554'],
         inviteCode: 'ABC123',
@@ -369,7 +371,7 @@ class RoomService {
       id: `room-joined-${Date.now()}`,
       name: `Sala ${inviteCode}`,
       creatorId: 'other-user',
-      filters: { contentType: 'all' },
+      filters: { contentTypes: ['movie', 'tv'] },
       masterList: [],
       inviteCode,
       isActive: true,

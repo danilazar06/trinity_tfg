@@ -36,10 +36,19 @@ class AuthService {
       
       return { success: true, data: normalizedData };
     } catch (error: any) {
-      console.error('AuthService login error:', error);
+      // Manejar errores de validación que vienen como array
+      let errorMessage = 'Error al iniciar sesión';
+      const responseMessage = error.response?.data?.message;
+      if (Array.isArray(responseMessage)) {
+        errorMessage = responseMessage.join('. ');
+      } else if (typeof responseMessage === 'string') {
+        errorMessage = responseMessage;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
       return {
         success: false,
-        error: error.response?.data?.message || error.message || 'Error al iniciar sesión',
+        error: errorMessage,
       };
     }
   }
@@ -49,14 +58,25 @@ class AuthService {
       const response = await apiClient.post<RegisterResponse>('/auth/register', {
         email: data.email,
         password: data.password,
-        name: data.name,
+        username: data.name, // Backend espera 'username' no 'name'
+        displayName: data.fullName, // Nombre completo del usuario
       });
       return { success: true, data: response };
     } catch (error: any) {
       console.error('AuthService register error:', error);
+      // Manejar errores de validación que vienen como array
+      let errorMessage = 'Error al registrarse';
+      const responseMessage = error.response?.data?.message;
+      if (Array.isArray(responseMessage)) {
+        errorMessage = responseMessage.join('. ');
+      } else if (typeof responseMessage === 'string') {
+        errorMessage = responseMessage;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
       return {
         success: false,
-        error: error.response?.data?.message || error.message || 'Error al registrarse',
+        error: errorMessage,
       };
     }
   }
@@ -133,6 +153,22 @@ class AuthService {
         success: false,
         error: error.response?.data?.message || 'Error al obtener perfil',
       };
+    }
+  }
+
+  async updateProfile(data: { displayName?: string; avatarUrl?: string; phoneNumber?: string }): Promise<ApiResponse<User>> {
+    try {
+      const user = await apiClient.put<User>('/auth/profile', data);
+      return { success: true, data: user };
+    } catch (error: any) {
+      let errorMessage = 'Error al actualizar perfil';
+      const responseMessage = error.response?.data?.message;
+      if (Array.isArray(responseMessage)) {
+        errorMessage = responseMessage.join('. ');
+      } else if (typeof responseMessage === 'string') {
+        errorMessage = responseMessage;
+      }
+      return { success: false, error: errorMessage };
     }
   }
 }
