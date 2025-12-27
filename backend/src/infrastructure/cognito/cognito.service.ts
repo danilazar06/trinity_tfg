@@ -37,6 +37,11 @@ export class CognitoService {
     this.userPoolId = this.configService.get('COGNITO_USER_POOL_ID') || 'default-pool-id';
     this.clientId = this.configService.get('COGNITO_CLIENT_ID') || 'default-client-id';
 
+    this.logger.log(`🔧 Inicializando CognitoService...`);
+    this.logger.log(`📍 Region: ${region}`);
+    this.logger.log(`🏊 User Pool ID: ${this.userPoolId}`);
+    this.logger.log(`🆔 Client ID: ${this.clientId}`);
+
     if (!this.userPoolId || !this.clientId) {
       throw new Error(
         'Cognito configuration missing: USER_POOL_ID and CLIENT_ID are required',
@@ -55,11 +60,17 @@ export class CognitoService {
 
     // Configurar verificador JWT para tokens de Cognito solo si está configurado
     if (this.userPoolId && this.userPoolId !== 'your-cognito-user-pool-id') {
-      this.jwtVerifier = CognitoJwtVerifier.create({
-        userPoolId: this.userPoolId,
-        tokenUse: 'access',
-        clientId: this.clientId,
-      });
+      try {
+        this.jwtVerifier = CognitoJwtVerifier.create({
+          userPoolId: this.userPoolId,
+          tokenUse: 'access',
+          clientId: this.clientId,
+        });
+        this.logger.log('✅ JWT Verifier configurado correctamente');
+      } catch (error) {
+        this.logger.error(`❌ Error configurando JWT Verifier: ${error.message}`);
+        this.jwtVerifier = null;
+      }
     } else {
       this.logger.warn('⚠️ Cognito User Pool ID no configurado - autenticación JWT deshabilitada');
       this.jwtVerifier = null;

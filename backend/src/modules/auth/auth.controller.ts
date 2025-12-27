@@ -4,7 +4,10 @@ import {
   Body,
   UseGuards,
   Get,
+  Put,
   Request,
+  Headers,
+  Logger,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,10 +23,13 @@ import { ConfirmSignUpDto } from './dto/confirm-signup.dto';
 import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+  
   constructor(private authService: AuthService) {}
 
   @Post('register')
@@ -83,5 +89,60 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'No autorizado' })
   async getProfile(@Request() req) {
     return req.user;
+  }
+
+  @Put('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Actualizar perfil del usuario autenticado' })
+  @ApiResponse({ status: 200, description: 'Perfil actualizado exitosamente' })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  async updateProfile(@Request() req, @Body() updateProfileDto: UpdateProfileDto) {
+    return this.authService.updateProfile(req.user.id, updateProfileDto);
+  }
+
+  @Get('test-auth')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Endpoint de prueba para autenticación' })
+  @ApiResponse({ status: 200, description: 'Autenticación exitosa' })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  async testAuth(@Request() req) {
+    this.logger.log(`🧪 Test Auth - Usuario: ${req.user?.email || 'undefined'}`);
+    this.logger.log(`🧪 Test Auth - Sub: ${req.user?.sub || 'undefined'}`);
+    return { 
+      message: 'Autenticación exitosa', 
+      user: req.user,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  @Get('verify-token')
+  @ApiOperation({ summary: 'Verificar token de autenticación (debug)' })
+  @ApiResponse({ status: 200, description: 'Token verificado' })
+  async verifyToken(@Headers('authorization') authHeader: string) {
+    this.logger.log(`Verificando token: ${authHeader ? 'presente' : 'ausente'}`);
+    
+    if (!authHeader) {
+      return { valid: false, error: 'No authorization header' };
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    this.logger.log(`Token length: ${token.length}`);
+    this.logger.log(`Token preview: ${token.substring(0, 50)}...`);
+    
+    try {
+      const user = await this.authService.validateUserByToken(token);
+      if (user) {
+        this.logger.log(`Token válido para usuario: ${user.email}`);
+        return { valid: true, user };
+      } else {
+        this.logger.warn('Token inválido - usuario no encontrado');
+        return { valid: false, error: 'Token inválido' };
+      }
+    } catch (error) {
+      this.logger.error(`Error verificando token: ${error.message}`);
+      return { valid: false, error: error.message };
+    }
   }
 }

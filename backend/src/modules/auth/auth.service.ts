@@ -31,7 +31,7 @@ export class AuthService {
   async register(
     createUserDto: CreateUserDto,
   ): Promise<{ user: UserProfile; requiresConfirmation: boolean }> {
-    const { email, username, password, phoneNumber } = createUserDto;
+    const { email, username, password, phoneNumber, displayName } = createUserDto;
 
     // Registrar en Cognito
     const { userSub } = await this.cognitoService.signUp(
@@ -50,6 +50,7 @@ export class AuthService {
       createdAt: new Date(),
       updatedAt: new Date(),
       phoneNumber,
+      displayName,
     };
 
     // Guardar en DynamoDB
@@ -59,25 +60,26 @@ export class AuthService {
       username,
       emailVerified: false,
       phoneNumber,
+      displayName,
     });
 
     const userProfile = this.toUserProfile(user);
 
     // 📝 Track user registration event
-    await this.eventTracker.trackUserAction(
-      userSub,
-      EventType.USER_REGISTER,
-      {
-        email,
-        username,
-        hasPhoneNumber: !!phoneNumber,
-        registrationMethod: 'email',
-      },
-      {
-        source: 'auth_service',
-        userAgent: 'backend',
-      },
-    );
+    // await this.eventTracker.trackUserAction(
+    //   userSub,
+    //   EventType.USER_REGISTER,
+    //   {
+    //     email,
+    //     username,
+    //     hasPhoneNumber: !!phoneNumber,
+    //     registrationMethod: 'email',
+    //   },
+    //   {
+    //     source: 'auth_service',
+    //     userAgent: 'backend',
+    //   },
+    // );
 
     this.logger.log(`Usuario registrado: ${email}`);
     return {
@@ -175,19 +177,19 @@ export class AuthService {
     };
 
     // 📝 Track user login event
-    await this.eventTracker.trackUserAction(
-      user.id,
-      EventType.USER_LOGIN,
-      {
-        email,
-        loginMethod: 'email_password',
-        emailVerified: user.emailVerified,
-      },
-      {
-        source: 'auth_service',
-        userAgent: 'backend',
-      },
-    );
+    // await this.eventTracker.trackUserAction(
+    //   user.id,
+    //   EventType.USER_LOGIN,
+    //   {
+    //     email,
+    //     loginMethod: 'email_password',
+    //     emailVerified: user.emailVerified,
+    //   },
+    //   {
+    //     source: 'auth_service',
+    //     userAgent: 'backend',
+    //   },
+    // );
 
     this.logger.log(`Usuario autenticado: ${email}`);
     return { user: userProfile, tokens };
@@ -284,6 +286,8 @@ export class AuthService {
         createdAt: new Date(item.createdAt),
         updatedAt: new Date(item.updatedAt),
         phoneNumber: item.phoneNumber,
+        displayName: item.displayName,
+        avatarUrl: item.avatarUrl,
       };
     } catch (error) {
       this.logger.error(`Error getting user ${userId}: ${error.message}`);
@@ -315,6 +319,8 @@ export class AuthService {
         createdAt: new Date(item.createdAt),
         updatedAt: new Date(item.updatedAt),
         phoneNumber: item.phoneNumber,
+        displayName: item.displayName,
+        avatarUrl: item.avatarUrl,
       };
     } catch (error) {
       this.logger.error(
@@ -330,17 +336,17 @@ export class AuthService {
   async logout(userId: string): Promise<{ message: string }> {
     try {
       // 📝 Track user logout event
-      await this.eventTracker.trackUserAction(
-        userId,
-        EventType.USER_LOGOUT,
-        {
-          logoutMethod: 'manual',
-        },
-        {
-          source: 'auth_service',
-          userAgent: 'backend',
-        },
-      );
+      // await this.eventTracker.trackUserAction(
+      //   userId,
+      //   EventType.USER_LOGOUT,
+      //   {
+      //     logoutMethod: 'manual',
+      //   },
+      //   {
+      //     source: 'auth_service',
+      //     userAgent: 'backend',
+      //   },
+      // );
 
       this.logger.log(`Usuario cerró sesión: ${userId}`);
       return { message: 'Sesión cerrada exitosamente' };
@@ -358,11 +364,58 @@ export class AuthService {
   private toUserProfile(user: User): UserProfile {
     return {
       id: user.id,
+      sub: user.id, // Alias para compatibilidad con JWT/Cognito
       email: user.email,
       username: user.username,
       emailVerified: user.emailVerified,
       createdAt: user.createdAt,
       phoneNumber: user.phoneNumber,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
     };
+  }
+
+  /**
+   * Actualizar perfil de usuario
+   */
+  async updateProfile(
+    userId: string,
+    updateData: { displayName?: string; avatarUrl?: string; phoneNumber?: string },
+  ): Promise<UserProfile> {
+    const user = await this.getUserById(userId);
+    if (!user) {
+      throw new Error('Usuario no encontrado');
+    }
+
+    const updateExpressions: string[] = ['updatedAt = :updatedAt'];
+    const expressionValues: Record<string, any> = {
+      ':updatedAt': new Date().toISOString(),
+    };
+
+    if (updateData.displayName) {
+      updateExpressions.push('displayName = :displayName');
+      expressionValues[':displayName'] = updateData.displayName;
+    }
+
+    if (updateData.avatarUrl) {
+      updateExpressions.push('avatarUrl = :avatarUrl');
+      expressionValues[':avatarUrl'] = updateData.avatarUrl;
+    }
+
+    if (updateData.phoneNumber) {
+      updateExpressions.push('phoneNumber = :phoneNumber');
+      expressionValues[':phoneNumber'] = updateData.phoneNumber;
+    }
+
+    await this.multiTableService.update('trinity-users-dev', { userId }, {
+      UpdateExpression: `SET ${updateExpressions.join(', ')}`,
+      ExpressionAttributeValues: expressionValues,
+    });
+
+    this.logger.log(`Perfil actualizado: ${userId}`);
+
+    // Retornar perfil actualizado
+    const updatedUser = await this.getUserById(userId);
+    return this.toUserProfile(updatedUser!);
   }
 }

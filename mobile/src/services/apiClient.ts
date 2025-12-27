@@ -19,6 +19,13 @@ interface RequestConfig {
   body?: string;
 }
 
+// Callback para manejar logout automático en caso de 401
+let onUnauthorizedCallback: (() => void) | null = null;
+
+export const setOnUnauthorizedCallback = (callback: () => void) => {
+  onUnauthorizedCallback = callback;
+};
+
 class ApiClient {
   private baseURL: string;
 
@@ -45,12 +52,17 @@ class ApiClient {
       const data = await response.json();
       
       if (!response.ok) {
+        // Si es 401 y no es un endpoint de auth, hacer logout automático
+        if (response.status === 401 && !endpoint.startsWith('/auth/')) {
+          if (onUnauthorizedCallback) {
+            onUnauthorizedCallback();
+          }
+        }
         throw { response: { data, status: response.status } };
       }
       
       return data;
     } catch (error) {
-      console.error('API Error:', error);
       throw error;
     }
   }

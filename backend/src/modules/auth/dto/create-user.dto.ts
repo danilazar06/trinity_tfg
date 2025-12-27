@@ -39,6 +39,21 @@ export class CreateUserDto {
   username: string;
 
   @ApiProperty({
+    description: 'Nombre completo del usuario (opcional)',
+    example: 'Juan García López',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(2, {
+    message: 'El nombre completo debe tener al menos 2 caracteres',
+  })
+  @MaxLength(100, {
+    message: 'El nombre completo no puede tener más de 100 caracteres',
+  })
+  displayName?: string;
+
+  @ApiProperty({
     description: 'Contraseña del usuario',
     example: 'MiContraseña123!',
     minLength: 8,

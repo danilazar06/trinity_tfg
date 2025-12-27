@@ -15,6 +15,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, fontSize, borderRadius } from '../../src/utils/theme';
 import { mediaService, MediaItemDetails, CastMember, WatchProvider } from '../../src/services/mediaService';
+import { userListService, UserListItem } from '../../src/services/userListService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -44,6 +45,12 @@ export default function MediaDetailScreen() {
       }
 
       setMedia(details);
+      
+      // Verificar si está en la lista del usuario
+      if (details) {
+        const inList = await userListService.isInList(id);
+        setIsInList(inList);
+      }
     } catch (error) {
       console.error('Error loading media details:', error);
     } finally {
@@ -57,9 +64,32 @@ export default function MediaDetailScreen() {
     }
   };
 
-  const toggleList = () => {
-    setIsInList(!isInList);
-    // TODO: Guardar en lista del usuario
+  const toggleList = async () => {
+    if (!media || !id) return;
+
+    try {
+      if (isInList) {
+        // Remover de la lista
+        await userListService.removeFromList(id);
+        setIsInList(false);
+      } else {
+        // Añadir a la lista
+        const listItem: UserListItem = {
+          id,
+          title: media.title,
+          posterPath: media.posterPath,
+          mediaType: media.mediaType,
+          year: media.year,
+          addedAt: new Date().toISOString(),
+        };
+        await userListService.addToList(listItem);
+        setIsInList(true);
+      }
+    } catch (error) {
+      console.error('Error toggling list:', error);
+      // Revertir el estado en caso de error
+      setIsInList(!isInList);
+    }
   };
 
   if (loading) {
