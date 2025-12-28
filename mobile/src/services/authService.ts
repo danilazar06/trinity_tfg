@@ -171,6 +171,108 @@ class AuthService {
       return { success: false, error: errorMessage };
     }
   }
+
+  // Métodos de Google OAuth
+  async loginWithGoogle(idToken: string): Promise<ApiResponse<AuthResponse>> {
+    try {
+      const data = await apiClient.post<any>('/auth/google/login', {
+        idToken,
+      });
+      
+      // Normalizar la respuesta
+      const normalizedData: AuthResponse = {
+        user: data.data.user,
+        accessToken: data.data.tokens?.accessToken || data.data.accessToken,
+        idToken: data.data.tokens?.idToken || data.data.idToken,
+        refreshToken: data.data.tokens?.refreshToken || data.data.refreshToken,
+      };
+      
+      return { success: true, data: normalizedData };
+    } catch (error: any) {
+      let errorMessage = 'Error al iniciar sesión con Google';
+      const responseMessage = error.response?.data?.message;
+      if (typeof responseMessage === 'string') {
+        errorMessage = responseMessage;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  async linkGoogleAccount(idToken: string): Promise<ApiResponse<User>> {
+    try {
+      const response = await apiClient.post<{ user: User }>('/auth/google/link', {
+        idToken,
+      });
+      return { success: true, data: response.user };
+    } catch (error: any) {
+      let errorMessage = 'Error al vincular cuenta de Google';
+      const responseMessage = error.response?.data?.message;
+      if (typeof responseMessage === 'string') {
+        errorMessage = responseMessage;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  async unlinkGoogleAccount(): Promise<ApiResponse<User>> {
+    try {
+      const response = await apiClient.delete<{ user: User }>('/auth/google/unlink');
+      return { success: true, data: response.user };
+    } catch (error: any) {
+      let errorMessage = 'Error al desvincular cuenta de Google';
+      const responseMessage = error.response?.data?.message;
+      if (typeof responseMessage === 'string') {
+        errorMessage = responseMessage;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  async getGoogleLinkStatus(): Promise<ApiResponse<{
+    isGoogleLinked: boolean;
+    authProviders: string[];
+    canUnlinkGoogle: boolean;
+    googleAuthAvailable: boolean;
+  }>> {
+    try {
+      const response = await apiClient.get<{
+        isGoogleLinked: boolean;
+        authProviders: string[];
+        canUnlinkGoogle: boolean;
+        googleAuthAvailable: boolean;
+      }>('/auth/google/status');
+      return { success: true, data: response };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Error al obtener estado de Google',
+      };
+    }
+  }
+
+  async checkGoogleAuthAvailability(): Promise<ApiResponse<{
+    available: boolean;
+    message: string;
+  }>> {
+    try {
+      const response = await apiClient.get<{
+        available: boolean;
+        message: string;
+      }>('/auth/google/available');
+      return { success: true, data: response };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Error al verificar disponibilidad de Google Auth',
+      };
+    }
+  }
 }
 
 export const authService = new AuthService();

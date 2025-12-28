@@ -140,6 +140,7 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.settingsSection}>
+              <SettingsItem icon="person-outline" title="Configuración de Cuenta" color={colors.primary} onPress={() => router.push('/account-settings')} />
               <SettingsItem icon="notifications-outline" title="Notificaciones" color={colors.secondary} onPress={() => {}} />
               <SettingsItem icon="shield-outline" title="Privacidad" color={colors.primary} onPress={() => {}} />
               <SettingsItem icon="color-palette-outline" title="Apariencia" color={colors.accent} onPress={() => {}} />

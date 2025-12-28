@@ -11,6 +11,11 @@ export interface User {
   phoneNumberVerified?: boolean;
   displayName?: string; // Nombre completo del usuario
   avatarUrl?: string;
+  // Campos de Google Auth
+  googleId?: string;
+  isGoogleLinked?: boolean;
+  authProviders?: string[];
+  lastGoogleSync?: Date;
 }
 
 export interface CreateUserDto {
@@ -55,6 +60,10 @@ export interface UserProfile {
   phoneNumber?: string;
   displayName?: string;
   avatarUrl?: string;
+  // Campos de Google Auth
+  googleId?: string;
+  isGoogleLinked?: boolean;
+  authProviders?: string[];
 }
 
 export interface CognitoTokens {

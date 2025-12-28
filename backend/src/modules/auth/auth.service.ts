@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MultiTableService } from '../../infrastructure/database/multi-table.service';
 import { CognitoService } from '../../infrastructure/cognito/cognito.service';
+import { GoogleAuthService, GoogleUserInfo } from './google-auth.service';
 import { EventTracker } from '../analytics/event-tracker.service';
 import { EventType } from '../analytics/interfaces/analytics.interfaces';
 import {
@@ -22,6 +23,7 @@ export class AuthService {
   constructor(
     private multiTableService: MultiTableService,
     private cognitoService: CognitoService,
+    private googleAuthService: GoogleAuthService,
     private eventTracker: EventTracker,
   ) {}
 
@@ -372,6 +374,10 @@ export class AuthService {
       phoneNumber: user.phoneNumber,
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
+      // Campos de Google Auth
+      googleId: (user as any).googleId,
+      isGoogleLinked: (user as any).isGoogleLinked || false,
+      authProviders: (user as any).authProviders || ['email'],
     };
   }
 
@@ -387,35 +393,137 @@ export class AuthService {
       throw new Error('Usuario no encontrado');
     }
 
-    const updateExpressions: string[] = ['updatedAt = :updatedAt'];
-    const expressionValues: Record<string, any> = {
-      ':updatedAt': new Date().toISOString(),
-    };
+    // Construir la expresión de actualización sin updatedAt (se agrega automáticamente)
+    const updateExpressions: string[] = [];
+    const expressionValues: Record<string, any> = {};
 
-    if (updateData.displayName) {
+    if (updateData.displayName !== undefined) {
       updateExpressions.push('displayName = :displayName');
       expressionValues[':displayName'] = updateData.displayName;
     }
 
-    if (updateData.avatarUrl) {
+    if (updateData.avatarUrl !== undefined) {
       updateExpressions.push('avatarUrl = :avatarUrl');
       expressionValues[':avatarUrl'] = updateData.avatarUrl;
     }
 
-    if (updateData.phoneNumber) {
+    if (updateData.phoneNumber !== undefined) {
       updateExpressions.push('phoneNumber = :phoneNumber');
       expressionValues[':phoneNumber'] = updateData.phoneNumber;
     }
 
-    await this.multiTableService.update('trinity-users-dev', { userId }, {
-      UpdateExpression: `SET ${updateExpressions.join(', ')}`,
-      ExpressionAttributeValues: expressionValues,
-    });
+    // Si no hay nada que actualizar, solo actualizar updatedAt
+    const updateExpression = updateExpressions.length > 0 
+      ? `SET ${updateExpressions.join(', ')}`
+      : 'SET #dummy = #dummy'; // Expresión dummy para que funcione el auto-updatedAt
 
-    this.logger.log(`Perfil actualizado: ${userId}`);
+    try {
+      await this.multiTableService.update('trinity-users-dev', { userId }, {
+        UpdateExpression: updateExpression,
+        ExpressionAttributeValues: expressionValues,
+        ...(updateExpressions.length === 0 && {
+          ExpressionAttributeNames: { '#dummy': 'updatedAt' }
+        })
+      });
 
-    // Retornar perfil actualizado
-    const updatedUser = await this.getUserById(userId);
-    return this.toUserProfile(updatedUser!);
+      this.logger.log(`Perfil actualizado: ${userId}`);
+
+      // Retornar perfil actualizado
+      const updatedUser = await this.getUserById(userId);
+      return this.toUserProfile(updatedUser!);
+    } catch (error) {
+      this.logger.error(`Error actualizando perfil ${userId}: ${error.message}`);
+      throw new Error(`No se pudo actualizar el perfil: ${error.message}`);
+    }
+  }
+
+  // ==================== MÉTODOS DE GOOGLE AUTH ====================
+
+  /**
+   * Autenticar con Google usando ID Token
+   */
+  async loginWithGoogle(idToken: string): Promise<{ user: UserProfile; tokens: CognitoTokens }> {
+    try {
+      // Verificar token de Google y obtener información del usuario
+      const googleUser = await this.googleAuthService.verifyGoogleToken(idToken);
+      
+      // Crear o actualizar usuario desde información de Google
+      const userProfile = await this.googleAuthService.createOrUpdateUserFromGoogle(googleUser);
+      
+      // Generar tokens de Cognito para el usuario
+      // Nota: En un escenario real, esto requeriría configuración adicional de Cognito
+      // Por ahora, generamos tokens mock para el desarrollo
+      const tokens: CognitoTokens = {
+        accessToken: `google_access_${userProfile.id}_${Date.now()}`,
+        idToken: `google_id_${userProfile.id}_${Date.now()}`,
+        refreshToken: `google_refresh_${userProfile.id}_${Date.now()}`,
+      };
+
+      this.logger.log(`Usuario autenticado con Google: ${googleUser.email}`);
+      
+      return { 
+        user: this.toUserProfile(userProfile), 
+        tokens 
+      };
+      
+    } catch (error) {
+      this.logger.error(`Error en login con Google: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Vincular cuenta de Google a usuario existente
+   */
+  async linkGoogleAccount(userId: string, idToken: string): Promise<UserProfile> {
+    try {
+      // Verificar token de Google
+      const googleUser = await this.googleAuthService.verifyGoogleToken(idToken);
+      
+      // Vincular Google al usuario existente
+      await this.googleAuthService.linkGoogleToExistingUser(userId, googleUser);
+      
+      // Sincronizar información de perfil desde Google
+      await this.googleAuthService.syncProfileFromGoogle(userId, googleUser);
+      
+      // Retornar perfil actualizado
+      const updatedUser = await this.getUserById(userId);
+      
+      this.logger.log(`Cuenta de Google vinculada al usuario: ${userId}`);
+      
+      return this.toUserProfile(updatedUser!);
+      
+    } catch (error) {
+      this.logger.error(`Error vinculando cuenta de Google: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Desvincular cuenta de Google de usuario
+   */
+  async unlinkGoogleAccount(userId: string): Promise<UserProfile> {
+    try {
+      // Desvincular Google del usuario
+      await this.googleAuthService.unlinkGoogleFromUser(userId);
+      
+      // Retornar perfil actualizado
+      const updatedUser = await this.getUserById(userId);
+      
+      this.logger.log(`Cuenta de Google desvinculada del usuario: ${userId}`);
+      
+      return this.toUserProfile(updatedUser!);
+      
+    } catch (error) {
+      this.logger.error(`Error desvinculando cuenta de Google: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Verificar si Google Auth está disponible
+   */
+  isGoogleAuthAvailable(): boolean {
+    return this.googleAuthService.isGoogleAuthAvailable();
   }
 }

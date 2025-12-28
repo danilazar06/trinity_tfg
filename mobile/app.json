@@ -11,17 +11,25 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.trinity.app"
+      "bundleIdentifier": "com.trinity.app",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
-      "package": "com.trinity.app"
+      "package": "com.trinity.app",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro"
     },
     "plugins": [
       "expo-router",
-      "expo-font"
-    ]
+      "expo-font",
+      "@react-native-google-signin/google-signin"
+    ],
+    "extra": {
+      "googleWebClientId": "your_google_web_client_id_here",
+      "googleIosClientId": "your_google_ios_client_id_here",
+      "googleAndroidClientId": "your_google_android_client_id_here"
+    }
   }
 }
