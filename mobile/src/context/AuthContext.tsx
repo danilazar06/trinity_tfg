@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useEffect, ReactNode } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthState, User, LoginCredentials, RegisterData } from '../types';
 import { authService } from '../services/authService';
+import { googleSignInService } from '../services/googleSignInService';
 import { setOnUnauthorizedCallback } from '../services/apiClient';
 
 // Flag para usar mock o backend real
@@ -15,6 +16,8 @@ interface AuthContextType extends AuthState {
   loginWithGoogle: () => Promise<void>;
   loginWithApple: () => Promise<void>;
   updateUser: (user: User) => Promise<void>;
+  linkGoogleAccount: () => Promise<void>;
+  unlinkGoogleAccount: () => Promise<void>;
 }
 
 type AuthAction =
@@ -159,13 +162,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             return;
           }
           
-          // Asegurar que el usuario tenga los campos correctos
+          // Obtener datos locales previos para preservar cambios no sincronizados
+          const savedUserData = await AsyncStorage.getItem('userData');
+          const localUser = savedUserData ? JSON.parse(savedUserData) : null;
+          
+          // Asegurar que el usuario tenga los campos correctos, preservando cambios locales
           const userWithAvatar = {
             ...user,
-            name: user.displayName || user.username || user.email?.split('@')[0],
-            displayName: user.displayName || user.username,
-            avatar: user.avatarUrl || user.avatar || undefined,
-            avatarUrl: user.avatarUrl || user.avatar || undefined,
+            name: localUser?.displayName || user.displayName || user.username || user.email?.split('@')[0],
+            displayName: localUser?.displayName || user.displayName || user.username,
+            avatar: localUser?.avatarUrl || localUser?.avatar || user.avatarUrl || user.avatar || undefined,
+            avatarUrl: localUser?.avatarUrl || localUser?.avatar || user.avatarUrl || user.avatar || undefined,
           };
           
           await AsyncStorage.setItem('authToken', tokenToSave);
@@ -225,6 +232,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const loginWithGoogle = async () => {
     dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'CLEAR_ERROR' });
+
     try {
       if (USE_MOCK) {
         // Mock para desarrollo
@@ -238,11 +247,68 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await AsyncStorage.setItem('userData', JSON.stringify(mockUser));
         dispatch({ type: 'SET_USER', payload: mockUser });
       } else {
-        // Google Sign-In no está implementado aún - usar login normal
-        dispatch({ type: 'SET_ERROR', payload: 'Google Sign-In no está disponible. Usa email y contraseña.' });
+        // Verificar si Google Auth está disponible
+        const availabilityCheck = await authService.checkGoogleAuthAvailability();
+        if (!availabilityCheck.success || !availabilityCheck.data?.available) {
+          dispatch({ type: 'SET_ERROR', payload: 'Google Sign-In no está configurado en el servidor' });
+          return;
+        }
+
+        // Configurar e inicializar Google Sign-In
+        await googleSignInService.configure();
+        
+        if (!await googleSignInService.isAvailable()) {
+          dispatch({ type: 'SET_ERROR', payload: 'Google Sign-In no está disponible en este dispositivo' });
+          return;
+        }
+
+        // Realizar Google Sign-In
+        const googleUser = await googleSignInService.signIn();
+        
+        // Autenticar con el backend usando el ID token
+        const response = await authService.loginWithGoogle(googleUser.idToken);
+        
+        if (response.success && response.data) {
+          const { accessToken, idToken, user } = response.data;
+          
+          // Usar accessToken preferentemente, luego idToken
+          let tokenToSave = '';
+          if (accessToken && accessToken.length > 0) {
+            tokenToSave = accessToken;
+          } else if (idToken && idToken.length > 0) {
+            tokenToSave = idToken;
+          } else {
+            dispatch({ type: 'SET_ERROR', payload: 'No se recibieron tokens válidos del servidor' });
+            return;
+          }
+          
+          // Asegurar que el usuario tenga los campos correctos
+          const userWithAvatar = {
+            ...user,
+            name: user.displayName || user.username || user.email?.split('@')[0],
+            displayName: user.displayName || user.username,
+            avatar: user.avatarUrl || user.avatar || googleUser.photo || undefined,
+            avatarUrl: user.avatarUrl || user.avatar || googleUser.photo || undefined,
+          };
+          
+          await AsyncStorage.setItem('authToken', tokenToSave);
+          await AsyncStorage.setItem('userData', JSON.stringify(userWithAvatar));
+          dispatch({ type: 'SET_USER', payload: userWithAvatar });
+        } else {
+          dispatch({ type: 'SET_ERROR', payload: response.error || 'Error al autenticar con Google' });
+        }
       }
     } catch (error: any) {
-      dispatch({ type: 'SET_ERROR', payload: 'Error con Google' });
+      console.error('Google Sign-In error:', error);
+      
+      // Manejar errores específicos de Google Sign-In
+      if (error.message?.includes('cancelado')) {
+        dispatch({ type: 'SET_ERROR', payload: 'Inicio de sesión cancelado' });
+      } else if (error.message?.includes('Play Services')) {
+        dispatch({ type: 'SET_ERROR', payload: 'Google Play Services no está disponible' });
+      } else {
+        dispatch({ type: 'SET_ERROR', payload: error.message || 'Error con Google Sign-In' });
+      }
     }
   };
 
@@ -269,9 +335,139 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const linkGoogleAccount = async () => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'CLEAR_ERROR' });
+
+    try {
+      if (USE_MOCK) {
+        // Mock para desarrollo
+        const currentUser = state.user;
+        if (currentUser) {
+          const updatedUser = {
+            ...currentUser,
+            isGoogleLinked: true,
+            authProviders: ['email', 'google'],
+          };
+          await AsyncStorage.setItem('userData', JSON.stringify(updatedUser));
+          dispatch({ type: 'SET_USER', payload: updatedUser });
+        }
+      } else {
+        // Verificar si Google Auth está disponible
+        const availabilityCheck = await authService.checkGoogleAuthAvailability();
+        if (!availabilityCheck.success || !availabilityCheck.data?.available) {
+          dispatch({ type: 'SET_ERROR', payload: 'Google Sign-In no está configurado en el servidor' });
+          return;
+        }
+
+        // Configurar e inicializar Google Sign-In
+        await googleSignInService.configure();
+        
+        if (!await googleSignInService.isAvailable()) {
+          dispatch({ type: 'SET_ERROR', payload: 'Google Sign-In no está disponible en este dispositivo' });
+          return;
+        }
+
+        // Realizar Google Sign-In para obtener el token
+        const googleUser = await googleSignInService.signIn();
+        
+        // Vincular cuenta con el backend
+        const response = await authService.linkGoogleAccount(googleUser.idToken);
+        
+        if (response.success && response.data) {
+          const updatedUser = {
+            ...response.data,
+            name: response.data.displayName || response.data.username || response.data.email?.split('@')[0],
+            displayName: response.data.displayName || response.data.username,
+            avatar: response.data.avatarUrl || response.data.avatar || googleUser.photo || undefined,
+            avatarUrl: response.data.avatarUrl || response.data.avatar || googleUser.photo || undefined,
+          };
+          
+          await AsyncStorage.setItem('userData', JSON.stringify(updatedUser));
+          dispatch({ type: 'SET_USER', payload: updatedUser });
+        } else {
+          dispatch({ type: 'SET_ERROR', payload: response.error || 'Error al vincular cuenta de Google' });
+        }
+      }
+    } catch (error: any) {
+      console.error('Link Google Account error:', error);
+      
+      if (error.message?.includes('cancelado')) {
+        dispatch({ type: 'SET_ERROR', payload: 'Vinculación cancelada' });
+      } else if (error.message?.includes('ya está vinculada')) {
+        dispatch({ type: 'SET_ERROR', payload: 'Esta cuenta de Google ya está vinculada a otro usuario' });
+      } else {
+        dispatch({ type: 'SET_ERROR', payload: error.message || 'Error al vincular cuenta de Google' });
+      }
+    }
+  };
+
+  const unlinkGoogleAccount = async () => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'CLEAR_ERROR' });
+
+    try {
+      if (USE_MOCK) {
+        // Mock para desarrollo
+        const currentUser = state.user;
+        if (currentUser) {
+          const updatedUser = {
+            ...currentUser,
+            isGoogleLinked: false,
+            authProviders: ['email'],
+            googleId: undefined,
+          };
+          await AsyncStorage.setItem('userData', JSON.stringify(updatedUser));
+          dispatch({ type: 'SET_USER', payload: updatedUser });
+        }
+      } else {
+        // Desvincular cuenta con el backend
+        const response = await authService.unlinkGoogleAccount();
+        
+        if (response.success && response.data) {
+          const updatedUser = {
+            ...response.data,
+            name: response.data.displayName || response.data.username || response.data.email?.split('@')[0],
+            displayName: response.data.displayName || response.data.username,
+            avatar: response.data.avatarUrl || response.data.avatar || undefined,
+            avatarUrl: response.data.avatarUrl || response.data.avatar || undefined,
+          };
+          
+          await AsyncStorage.setItem('userData', JSON.stringify(updatedUser));
+          dispatch({ type: 'SET_USER', payload: updatedUser });
+          
+          // Cerrar sesión de Google en el dispositivo
+          await googleSignInService.signOut();
+        } else {
+          dispatch({ type: 'SET_ERROR', payload: response.error || 'Error al desvincular cuenta de Google' });
+        }
+      }
+    } catch (error: any) {
+      console.error('Unlink Google Account error:', error);
+      
+      if (error.message?.includes('único método')) {
+        dispatch({ type: 'SET_ERROR', payload: 'No puedes desvincular Google: es tu único método de autenticación' });
+      } else {
+        dispatch({ type: 'SET_ERROR', payload: error.message || 'Error al desvincular cuenta de Google' });
+      }
+    }
+  };
+
   const updateUser = async (updatedUser: User) => {
+    // Guardar localmente primero
     await AsyncStorage.setItem('userData', JSON.stringify(updatedUser));
     dispatch({ type: 'SET_USER', payload: updatedUser });
+    
+    // Intentar sincronizar con el backend en segundo plano
+    try {
+      await authService.updateProfile({
+        displayName: updatedUser.displayName || updatedUser.name,
+        avatarUrl: updatedUser.avatarUrl || updatedUser.avatar,
+      });
+    } catch (error) {
+      // Si falla la sincronización, mantener los datos locales
+      console.log('No se pudo sincronizar con el backend, manteniendo cambios locales');
+    }
   };
 
   return (
@@ -285,6 +481,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loginWithGoogle,
         loginWithApple,
         updateUser,
+        linkGoogleAccount,
+        unlinkGoogleAccount,
       }}
     >
       {children}

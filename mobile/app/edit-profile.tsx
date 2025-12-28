@@ -55,44 +55,7 @@ export default function EditProfileScreen() {
 
     setIsLoading(true);
     try {
-      // Actualizar en el backend
-      const response = await authService.updateProfile({
-        displayName: displayName.trim(),
-        avatarUrl: avatarUrl || undefined,
-      });
-
-      if (response.success && response.data) {
-        // Actualizar el usuario localmente con los datos del backend
-        const updatedUser = {
-          ...user!,
-          id: response.data.id || user!.id,
-          name: response.data.displayName || displayName.trim(),
-          displayName: response.data.displayName || displayName.trim(),
-          avatar: response.data.avatarUrl || avatarUrl || user?.avatar,
-          avatarUrl: response.data.avatarUrl || avatarUrl || user?.avatarUrl,
-        };
-        await updateUser(updatedUser);
-
-        Alert.alert('Éxito', 'Perfil actualizado correctamente', [
-          { text: 'OK', onPress: () => router.back() }
-        ]);
-      } else {
-        // Si el backend falla, guardar localmente como fallback
-        const updatedUser = {
-          ...user!,
-          name: displayName.trim(),
-          displayName: displayName.trim(),
-          avatar: avatarUrl || user?.avatar,
-          avatarUrl: avatarUrl || user?.avatarUrl,
-        };
-        await updateUser(updatedUser);
-        Alert.alert('Perfil guardado', 'Los cambios se han guardado localmente', [
-          { text: 'OK', onPress: () => router.back() }
-        ]);
-      }
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      // Incluso si hay error, guardar localmente
+      // Actualizar el usuario localmente
       const updatedUser = {
         ...user!,
         name: displayName.trim(),
@@ -100,9 +63,16 @@ export default function EditProfileScreen() {
         avatar: avatarUrl || user?.avatar,
         avatarUrl: avatarUrl || user?.avatarUrl,
       };
+      
       await updateUser(updatedUser);
-      Alert.alert('Perfil guardado', 'Los cambios se han guardado localmente', [
+
+      Alert.alert('Éxito', 'Perfil actualizado correctamente', [
         { text: 'OK', onPress: () => router.back() }
+      ]);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      Alert.alert('Error', 'No se pudo actualizar el perfil', [
+        { text: 'OK' }
       ]);
     } finally {
       setIsLoading(false);
