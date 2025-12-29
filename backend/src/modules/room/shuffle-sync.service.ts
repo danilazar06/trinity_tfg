@@ -364,4 +364,83 @@ export class ShuffleSyncService {
       throw error;
     }
   }
+
+  /**
+   * Sincronizar índice del miembro basándose en los votos existentes
+   * Útil cuando el índice se desincroniza por errores
+   */
+  async syncMemberIndex(
+    roomId: string,
+    userId: string,
+  ): Promise<{
+    previousIndex: number;
+    newIndex: number;
+    votesFound: number;
+    synced: boolean;
+  }> {
+    try {
+      const member = await this.memberService.getMember(roomId, userId);
+      if (!member) {
+        throw new Error('Miembro no encontrado');
+      }
+
+      // Contar cuántos votos tiene el usuario para elementos en su lista
+      const votedMediaIds = new Set<string>();
+      
+      // Obtener votos del usuario en esta sala
+      const votes = await this.dynamoDBService.query({
+        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+        ExpressionAttributeValues: {
+          ':pk': `ROOM#${roomId}`,
+          ':sk': `VOTE#${userId}#`,
+        },
+      });
+
+      for (const vote of votes) {
+        if (vote.mediaId) {
+          votedMediaIds.add(vote.mediaId);
+        }
+      }
+
+      // Calcular el índice correcto basándose en los votos
+      // El índice debe ser igual al número de elementos votados que están en la lista
+      let correctIndex = 0;
+      for (let i = 0; i < member.shuffledList.length; i++) {
+        if (votedMediaIds.has(member.shuffledList[i])) {
+          correctIndex = i + 1; // El índice debe apuntar al siguiente elemento no votado
+        }
+      }
+
+      const previousIndex = member.currentIndex;
+
+      if (correctIndex !== previousIndex) {
+        // Actualizar el índice del miembro
+        await this.dynamoDBService.conditionalUpdate(
+          `ROOM#${roomId}`,
+          `MEMBER#${userId}`,
+          'SET currentIndex = :currentIndex, lastActivityAt = :lastActivityAt, updatedAt = :updatedAt',
+          'attribute_exists(PK)',
+          undefined,
+          {
+            ':currentIndex': correctIndex,
+            ':lastActivityAt': new Date().toISOString(),
+          },
+        );
+
+        this.logger.log(
+          `Índice sincronizado para miembro ${userId} en sala ${roomId}: ${previousIndex} -> ${correctIndex}`,
+        );
+      }
+
+      return {
+        previousIndex,
+        newIndex: correctIndex,
+        votesFound: votedMediaIds.size,
+        synced: correctIndex !== previousIndex,
+      };
+    } catch (error) {
+      this.logger.error(`Error sincronizando índice: ${error.message}`);
+      throw error;
+    }
+  }
 }

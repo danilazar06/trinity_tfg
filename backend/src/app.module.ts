@@ -22,6 +22,7 @@ import { RoomAutomationModule } from './modules/room-automation/room-automation.
 import { PerformanceOptimizerModule } from './optimization/performance-optimizer.module';
 import { DatabaseModule } from './infrastructure/database/database.module';
 import { HealthModule } from './modules/health/health.module';
+import { AIModule } from './modules/ai/ai.module';
 import { PermissionAuditMiddleware } from './common/middleware/permission-audit.middleware';
 
 @Module({
@@ -52,6 +53,7 @@ import { PermissionAuditMiddleware } from './common/middleware/permission-audit.
     RoomAutomationModule, // Sistema de automatización inteligente de salas
     PerformanceOptimizerModule, // Sistema de optimización de rendimiento (Task 12)
     HealthModule, // Sistema de health checks para AWS y servicios externos
+    AIModule, // Sistema de IA con Trini (Salamandra)
   ],
 })
 export class AppModule implements NestModule {

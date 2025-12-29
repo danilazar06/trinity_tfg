@@ -279,15 +279,34 @@ export class TMDBService {
   }
 
   /**
-   * Obtener IDs de géneros por nombres
+   * Obtener IDs de géneros por nombres o IDs
    */
-  private async getGenreIds(genreNames: string[]): Promise<number[]> {
+  private async getGenreIds(genreInputs: string[]): Promise<number[]> {
     try {
+      // Primero verificar si ya son IDs numéricos
+      const numericIds = genreInputs
+        .map((input) => parseInt(input, 10))
+        .filter((id) => !isNaN(id));
+
+      // Si todos son numéricos, devolverlos directamente
+      if (numericIds.length === genreInputs.length) {
+        return numericIds;
+      }
+
+      // Si no, buscar por nombre
       const genres = await this.getMovieGenres();
       const genreMap = new Map(genres.map((g) => [g.name.toLowerCase(), g.id]));
 
-      return genreNames
-        .map((name) => genreMap.get(name.toLowerCase()))
+      return genreInputs
+        .map((input) => {
+          // Intentar como número primero
+          const numericId = parseInt(input, 10);
+          if (!isNaN(numericId)) {
+            return numericId;
+          }
+          // Si no es número, buscar por nombre
+          return genreMap.get(input.toLowerCase());
+        })
         .filter((id): id is number => id !== undefined);
     } catch (error) {
       this.logger.error(`Error getting genre IDs: ${error.message}`);
@@ -334,10 +353,14 @@ export class TMDBService {
     const mediaType = filters.mediaType || 'movie';
     const endpoint = `/discover/${mediaType}`;
 
+    // Usar página aleatoria para variar resultados (TMDB tiene muchas páginas)
+    const randomPage = Math.floor(Math.random() * 5) + 1; // Páginas 1-5
+
     const params: any = {
-      page: filters.page || 1,
+      page: filters.page || randomPage,
       sort_by: filters.sortBy || 'popularity.desc',
       include_adult: filters.includeAdult || false,
+      language: 'es-ES', // Resultados en español
     };
 
     // Aplicar filtros específicos
@@ -371,8 +394,23 @@ export class TMDBService {
     const response = await this.httpClient.get(endpoint, { params });
 
     // Convertir resultados a MediaItem
-    return response.data.results.map((item: any) =>
+    const mediaItems = response.data.results.map((item: any) =>
       this.convertToMediaItem(item, mediaType),
     );
+
+    // Mezclar aleatoriamente los resultados para variar el orden
+    return this.shuffleArray(mediaItems);
+  }
+
+  /**
+   * Mezclar array aleatoriamente (Fisher-Yates shuffle)
+   */
+  private shuffleArray<T>(array: T[]): T[] {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
   }
 }

@@ -194,6 +194,13 @@ export class RoomService {
     // Añadir como miembro
     await this.memberService.addMember(room.id, userId, MemberRole.MEMBER);
 
+    // Generar lista desordenada para el nuevo miembro si hay masterList
+    if (room.masterList && room.masterList.length > 0) {
+      const shuffledList = this.memberService.generateShuffledList(room.masterList, userId);
+      await this.memberService.updateMemberShuffledList(room.id, userId, shuffledList);
+      this.logger.log(`Lista desordenada generada para nuevo miembro ${userId} en sala ${room.id}`);
+    }
+
     // Notificar cambio de estado de sala en tiempo real
     const members = await this.memberService.getRoomMembers(room.id);
     await this.realtimeService.notifyRoomStateChange(room.id, {

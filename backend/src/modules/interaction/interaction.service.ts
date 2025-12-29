@@ -166,11 +166,15 @@ export class InteractionService {
         throw new NotFoundException('No eres miembro de esta sala');
       }
 
+      this.logger.debug(`getQueueStatus - Member ${userId} shuffledList length: ${member.shuffledList?.length || 0}, currentIndex: ${member.currentIndex}`);
+
       // Obtener elemento actual
       const currentMediaId = await this.memberService.getNextMediaForMember(
         roomId,
         userId,
       );
+
+      this.logger.debug(`getQueueStatus - currentMediaId: ${currentMediaId}`);
 
       // Obtener progreso
       const progress = await this.memberService.getMemberProgress(
@@ -395,6 +399,8 @@ export class InteractionService {
     if (!member) {
       throw new NotFoundException('No eres miembro de esta sala');
     }
+
+    this.logger.debug(`startSwipeSession - Member ${userId} shuffledList length: ${member.shuffledList?.length || 0}, currentIndex: ${member.currentIndex}`);
 
     const progress = await this.memberService.getMemberProgress(roomId, userId);
 

@@ -65,6 +65,8 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
   const [roomCode, setRoomCode] = useState('');
   const [roomName, setRoomName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [movieCount, setMovieCount] = useState(0);
+  const [creatingStatus, setCreatingStatus] = useState('');
 
   // Animaciones
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -110,13 +112,17 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
 
   const createRoom = async () => {
     setIsCreating(true);
+    setCreatingStatus('Verificando sesión...');
     
     const token = await AsyncStorage.getItem('authToken');
     if (!token) {
       Alert.alert('Sesión expirada', 'Por favor, inicia sesión de nuevo.');
       setIsCreating(false);
+      setCreatingStatus('');
       return;
     }
+    
+    setCreatingStatus('Buscando películas...');
     
     const name = aiPrompt 
       ? aiPrompt.substring(0, 30) 
@@ -130,7 +136,14 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
     };
 
     try {
+      setCreatingStatus('Generando lista personalizada...');
       const room = await roomService.createRoom({ name, filters });
+      
+      // Obtener cantidad de películas de la masterList
+      const masterListCount = room.masterList?.length || 0;
+      setMovieCount(masterListCount);
+      
+      setCreatingStatus('¡Listo!');
       setRoomCode(room.inviteCode);
       setRoomName(room.name);
       setStep('share');
@@ -146,6 +159,7 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
       Alert.alert('Error', errorMessage);
     } finally {
       setIsCreating(false);
+      setCreatingStatus('');
     }
   };
 
@@ -425,7 +439,12 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
             style={styles.continueButton}
           >
             {isCreating ? (
-              <ActivityIndicator size="small" color="#FFF" />
+              <View style={styles.creatingContainer}>
+                <ActivityIndicator size="small" color="#FFF" />
+                {creatingStatus ? (
+                  <Text style={styles.creatingStatusText}>{creatingStatus}</Text>
+                ) : null}
+              </View>
             ) : (
               <>
                 <Ionicons name="rocket" size={18} color="#FFF" style={{ marginRight: 8 }} />
@@ -465,6 +484,9 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
         <View style={styles.roomInfoText}>
           <Text style={styles.roomNameText}>{roomName}</Text>
           <Text style={styles.roomWaiting}>Esperando {participants} personas</Text>
+          {movieCount > 0 && (
+            <Text style={styles.movieCountText}>🎬 {movieCount} películas listas</Text>
+          )}
         </View>
       </View>
 
@@ -679,4 +701,7 @@ const styles = StyleSheet.create({
   startButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.md, gap: spacing.sm },
   startButtonText: { fontSize: fontSize.md, fontWeight: '600', color: '#FFF' },
   buttonDisabled: { opacity: 0.6 },
+  creatingContainer: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  creatingStatusText: { fontSize: fontSize.sm, color: '#FFF', marginLeft: spacing.xs },
+  movieCountText: { fontSize: fontSize.xs, color: colors.secondary, marginTop: 4 },
 });

@@ -19,6 +19,7 @@ import { router } from 'expo-router';
 import { colors, spacing, fontSize, borderRadius, shadows } from '../../src/utils/theme';
 import { mediaService, MediaItem } from '../../src/services/mediaService';
 import Logo from '../../src/components/Logo';
+import TriniChat from '../../src/components/TriniChat';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - spacing.lg * 2 - spacing.md) / 2;
@@ -33,6 +34,7 @@ export default function ExploreScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('Todo');
   const [totalResults, setTotalResults] = useState(0);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [triniChatVisible, setTriniChatVisible] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -83,6 +85,12 @@ export default function ExploreScreen() {
     setRefreshing(true);
     await loadContent(activeFilter, searchQuery);
     setRefreshing(false);
+  };
+
+  // Callback cuando Trini recomienda géneros
+  const handleTriniGenres = (genres: string[]) => {
+    console.log('🎬 Trini recomienda géneros:', genres);
+    // Aquí podrías filtrar el contenido por los géneros recomendados
   };
 
   return (
@@ -182,12 +190,19 @@ export default function ExploreScreen() {
           </Animated.View>
         </ScrollView>
 
-        {/* FAB AI */}
-        <TouchableOpacity style={styles.fab}>
+        {/* FAB AI - Trini */}
+        <TouchableOpacity style={styles.fab} onPress={() => setTriniChatVisible(true)}>
           <LinearGradient colors={[colors.secondary, '#3B82F6']} style={styles.fabGradient}>
             <Ionicons name="sparkles" size={24} color="#fff" />
           </LinearGradient>
         </TouchableOpacity>
+
+        {/* Trini Chat Modal */}
+        <TriniChat
+          visible={triniChatVisible}
+          onClose={() => setTriniChatVisible(false)}
+          onGenresSelected={handleTriniGenres}
+        />
       </SafeAreaView>
     </View>
   );

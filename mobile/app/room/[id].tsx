@@ -198,8 +198,28 @@ export default function RoomSwipeScreen() {
       
       // Reset posición
       position.setValue({ x: 0, y: 0 });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error voting:', error);
+      
+      // Detectar si es error de "Ya has votado" y sincronizar índice
+      const errorMessage = error?.response?.data?.message || error?.message || '';
+      if (errorMessage.includes('Ya has votado') || errorMessage.includes('already voted')) {
+        console.log('Detected duplicate vote error, syncing index...');
+        try {
+          const syncResult = await voteService.syncMemberIndex(roomId);
+          console.log('Sync result:', syncResult);
+          
+          if (syncResult.synced) {
+            // Recargar el contenido actual después de sincronizar
+            await loadCurrentMedia();
+            position.setValue({ x: 0, y: 0 });
+            return; // No mostrar error, ya se sincronizó
+          }
+        } catch (syncError) {
+          console.error('Error syncing index:', syncError);
+        }
+      }
+      
       Alert.alert('Error', 'No se pudo registrar el voto');
     } finally {
       setIsVoting(false);
