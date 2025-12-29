@@ -242,6 +242,31 @@ export class RealtimeCompatibilityService {
   }
 
   /**
+   * Notificar renovación de contenido de sala
+   */
+  async notifyRoomRefresh(
+    roomId: string,
+    refreshData: {
+      message: string;
+      newContentCount: number;
+      refreshedAt: Date;
+    },
+  ) {
+    this.logger.log(
+      `🔄 Notifying room refresh for room ${roomId}: ${refreshData.newContentCount} new items`,
+    );
+
+    // Convert to room state change format
+    const stateData: RoomStateNotification = {
+      status: 'active',
+      queueLength: refreshData.newContentCount,
+      activeMembers: 0, // This should be provided by the calling service
+    };
+
+    return this.appSyncPublisher.publishRoomStateChange(roomId, stateData);
+  }
+
+  /**
    * Health check
    */
   async healthCheck(): Promise<boolean> {

@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { MultiTableService } from '../../infrastructure/database/multi-table.service';
 import { TMDBService } from '../../infrastructure/tmdb/tmdb.service';
 import { CircuitBreakerService } from '../../infrastructure/circuit-breaker/circuit-breaker.service';
+import { MediaCacheService } from './media-cache.service';
 import {
   MediaItem,
   TMDBSearchFilters,
@@ -17,6 +18,7 @@ export class MediaService implements OnModuleInit {
     private multiTableService: MultiTableService,
     private tmdbService: TMDBService,
     private circuitBreakerService: CircuitBreakerService,
+    private mediaCacheService: MediaCacheService,
   ) {}
 
   async onModuleInit() {
@@ -53,9 +55,16 @@ export class MediaService implements OnModuleInit {
   }
 
   /**
-   * Obtener detalles de una película específica
+   * Obtener detalles de una película específica (con cache optimizado)
    */
   async getMovieDetails(tmdbId: string): Promise<MediaItem | null> {
+    // Usar el cache optimizado primero
+    const cachedResult = await this.mediaCacheService.getMedia(tmdbId);
+    if (cachedResult) {
+      return cachedResult;
+    }
+
+    // Fallback al circuit breaker si no está en cache
     return this.circuitBreakerService.execute(
       `${this.CIRCUIT_NAME}-details`,
       // Operación principal: TMDB API
@@ -76,6 +85,20 @@ export class MediaService implements OnModuleInit {
         return this.getCachedMovie(tmdbId);
       },
     );
+  }
+
+  /**
+   * Pre-cargar detalles de múltiples películas
+   */
+  async prefetchMovieDetails(tmdbIds: string[]): Promise<void> {
+    await this.mediaCacheService.prefetchMediaBatch(tmdbIds);
+  }
+
+  /**
+   * Obtener múltiples detalles de películas (optimizado)
+   */
+  async getMultipleMovieDetails(tmdbIds: string[]): Promise<MediaItem[]> {
+    return this.mediaCacheService.getMultipleMedia(tmdbIds);
   }
 
   /**

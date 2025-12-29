@@ -43,7 +43,7 @@ async function bootstrap() {
   // Prefijo global para todas las rutas
   app.setGlobalPrefix('api');
 
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT || 3002;
   await app.listen(port);
 
   console.log(`🚀 Trinity API ejecutándose en http://localhost:${port}`);

@@ -35,8 +35,8 @@ interface AppSyncConfig {
 @Injectable()
 export class AppSyncPublisher {
   private readonly logger = new Logger(AppSyncPublisher.name);
-  private graphqlClient: GraphQLClient;
-  private appSyncClient: AppSyncClient;
+  private graphqlClient: GraphQLClient | null;
+  private appSyncClient: AppSyncClient | null;
   private config: AppSyncConfig;
 
   constructor(private configService: ConfigService) {
@@ -46,22 +46,55 @@ export class AppSyncPublisher {
       region: this.configService.get<string>('AWS_REGION') || 'us-east-1',
     };
 
-    // Initialize GraphQL client for mutations
-    this.graphqlClient = new GraphQLClient(this.config.apiUrl, {
-      headers: {
-        'x-api-key': this.config.apiKey || '',
-        'Content-Type': 'application/json',
-      },
-    });
+    // Validate URL format before initializing GraphQL client
+    const isValidUrl = this.isValidHttpsUrl(this.config.apiUrl);
+    
+    // Only initialize GraphQL client if AppSync is properly configured with valid URL
+    if (this.config.apiUrl && this.config.apiKey && isValidUrl) {
+      try {
+        this.graphqlClient = new GraphQLClient(this.config.apiUrl, {
+          headers: {
+            'x-api-key': this.config.apiKey,
+            'Content-Type': 'application/json',
+          },
+        });
 
-    // Initialize AppSync client
-    this.appSyncClient = new AppSyncClient({
-      region: this.config.region,
-    });
+        // Initialize AppSync client
+        this.appSyncClient = new AppSyncClient({
+          region: this.config.region,
+        });
 
-    this.logger.log(
-      `🚀 AppSync Publisher initialized with API: ${this.config.apiUrl}`,
-    );
+        this.logger.log(
+          `🚀 AppSync Publisher initialized with API: ${this.config.apiUrl}`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `❌ Failed to initialize AppSync client: ${error.message}`,
+        );
+        this.graphqlClient = null;
+        this.appSyncClient = null;
+      }
+    } else if (!isValidUrl && this.config.apiUrl) {
+      this.logger.error(
+        `❌ Invalid AppSync URL format: ${this.config.apiUrl}`,
+      );
+    } else {
+      this.logger.warn(
+        `⚠️ AppSync not configured. Add APPSYNC_API_URL and APPSYNC_API_KEY to enable real-time notifications.`,
+      );
+    }
+  }
+
+  /**
+   * Validate if URL is a proper HTTPS URL
+   */
+  private isValidHttpsUrl(urlString: string): boolean {
+    try {
+      const url = new URL(urlString);
+      return url.protocol === 'https:' && url.hostname.length > 0;
+    } catch (error) {
+      return false;
+    }
   }
 
   /**
@@ -79,11 +112,17 @@ export class AppSyncPublisher {
     variables: any,
   ): Promise<any> {
     try {
-      const result = await this.graphqlClient.request(mutation, variables);
-      return result;
+      // Check if AppSync is properly configured
+      if (!this.config.apiUrl || !this.config.apiKey || !this.graphqlClient) {
+        this.logger.debug('AppSync not configured, skipping mutation');
+        return null;
+      }
+      
+      return await this.graphqlClient.request(mutation, variables);
     } catch (error) {
       this.logger.error(`GraphQL mutation failed: ${error.message}`);
-      throw error;
+      // Don't throw - just log and continue
+      return null;
     }
   }
 
@@ -115,12 +154,12 @@ export class AppSyncPublisher {
 
       const variables = {
         roomId,
-        voteData: {
+        voteData: JSON.stringify({
           userId: voteData.userId,
           mediaId: voteData.mediaId,
           voteType: voteData.voteType.toUpperCase(),
           progress: voteData.progress,
-        },
+        }),
       };
 
       await this.executeMutation(mutation, variables);
@@ -161,13 +200,13 @@ export class AppSyncPublisher {
 
       const variables = {
         roomId,
-        matchData: {
+        matchData: JSON.stringify({
           matchId: this.generateEventId(),
           mediaId: matchData.mediaId,
           mediaTitle: matchData.mediaTitle,
           participants: matchData.participants,
           consensusType: matchData.matchType.toUpperCase(),
-        },
+        }),
       };
 
       await this.executeMutation(mutation, variables);
@@ -205,12 +244,12 @@ export class AppSyncPublisher {
       const variables = {
         roomId,
         eventType: 'ROOM_STATE_CHANGE',
-        data: {
+        data: JSON.stringify({
           status: stateData.status,
           currentMediaId: stateData.currentMediaId,
           queueLength: stateData.queueLength,
           activeMembers: stateData.activeMembers,
-        },
+        }),
       };
 
       await this.executeMutation(mutation, variables);
@@ -624,9 +663,26 @@ export class AppSyncPublisher {
    */
   async healthCheck(): Promise<boolean> {
     try {
+      // If AppSync client is not initialized, it's not healthy
+      if (!this.appSyncClient || !this.config.apiUrl || !this.config.apiKey) {
+        return false;
+      }
+
+      // Validate URL format first
+      if (!this.isValidHttpsUrl(this.config.apiUrl)) {
+        this.logger.error(`Invalid AppSync URL format: ${this.config.apiUrl}`);
+        return false;
+      }
+
       // Try to get API information to verify connection
+      const apiId = this.extractApiIdFromUrl(this.config.apiUrl);
+      if (!apiId) {
+        this.logger.error(`Could not extract API ID from URL: ${this.config.apiUrl}`);
+        return false;
+      }
+
       const command = new GetGraphqlApiCommand({
-        apiId: this.extractApiIdFromUrl(this.config.apiUrl),
+        apiId: apiId,
       });
 
       await this.appSyncClient.send(command);
@@ -641,8 +697,13 @@ export class AppSyncPublisher {
    * Extract API ID from AppSync URL
    */
   private extractApiIdFromUrl(url: string): string {
-    const match = url.match(/https:\/\/([^.]+)\.appsync/);
-    return match ? match[1] : '';
+    try {
+      const match = url.match(/https:\/\/([^.]+)\.appsync/);
+      return match ? match[1] : '';
+    } catch (error) {
+      this.logger.error(`Error extracting API ID from URL: ${error.message}`);
+      return '';
+    }
   }
 
   /**

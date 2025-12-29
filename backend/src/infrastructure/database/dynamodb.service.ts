@@ -214,12 +214,17 @@ export class DynamoDBService {
         UpdateExpression: updateExpression,
         ConditionExpression: conditionExpression,
         ExpressionAttributeNames: expressionAttributeNames,
-        ExpressionAttributeValues: {
-          ...expressionAttributeValues,
-          ':updatedAt': new Date().toISOString(),
-        },
+        ExpressionAttributeValues: expressionAttributeValues,
         ReturnValues: 'ALL_NEW',
       };
+
+      // Solo añadir updatedAt si se usa en el UpdateExpression
+      if (updateExpression.includes(':updatedAt')) {
+        params.ExpressionAttributeValues = {
+          ...expressionAttributeValues,
+          ':updatedAt': new Date().toISOString(),
+        };
+      }
 
       const result = await this.dynamodb.update(params).promise();
       return result.Attributes as DynamoDBItem;

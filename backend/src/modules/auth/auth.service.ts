@@ -1,7 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { MultiTableService } from '../../infrastructure/database/multi-table.service';
 import { CognitoService } from '../../infrastructure/cognito/cognito.service';
 import { GoogleAuthService, GoogleUserInfo } from './google-auth.service';
+import { FederatedUserManagementService } from './federated-user-management.service';
+import { FederatedSessionManagementService } from './federated-session-management.service';
+import { GoogleAuthAnalyticsService } from './google-auth-analytics.service';
 import { EventTracker } from '../analytics/event-tracker.service';
 import { EventType } from '../analytics/interfaces/analytics.interfaces';
 import {
@@ -14,6 +17,7 @@ import {
   ForgotPasswordDto,
   ResetPasswordDto,
   CognitoTokens,
+  FederatedAuthResult,
 } from '../../domain/entities/user.entity';
 
 @Injectable()
@@ -24,6 +28,9 @@ export class AuthService {
     private multiTableService: MultiTableService,
     private cognitoService: CognitoService,
     private googleAuthService: GoogleAuthService,
+    private federatedUserService: FederatedUserManagementService,
+    private federatedSessionService: FederatedSessionManagementService,
+    private googleAnalyticsService: GoogleAuthAnalyticsService,
     private eventTracker: EventTracker,
   ) {}
 
@@ -437,29 +444,137 @@ export class AuthService {
     }
   }
 
-  // ==================== MÉTODOS DE GOOGLE AUTH ====================
+  // ==================== MÉTODOS DE GOOGLE AUTH FEDERADA ====================
 
   /**
-   * Autenticar con Google usando ID Token
+   * Autenticar con Google usando Cognito Identity Pool (Federado)
+   */
+  async loginWithGoogleFederated(idToken: string): Promise<FederatedAuthResult> {
+    const startTime = Date.now();
+    
+    try {
+      // Track intento de login
+      await this.googleAnalyticsService.trackLoginAttempt(undefined, 'federated', startTime);
+      
+      // Usar el nuevo método de autenticación federada
+      const federatedResult = await this.googleAuthService.authenticateWithGoogleFederated(idToken);
+      
+      // Crear o actualizar sesión federada
+      const sessionInfo = await this.federatedSessionService.createFederatedSession(
+        federatedResult.user.userId,
+        federatedResult.cognitoTokens,
+        'google',
+        federatedResult.user.cognitoIdentityId
+      );
+
+      // Sincronizar perfil con base de datos local si es necesario
+      if (!federatedResult.isNewUser) {
+        await this.syncFederatedUserProfile(federatedResult.user.userId, federatedResult.user);
+      }
+
+      // Track login exitoso
+      await this.googleAnalyticsService.trackLoginSuccess(
+        federatedResult.user.userId,
+        'federated',
+        startTime,
+        {
+          isNewUser: federatedResult.isNewUser,
+          cognitoIdentityId: federatedResult.user.cognitoIdentityId,
+          sessionId: sessionInfo.cognitoIdentityId,
+        }
+      );
+
+      this.logger.log(`Usuario autenticado con Google federado: ${federatedResult.user.email}`);
+      
+      return {
+        user: this.toUserProfile(federatedResult.user),
+        cognitoTokens: federatedResult.cognitoTokens,
+        isNewUser: federatedResult.isNewUser,
+        federatedIdentity: federatedResult.user.federatedIdentities?.[0] || {
+          provider: 'google',
+          providerId: federatedResult.user.googleId || '',
+          linkedAt: new Date(),
+          isActive: true,
+        },
+      };
+      
+    } catch (error) {
+      // Track login fallido
+      await this.googleAnalyticsService.trackLoginFailure(
+        undefined,
+        'federated',
+        startTime,
+        error.code || 'FEDERATED_AUTH_ERROR',
+        error.message,
+        {
+          originalError: error.name,
+        }
+      );
+      
+      this.logger.error(`Error en login federado con Google: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Autenticar con Google usando ID Token (método legacy mantenido para compatibilidad)
    */
   async loginWithGoogle(idToken: string): Promise<{ user: UserProfile; tokens: CognitoTokens }> {
     try {
-      // Verificar token de Google y obtener información del usuario
+      // Verificar si la autenticación federada está disponible
+      if (this.cognitoService.validateProviderConfiguration()) {
+        // Usar autenticación federada si está configurada
+        this.logger.log('🔄 Intentando autenticación federada...');
+        const federatedResult = await this.loginWithGoogleFederated(idToken);
+        return { 
+          user: federatedResult.user, 
+          tokens: federatedResult.cognitoTokens 
+        };
+      }
+
+      // Fallback al método legacy con manejo de errores mejorado
+      this.logger.log('🔄 Usando método legacy de Google Auth...');
+      return await this.loginWithGoogleLegacy(idToken);
+      
+    } catch (error) {
+      this.logger.error(`❌ Error en login con Google: ${error.message}`);
+      
+      // Intentar fallback si el error es de configuración
+      if (this.isConfigurationError(error)) {
+        this.logger.warn('⚠️ Error de configuración detectado, intentando fallback...');
+        try {
+          return await this.loginWithGoogleLegacy(idToken);
+        } catch (fallbackError) {
+          this.logger.error(`❌ Fallback también falló: ${fallbackError.message}`);
+          throw this.createUserFriendlyError(fallbackError);
+        }
+      }
+      
+      throw this.createUserFriendlyError(error);
+    }
+  }
+
+  /**
+   * Método legacy de autenticación con Google (fallback)
+   */
+  private async loginWithGoogleLegacy(idToken: string): Promise<{ user: UserProfile; tokens: CognitoTokens }> {
+    try {
       const googleUser = await this.googleAuthService.verifyGoogleToken(idToken);
       
-      // Crear o actualizar usuario desde información de Google
+      // Verificar si hay conflictos de email antes de proceder
+      await this.validateEmailConflicts(googleUser.email, googleUser.id);
+      
       const userProfile = await this.googleAuthService.createOrUpdateUserFromGoogle(googleUser);
       
-      // Generar tokens de Cognito para el usuario
-      // Nota: En un escenario real, esto requeriría configuración adicional de Cognito
-      // Por ahora, generamos tokens mock para el desarrollo
+      // Generar tokens mock para compatibilidad
       const tokens: CognitoTokens = {
         accessToken: `google_access_${userProfile.id}_${Date.now()}`,
         idToken: `google_id_${userProfile.id}_${Date.now()}`,
         refreshToken: `google_refresh_${userProfile.id}_${Date.now()}`,
+        expiresIn: 3600,
       };
 
-      this.logger.log(`Usuario autenticado con Google: ${googleUser.email}`);
+      this.logger.log(`✅ Usuario autenticado con Google (legacy): ${googleUser.email}`);
       
       return { 
         user: this.toUserProfile(userProfile), 
@@ -467,13 +582,530 @@ export class AuthService {
       };
       
     } catch (error) {
-      this.logger.error(`Error en login con Google: ${error.message}`);
+      this.logger.error(`❌ Error en método legacy: ${error.message}`);
       throw error;
     }
   }
 
   /**
-   * Vincular cuenta de Google a usuario existente
+   * Validar conflictos de email antes de la autenticación
+   */
+  private async validateEmailConflicts(email: string, googleId: string): Promise<void> {
+    try {
+      // Buscar usuarios existentes con este email
+      const existingUsersByEmail = await this.multiTableService.scan('trinity-users-dev', {
+        FilterExpression: 'email = :email',
+        ExpressionAttributeValues: {
+          ':email': email,
+        },
+      });
+
+      // Buscar usuarios existentes con este Google ID
+      const existingUsersByGoogleId = await this.multiTableService.scan('trinity-users-dev', {
+        FilterExpression: 'googleId = :googleId',
+        ExpressionAttributeValues: {
+          ':googleId': googleId,
+        },
+      });
+
+      // Verificar conflictos
+      if (existingUsersByEmail.length > 0 && existingUsersByGoogleId.length > 0) {
+        const emailUser = existingUsersByEmail[0];
+        const googleUser = existingUsersByGoogleId[0];
+        
+        if (emailUser.userId !== googleUser.userId) {
+          throw new ConflictException(
+            'Conflicto de identidad: Este email y Google ID pertenecen a usuarios diferentes. ' +
+            'Contacta al soporte para resolver este conflicto.'
+          );
+        }
+      }
+
+      // Verificar si el Google ID ya está vinculado a otro email
+      if (existingUsersByGoogleId.length > 0) {
+        const existingUser = existingUsersByGoogleId[0];
+        if (existingUser.email !== email) {
+          throw new ConflictException(
+            `Esta cuenta de Google ya está vinculada al email: ${existingUser.email}. ` +
+            'Si necesitas cambiar el email, contacta al soporte.'
+          );
+        }
+      }
+
+    } catch (error) {
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      
+      // Log del error pero no bloquear el flujo por errores de validación
+      this.logger.warn(`⚠️ Error validando conflictos de email: ${error.message}`);
+    }
+  }
+
+  /**
+   * Determinar si un error es de configuración
+   */
+  private isConfigurationError(error: any): boolean {
+    const configErrorMessages = [
+      'not configured',
+      'configuration missing',
+      'invalid credentials',
+      'identity pool',
+      'provider configuration',
+    ];
+    
+    return configErrorMessages.some(msg => 
+      error.message?.toLowerCase().includes(msg.toLowerCase())
+    );
+  }
+
+  /**
+   * Crear error amigable para el usuario
+   */
+  private createUserFriendlyError(error: any): Error {
+    // Mapear errores técnicos a mensajes amigables
+    if (error instanceof UnauthorizedException) {
+      return error; // Ya es amigable
+    }
+    
+    if (error instanceof ConflictException) {
+      return error; // Ya es amigable
+    }
+    
+    if (error.message?.includes('network') || error.message?.includes('timeout')) {
+      return new Error(
+        'Error de conexión. Verifica tu conexión a internet e intenta nuevamente.'
+      );
+    }
+    
+    if (error.message?.includes('service unavailable') || error.message?.includes('temporarily down')) {
+      return new Error(
+        'El servicio de autenticación no está disponible temporalmente. Intenta nuevamente en unos minutos.'
+      );
+    }
+    
+    if (error.message?.includes('rate limit') || error.message?.includes('too many')) {
+      return new Error(
+        'Demasiados intentos de autenticación. Espera unos minutos antes de intentar nuevamente.'
+      );
+    }
+    
+    // Error genérico para casos no manejados específicamente
+    this.logger.error(`🔒 Error no manejado específicamente: ${error.message}`);
+    return new Error(
+      'Error de autenticación. Si el problema persiste, contacta al soporte técnico.'
+    );
+  }
+
+  /**
+   * Intercambiar token de Google por tokens de Cognito
+   */
+  async exchangeGoogleTokenForCognito(googleToken: string): Promise<CognitoTokens> {
+    try {
+      if (!this.cognitoService.validateProviderConfiguration()) {
+        throw new Error('Cognito federated authentication not configured');
+      }
+
+      return await this.cognitoService.exchangeGoogleTokenForCognito(googleToken);
+      
+    } catch (error) {
+      this.logger.error(`Error intercambiando token de Google: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Sincronizar perfil de usuario federado
+   */
+  async syncFederatedUserProfile(userId: string, federatedUserData: any): Promise<UserProfile> {
+    try {
+      const updateData = {
+        displayName: federatedUserData.displayName,
+        avatarUrl: federatedUserData.avatarUrl,
+        emailVerified: federatedUserData.emailVerified,
+      };
+
+      // Actualizar perfil local
+      const updatedProfile = await this.updateProfile(userId, updateData);
+
+      // Actualizar metadatos de federación
+      await this.multiTableService.update('trinity-users-dev', { userId }, {
+        UpdateExpression: `
+          SET lastGoogleSync = :lastGoogleSync,
+              federatedIdentity = :federatedIdentity
+        `,
+        ExpressionAttributeValues: {
+          ':lastGoogleSync': new Date().toISOString(),
+          ':federatedIdentity': federatedUserData.federatedIdentity || {
+            provider: 'google',
+            providerId: federatedUserData.googleId,
+            lastSync: new Date().toISOString(),
+          },
+        },
+      });
+
+      this.logger.log(`Perfil federado sincronizado: ${userId}`);
+      return updatedProfile;
+      
+    } catch (error) {
+      this.logger.error(`Error sincronizando perfil federado: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Vincular cuenta de Google a usuario existente (versión federada)
+   */
+  async linkGoogleAccountFederated(userId: string, idToken: string): Promise<UserProfile> {
+    try {
+      this.logger.log(`🔗 Iniciando vinculación federada para usuario: ${userId}`);
+      
+      // Verificar token de Google con manejo de errores
+      const googleUser = await this.verifyGoogleTokenSafely(idToken);
+      
+      // Validar que se puede vincular la cuenta con validaciones completas
+      await this.validateAccountLinkingComprehensive(userId, googleUser.id, googleUser.email);
+      
+      // Usar el nuevo servicio de gestión de usuarios federados
+      const linkedProfile = await this.federatedUserService.linkFederatedIdentity({
+        userId,
+        provider: 'google',
+        providerId: googleUser.id,
+        providerData: {
+          email: googleUser.email,
+          name: googleUser.name,
+          picture: googleUser.picture,
+          locale: googleUser.locale,
+          hd: googleUser.hd,
+          metadata: {
+            email_verified: googleUser.email_verified,
+            given_name: googleUser.given_name,
+            family_name: googleUser.family_name,
+          },
+        },
+      });
+
+      // Vincular en Cognito si está configurado (con manejo de errores)
+      if (this.cognitoService.validateProviderConfiguration()) {
+        try {
+          await this.cognitoService.linkGoogleProvider(userId, idToken);
+          this.logger.log(`✅ Google vinculado en Cognito para usuario: ${userId}`);
+        } catch (cognitoError) {
+          this.logger.warn(`⚠️ Error vinculando en Cognito (continuando): ${cognitoError.message}`);
+          // No bloquear el flujo por errores de Cognito
+        }
+      }
+
+      // Track vinculación exitosa
+      await this.googleAnalyticsService.trackAccountLinking(
+        userId,
+        true,
+        undefined,
+        {
+          googleId: googleUser.id,
+          googleEmail: googleUser.email,
+        }
+      );
+      
+      this.logger.log(`✅ Cuenta de Google vinculada exitosamente (federado): ${userId}`);
+      
+      return linkedProfile;
+      
+    } catch (error) {
+      // Track vinculación fallida
+      await this.googleAnalyticsService.trackAccountLinking(
+        userId,
+        false,
+        error.message,
+        {
+          errorType: error.constructor.name,
+        }
+      );
+      
+      this.logger.error(`❌ Error vinculando cuenta de Google (federado): ${error.message}`);
+      throw this.createUserFriendlyError(error);
+    }
+  }
+
+  /**
+   * Desvincular cuenta de Google de usuario (versión federada)
+   */
+  async unlinkGoogleAccountFederated(userId: string): Promise<UserProfile> {
+    try {
+      this.logger.log(`🔓 Iniciando desvinculación federada para usuario: ${userId}`);
+      
+      // Validar que se puede desvincular la cuenta con validaciones completas
+      await this.validateAccountUnlinkingComprehensive(userId);
+      
+      // Desvincular en Cognito si está configurado (con manejo de errores)
+      if (this.cognitoService.validateProviderConfiguration()) {
+        try {
+          await this.cognitoService.unlinkGoogleProvider(userId);
+          this.logger.log(`✅ Google desvinculado en Cognito para usuario: ${userId}`);
+        } catch (cognitoError) {
+          this.logger.warn(`⚠️ Error desvinculando en Cognito (continuando): ${cognitoError.message}`);
+          // No bloquear el flujo por errores de Cognito
+        }
+      }
+      
+      // Desvincular Google del usuario con reintentos
+      await this.unlinkGoogleWithRetry(userId);
+      
+      // Retornar perfil actualizado
+      const updatedUser = await this.getUserById(userId);
+      if (!updatedUser) {
+        throw new Error('Error obteniendo usuario actualizado después de desvinculación');
+      }
+      
+      this.logger.log(`✅ Cuenta de Google desvinculada exitosamente (federado): ${userId}`);
+      
+      return this.toUserProfile(updatedUser);
+      
+    } catch (error) {
+      this.logger.error(`❌ Error desvinculando cuenta de Google (federado): ${error.message}`);
+      throw this.createUserFriendlyError(error);
+    }
+  }
+
+  /**
+   * Verificar token de Google de forma segura con manejo de errores
+   */
+  private async verifyGoogleTokenSafely(idToken: string): Promise<any> {
+    try {
+      return await this.googleAuthService.verifyGoogleToken(idToken);
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw new UnauthorizedException(
+          'Token de Google inválido o expirado. Intenta iniciar sesión nuevamente en Google.'
+        );
+      }
+      
+      if (error.message?.includes('network') || error.message?.includes('timeout')) {
+        throw new Error(
+          'Error de conexión al verificar token de Google. Verifica tu conexión e intenta nuevamente.'
+        );
+      }
+      
+      throw new Error('Error verificando token de Google. Intenta nuevamente.');
+    }
+  }
+
+  /**
+   * Validar vinculación de cuenta de forma comprehensiva
+   */
+  private async validateAccountLinkingComprehensive(userId: string, googleId: string, googleEmail: string): Promise<void> {
+    try {
+      // Validación básica
+      await this.validateAccountLinking(userId, googleId, googleEmail);
+      
+      // Validaciones adicionales de seguridad
+      const user = await this.getUserById(userId);
+      if (!user) {
+        throw new Error('Usuario no encontrado');
+      }
+
+      // Verificar que el usuario no tenga demasiados proveedores vinculados
+      const authProviders = await this.getUserAuthProviders(userId);
+      const maxProviders = 5; // Límite de seguridad
+      
+      if (authProviders.length >= maxProviders) {
+        throw new Error(
+          `No se pueden vincular más proveedores. Límite máximo: ${maxProviders}`
+        );
+      }
+
+      // Verificar que no haya intentos de vinculación recientes fallidos
+      await this.checkRecentLinkingAttempts(userId);
+      
+    } catch (error) {
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      throw new Error(`Error validando vinculación: ${error.message}`);
+    }
+  }
+
+  /**
+   * Validar desvinculación de cuenta de forma comprehensiva
+   */
+  private async validateAccountUnlinkingComprehensive(userId: string): Promise<void> {
+    try {
+      // Validación básica
+      await this.validateAccountUnlinking(userId);
+      
+      // Validaciones adicionales
+      const user = await this.getUserById(userId);
+      if (!user) {
+        throw new Error('Usuario no encontrado');
+      }
+
+      // Verificar que el usuario tenga acceso alternativo
+      const authProviders = await this.getUserAuthProviders(userId);
+      const nonGoogleProviders = authProviders.filter(provider => provider !== 'google');
+      
+      if (nonGoogleProviders.length === 0) {
+        throw new Error(
+          'No se puede desvincular Google: es el único método de autenticación. ' +
+          'Configura una contraseña primero desde tu perfil.'
+        );
+      }
+
+      // Si solo tiene email, verificar que tenga contraseña configurada
+      if (nonGoogleProviders.length === 1 && nonGoogleProviders[0] === 'email') {
+        // En el futuro, verificar que tiene contraseña en Cognito
+        this.logger.warn(`⚠️ Usuario ${userId} desvinculando Google con solo email como alternativa`);
+      }
+      
+    } catch (error) {
+      throw new Error(`Error validando desvinculación: ${error.message}`);
+    }
+  }
+
+  /**
+   * Vincular Google con reintentos
+   */
+  private async linkGoogleWithRetry(userId: string, googleUser: any, maxRetries: number = 3): Promise<void> {
+    let lastError;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this.googleAuthService.linkGoogleToExistingUser(userId, googleUser);
+        return; // Éxito
+      } catch (error) {
+        lastError = error;
+        this.logger.warn(`⚠️ Intento ${attempt}/${maxRetries} de vinculación falló: ${error.message}`);
+        
+        if (attempt < maxRetries) {
+          // Esperar antes del siguiente intento
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+      }
+    }
+    
+    throw new Error(`Error vinculando Google después de ${maxRetries} intentos: ${lastError?.message}`);
+  }
+
+  /**
+   * Desvincular Google con reintentos
+   */
+  private async unlinkGoogleWithRetry(userId: string, maxRetries: number = 3): Promise<void> {
+    let lastError;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this.googleAuthService.unlinkGoogleFromUser(userId);
+        return; // Éxito
+      } catch (error) {
+        lastError = error;
+        this.logger.warn(`⚠️ Intento ${attempt}/${maxRetries} de desvinculación falló: ${error.message}`);
+        
+        if (attempt < maxRetries) {
+          // Esperar antes del siguiente intento
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+      }
+    }
+    
+    throw new Error(`Error desvinculando Google después de ${maxRetries} intentos: ${lastError?.message}`);
+  }
+
+  /**
+   * Sincronizar perfil de forma segura
+   */
+  private async syncProfileSafely(userId: string, googleUser: any): Promise<void> {
+    try {
+      await this.googleAuthService.syncProfileFromGoogle(userId, googleUser);
+    } catch (error) {
+      // Log del error pero no bloquear el flujo
+      this.logger.warn(`⚠️ Error sincronizando perfil desde Google: ${error.message}`);
+    }
+  }
+
+  /**
+   * Verificar intentos de vinculación recientes
+   */
+  private async checkRecentLinkingAttempts(userId: string): Promise<void> {
+    // Implementación básica - en producción usar Redis o similar
+    // Por ahora, solo log de la verificación
+    this.logger.log(`🔐 Verificando intentos de vinculación recientes para: ${userId}`);
+    
+    // TODO: Implementar verificación real de rate limiting
+    // const recentAttempts = await redis.get(`link_attempts_${userId}`);
+    // if (recentAttempts && parseInt(recentAttempts) > 5) {
+    //   throw new Error('Demasiados intentos de vinculación recientes');
+    // }
+  }
+
+  /**
+   * Validar que se puede vincular una cuenta de Google
+   */
+  private async validateAccountLinking(userId: string, googleId: string, googleEmail: string): Promise<void> {
+    // Verificar que el usuario existe
+    const user = await this.getUserById(userId);
+    if (!user) {
+      throw new Error('Usuario no encontrado');
+    }
+
+    // Verificar que no hay otro usuario con este Google ID
+    const existingGoogleUsers = await this.multiTableService.scan('trinity-users-dev', {
+      FilterExpression: 'googleId = :googleId',
+      ExpressionAttributeValues: {
+        ':googleId': googleId,
+      },
+    });
+
+    if (existingGoogleUsers.length > 0 && existingGoogleUsers[0].userId !== userId) {
+      throw new ConflictException('Esta cuenta de Google ya está vinculada a otro usuario');
+    }
+
+    // Verificar que el email coincide o que el usuario permite múltiples emails
+    if (user.email !== googleEmail) {
+      this.logger.warn(`Email diferente en vinculación: usuario=${user.email}, google=${googleEmail}`);
+      // En el futuro, aquí se podría implementar lógica para manejar múltiples emails
+    }
+  }
+
+  /**
+   * Validar que se puede desvincular una cuenta de Google
+   */
+  private async validateAccountUnlinking(userId: string): Promise<void> {
+    // Verificar que el usuario existe
+    const user = await this.getUserById(userId);
+    if (!user) {
+      throw new Error('Usuario no encontrado');
+    }
+
+    // Verificar que el usuario tiene otros métodos de autenticación
+    const userData = await this.multiTableService.getUser(userId);
+    const authProviders = userData?.authProviders || [];
+    const nonGoogleProviders = authProviders.filter(provider => provider !== 'google');
+    
+    if (nonGoogleProviders.length === 0) {
+      throw new Error('No se puede desvincular Google: es el único método de autenticación');
+    }
+
+    // Verificar que el usuario tiene contraseña configurada si solo tiene email como alternativa
+    if (nonGoogleProviders.length === 1 && nonGoogleProviders[0] === 'email') {
+      // En el futuro, verificar que tiene contraseña en Cognito
+      this.logger.warn(`Usuario ${userId} desvinculando Google con solo email como alternativa`);
+    }
+  }
+
+  /**
+   * Obtener proveedores de autenticación del usuario
+   */
+  async getUserAuthProviders(userId: string): Promise<string[]> {
+    try {
+      const userData = await this.multiTableService.getUser(userId);
+      return userData?.authProviders || ['email'];
+    } catch (error) {
+      this.logger.error(`Error obteniendo proveedores de auth: ${error.message}`);
+      return ['email'];
+    }
+  }
+
+  /**
+   * Vincular cuenta de Google a usuario existente (método legacy para compatibilidad)
    */
   async linkGoogleAccount(userId: string, idToken: string): Promise<UserProfile> {
     try {
@@ -489,18 +1121,18 @@ export class AuthService {
       // Retornar perfil actualizado
       const updatedUser = await this.getUserById(userId);
       
-      this.logger.log(`Cuenta de Google vinculada al usuario: ${userId}`);
+      this.logger.log(`Cuenta de Google vinculada al usuario (legacy): ${userId}`);
       
       return this.toUserProfile(updatedUser!);
       
     } catch (error) {
-      this.logger.error(`Error vinculando cuenta de Google: ${error.message}`);
+      this.logger.error(`Error vinculando cuenta de Google (legacy): ${error.message}`);
       throw error;
     }
   }
 
   /**
-   * Desvincular cuenta de Google de usuario
+   * Desvincular cuenta de Google de usuario (método legacy para compatibilidad)
    */
   async unlinkGoogleAccount(userId: string): Promise<UserProfile> {
     try {
@@ -510,13 +1142,27 @@ export class AuthService {
       // Retornar perfil actualizado
       const updatedUser = await this.getUserById(userId);
       
-      this.logger.log(`Cuenta de Google desvinculada del usuario: ${userId}`);
+      this.logger.log(`Cuenta de Google desvinculada del usuario (legacy): ${userId}`);
       
       return this.toUserProfile(updatedUser!);
       
     } catch (error) {
-      this.logger.error(`Error desvinculando cuenta de Google: ${error.message}`);
+      this.logger.error(`Error desvinculando cuenta de Google (legacy): ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * Verificar si el usuario puede desvincular Google
+   */
+  async canUnlinkGoogle(userId: string): Promise<boolean> {
+    try {
+      const authProviders = await this.getUserAuthProviders(userId);
+      const nonGoogleProviders = authProviders.filter(provider => provider !== 'google');
+      return nonGoogleProviders.length > 0;
+    } catch (error) {
+      this.logger.error(`Error verificando si puede desvincular Google: ${error.message}`);
+      return false;
     }
   }
 

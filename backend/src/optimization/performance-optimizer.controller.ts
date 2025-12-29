@@ -28,15 +28,31 @@ import {
   RealtimeOptimizationResult,
   RealtimeMetrics,
 } from './realtime-optimizer.service';
+import { ConnectionPoolService } from './services/connection-pool.service';
+import { CacheOptimizationService } from './services/cache-optimization.service';
+import { MemoryManagerService } from './services/memory-manager.service';
+import { StaticAssetOptimizationService } from './services/static-asset-optimization.service';
+import { CompressionMiddleware } from './middleware/compression.middleware';
 
 export interface PerformanceOptimizationSummary {
   databaseOptimizations: DatabaseOptimizationResult[];
   apiOptimizations: APIOptimizationResult[];
   realtimeOptimizations: RealtimeOptimizationResult[];
+  // Phase 2 optimizations
+  connectionPoolOptimization: any;
+  cacheOptimization: any;
+  memoryOptimization: any;
+  assetOptimization: any;
+  compressionOptimization: any;
   overallImprovement: {
     databaseImprovement: number;
     apiImprovement: number;
     realtimeImprovement: number;
+    // Phase 2 improvements
+    connectionPoolImprovement: number;
+    cacheImprovement: number;
+    memoryImprovement: number;
+    assetImprovement: number;
     totalImprovement: number;
   };
   metricsComparison: {
@@ -50,6 +66,12 @@ export interface PerformanceMetrics {
   database: DatabaseMetrics;
   api: APIMetrics;
   realtime: RealtimeMetrics;
+  // Phase 2 metrics
+  connectionPool: any;
+  cache: any;
+  memory: any;
+  assets: any;
+  compression: any;
 }
 
 export interface OptimizationRecommendations {
@@ -69,18 +91,24 @@ export class PerformanceOptimizerController {
     private readonly databaseOptimizer: DatabaseOptimizerService,
     private readonly apiOptimizer: APIOptimizerService,
     private readonly realtimeOptimizer: RealtimeOptimizerService,
+    // Phase 2 services
+    private readonly connectionPoolService: ConnectionPoolService,
+    private readonly cacheOptimizationService: CacheOptimizationService,
+    private readonly memoryManagerService: MemoryManagerService,
+    private readonly staticAssetOptimizationService: StaticAssetOptimizationService,
+    private readonly compressionMiddleware: CompressionMiddleware,
   ) {}
 
   @Post('optimize-all')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Run complete performance optimization',
+    summary: 'Run complete performance optimization (Phase 1 + Phase 2)',
     description:
-      'Executes database, API, and real-time optimizations for Task 12 completion',
+      'Executes all performance optimizations including database, API, real-time, connection pooling, caching, memory management, and asset optimization',
   })
   @ApiResponse({
     status: 200,
-    description: 'Performance optimization completed successfully',
+    description: 'Complete performance optimization completed successfully',
     type: Object,
   })
   async optimizeAllSystems(): Promise<PerformanceOptimizationSummary> {
@@ -92,18 +120,39 @@ export class PerformanceOptimizerController {
         cacheHitRate: 0,
         indexUtilization: 0,
         connectionPoolUsage: 0,
-      }, // await this.databaseOptimizer.collectDatabaseMetrics(),
+      },
       api: await this.apiOptimizer.collectAPIMetrics(),
       realtime: await this.realtimeOptimizer.collectRealtimeMetrics(),
+      // Phase 2 metrics
+      connectionPool: this.connectionPoolService.getPoolMetrics(),
+      cache: this.cacheOptimizationService.getCacheMetrics(),
+      memory: this.memoryManagerService.getMemoryMetrics(),
+      assets: this.staticAssetOptimizationService.getAssetMetrics(),
+      compression: this.compressionMiddleware.getCompressionMetrics(),
     };
 
-    // Run all optimizations
+    // Run Phase 1 optimizations
     const [databaseOptimizations, apiOptimizations, realtimeOptimizations] =
       await Promise.all([
         this.databaseOptimizer.optimizeDatabaseQueries(),
         this.apiOptimizer.optimizeAPIPerformance(),
         this.realtimeOptimizer.optimizeRealtimePerformance(),
       ]);
+
+    // Run Phase 2 optimizations
+    const [
+      connectionPoolOptimization,
+      cacheOptimization,
+      memoryOptimization,
+      assetOptimization,
+      compressionOptimization,
+    ] = await Promise.all([
+      this.connectionPoolService.optimizePool(),
+      this.cacheOptimizationService.optimizeCache(),
+      this.memoryManagerService.performMemoryOptimization(),
+      this.staticAssetOptimizationService.performAssetOptimization(),
+      this.compressionMiddleware.optimizeCompressionSettings(),
+    ]);
 
     // Collect post-optimization metrics
     const afterMetrics: PerformanceMetrics = {
@@ -113,30 +162,69 @@ export class PerformanceOptimizerController {
         cacheHitRate: 0,
         indexUtilization: 0,
         connectionPoolUsage: 0,
-      }, // await this.databaseOptimizer.collectDatabaseMetrics(),
+      },
       api: await this.apiOptimizer.collectAPIMetrics(),
       realtime: await this.realtimeOptimizer.collectRealtimeMetrics(),
+      // Phase 2 metrics
+      connectionPool: this.connectionPoolService.getPoolMetrics(),
+      cache: this.cacheOptimizationService.getCacheMetrics(),
+      memory: this.memoryManagerService.getMemoryMetrics(),
+      assets: this.staticAssetOptimizationService.getAssetMetrics(),
+      compression: this.compressionMiddleware.getCompressionMetrics(),
     };
 
     // Calculate improvements
-    const databaseImprovement = this.calculateDatabaseImprovement(
-      databaseOptimizations,
-    );
+    const databaseImprovement = this.calculateDatabaseImprovement(databaseOptimizations);
     const apiImprovement = this.calculateAPIImprovement(apiOptimizations);
-    const realtimeImprovement = this.calculateRealtimeImprovement(
-      realtimeOptimizations,
+    const realtimeImprovement = this.calculateRealtimeImprovement(realtimeOptimizations);
+    
+    // Phase 2 improvements
+    const connectionPoolImprovement = this.calculateConnectionPoolImprovement(
+      beforeMetrics.connectionPool,
+      afterMetrics.connectionPool
     );
-    const totalImprovement =
-      (databaseImprovement + apiImprovement + realtimeImprovement) / 3;
+    const cacheImprovement = this.calculateCacheImprovement(
+      beforeMetrics.cache,
+      afterMetrics.cache
+    );
+    const memoryImprovement = this.calculateMemoryImprovement(
+      memoryOptimization.before,
+      memoryOptimization.after
+    );
+    const assetImprovement = this.calculateAssetImprovement(
+      assetOptimization.before,
+      assetOptimization.after
+    );
+
+    const totalImprovement = (
+      databaseImprovement + 
+      apiImprovement + 
+      realtimeImprovement + 
+      connectionPoolImprovement + 
+      cacheImprovement + 
+      memoryImprovement + 
+      assetImprovement
+    ) / 7;
 
     return {
       databaseOptimizations,
       apiOptimizations,
       realtimeOptimizations,
+      // Phase 2 optimizations
+      connectionPoolOptimization,
+      cacheOptimization,
+      memoryOptimization,
+      assetOptimization,
+      compressionOptimization,
       overallImprovement: {
         databaseImprovement,
         apiImprovement,
         realtimeImprovement,
+        // Phase 2 improvements
+        connectionPoolImprovement,
+        cacheImprovement,
+        memoryImprovement,
+        assetImprovement,
         totalImprovement,
       },
       metricsComparison: {
@@ -195,11 +283,87 @@ export class PerformanceOptimizerController {
     return await this.realtimeOptimizer.optimizeRealtimePerformance();
   }
 
+  // Phase 2 optimization endpoints
+  @Post('optimize-connection-pool')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Optimize database connection pool',
+    description: 'Optimizes DynamoDB connection pooling for better performance',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Connection pool optimization completed',
+    type: Object,
+  })
+  async optimizeConnectionPool(): Promise<any> {
+    return await this.connectionPoolService.optimizePool();
+  }
+
+  @Post('optimize-cache')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Optimize caching strategy',
+    description: 'Optimizes cache configuration and strategies for better hit rates',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Cache optimization completed',
+    type: Object,
+  })
+  async optimizeCache(): Promise<any> {
+    return await this.cacheOptimizationService.optimizeCache();
+  }
+
+  @Post('optimize-memory')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Optimize memory usage',
+    description: 'Performs memory optimization including garbage collection and cleanup',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Memory optimization completed',
+    type: Object,
+  })
+  async optimizeMemory(): Promise<any> {
+    return await this.memoryManagerService.performMemoryOptimization();
+  }
+
+  @Post('optimize-assets')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Optimize static assets',
+    description: 'Optimizes static assets including compression, CDN, and caching',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Asset optimization completed',
+    type: Object,
+  })
+  async optimizeAssets(): Promise<any> {
+    return await this.staticAssetOptimizationService.performAssetOptimization();
+  }
+
+  @Post('optimize-compression')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Optimize response compression',
+    description: 'Optimizes HTTP response compression settings',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Compression optimization completed',
+    type: Object,
+  })
+  async optimizeCompression(): Promise<any> {
+    return this.compressionMiddleware.optimizeCompressionSettings();
+  }
+
   @Get('metrics')
   @ApiOperation({
     summary: 'Get current performance metrics',
     description:
-      'Returns current performance metrics for database, API, and real-time systems',
+      'Returns current performance metrics for all optimization systems (Phase 1 + Phase 2)',
   })
   @ApiResponse({
     status: 200,
@@ -214,9 +378,15 @@ export class PerformanceOptimizerController {
         cacheHitRate: 0,
         indexUtilization: 0,
         connectionPoolUsage: 0,
-      }, // await this.databaseOptimizer.collectDatabaseMetrics(),
+      },
       api: await this.apiOptimizer.collectAPIMetrics(),
       realtime: await this.realtimeOptimizer.collectRealtimeMetrics(),
+      // Phase 2 metrics
+      connectionPool: this.connectionPoolService.getPoolMetrics(),
+      cache: this.cacheOptimizationService.getCacheMetrics(),
+      memory: this.memoryManagerService.getMemoryMetrics(),
+      assets: this.staticAssetOptimizationService.getAssetMetrics(),
+      compression: this.compressionMiddleware.getCompressionMetrics(),
     };
   }
 
@@ -461,5 +631,33 @@ export class PerformanceOptimizerController {
       optimizations.reduce((sum, opt) => sum + opt.improvement, 0) /
       optimizations.length
     );
+  }
+
+  // Phase 2 improvement calculations
+  private calculateConnectionPoolImprovement(before: any, after: any): number {
+    if (!before || !after) return 0;
+    const utilizationImprovement = ((before.poolUtilization - after.poolUtilization) / before.poolUtilization) * 100;
+    const connectionTimeImprovement = ((before.averageConnectionTime - after.averageConnectionTime) / before.averageConnectionTime) * 100;
+    return Math.max(0, (utilizationImprovement + connectionTimeImprovement) / 2);
+  }
+
+  private calculateCacheImprovement(before: any, after: any): number {
+    if (!before || !after) return 0;
+    const hitRateImprovement = ((after.hitRate - before.hitRate) / Math.max(before.hitRate, 0.01)) * 100;
+    const responseTimeImprovement = ((before.averageResponseTime - after.averageResponseTime) / before.averageResponseTime) * 100;
+    return Math.max(0, (hitRateImprovement + responseTimeImprovement) / 2);
+  }
+
+  private calculateMemoryImprovement(before: any, after: any): number {
+    if (!before || !after) return 0;
+    const memoryUsageImprovement = ((before.memoryUsagePercentage - after.memoryUsagePercentage) / before.memoryUsagePercentage) * 100;
+    return Math.max(0, memoryUsageImprovement);
+  }
+
+  private calculateAssetImprovement(before: any, after: any): number {
+    if (!before || !after) return 0;
+    const compressionImprovement = ((after.compressionRatio - before.compressionRatio) / Math.max(before.compressionRatio, 0.01)) * 100;
+    const loadTimeImprovement = ((before.averageLoadTime - after.averageLoadTime) / before.averageLoadTime) * 100;
+    return Math.max(0, (compressionImprovement + loadTimeImprovement) / 2);
   }
 }

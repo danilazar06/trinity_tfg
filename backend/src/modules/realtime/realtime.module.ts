@@ -12,7 +12,7 @@ import { RealtimeCompatibilityService } from './realtime-compatibility.service';
     RealtimeService,
     AppSyncPublisher,
     RealtimeCompatibilityService,
-    // Alias for backward compatibility
+    // Use AppSync as the main realtime service
     {
       provide: 'RealtimeServiceCompat',
       useExisting: RealtimeCompatibilityService,

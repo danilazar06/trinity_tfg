@@ -16,6 +16,42 @@ export interface User {
   isGoogleLinked?: boolean;
   authProviders?: string[];
   lastGoogleSync?: Date;
+  // Campos de Identidad Federada
+  federatedIdentities?: FederatedIdentity[];
+  primaryAuthProvider?: string;
+  cognitoIdentityId?: string; // Cognito Identity Pool ID
+  federatedTokens?: FederatedTokenMetadata;
+  accountLinkingHistory?: AccountLinkingEvent[];
+}
+
+export interface FederatedIdentity {
+  provider: string; // 'google', 'facebook', 'apple', etc.
+  providerId: string; // ID único del proveedor
+  providerEmail?: string;
+  providerName?: string;
+  providerPicture?: string;
+  providerLocale?: string;
+  providerDomain?: string; // Para Google Workspace
+  linkedAt: Date;
+  lastSyncAt?: Date;
+  isActive: boolean;
+  metadata?: Record<string, any>;
+}
+
+export interface FederatedTokenMetadata {
+  cognitoIdentityId?: string;
+  lastTokenRefresh?: Date;
+  tokenExpiresAt?: Date;
+  refreshTokenHash?: string; // Hash del refresh token para seguridad
+}
+
+export interface AccountLinkingEvent {
+  eventType: 'linked' | 'unlinked' | 'sync_failed' | 'token_refreshed';
+  provider: string;
+  timestamp: Date;
+  success: boolean;
+  errorMessage?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface CreateUserDto {
@@ -64,10 +100,41 @@ export interface UserProfile {
   googleId?: string;
   isGoogleLinked?: boolean;
   authProviders?: string[];
+  // Campos de Identidad Federada
+  federatedIdentities?: FederatedIdentity[];
+  primaryAuthProvider?: string;
+  cognitoIdentityId?: string;
+}
+
+export interface FederatedAuthResult {
+  user: UserProfile;
+  cognitoTokens: CognitoTokens;
+  isNewUser: boolean;
+  federatedIdentity: FederatedIdentity;
+}
+
+export interface CreateFederatedUserDto {
+  googleUser: any; // GoogleUserInfo
+  cognitoIdentityId: string;
+  cognitoTokens: CognitoTokens;
+}
+
+export interface LinkFederatedAccountDto {
+  userId: string;
+  provider: string;
+  providerId: string;
+  providerData: any;
+}
+
+export interface UpdateFederatedUserDto {
+  userId: string;
+  federatedIdentity: Partial<FederatedIdentity>;
+  syncData?: any;
 }
 
 export interface CognitoTokens {
   accessToken: string;
   idToken: string;
   refreshToken: string;
+  expiresIn?: number;
 }

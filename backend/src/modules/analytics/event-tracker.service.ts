@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { MultiTableService } from '../../infrastructure/database/multi-table.service';
 import {
   AnalyticsEvent,
@@ -10,9 +11,14 @@ import { v4 as uuidv4 } from 'uuid';
 @Injectable()
 export class EventTracker {
   private readonly logger = new Logger(EventTracker.name);
-  private readonly ANALYTICS_EVENTS_TABLE = 'trinity-analytics-events';
+  private readonly ANALYTICS_EVENTS_TABLE: string;
 
-  constructor(private readonly multiTableService: MultiTableService) {}
+  constructor(
+    private readonly multiTableService: MultiTableService,
+    private readonly configService: ConfigService,
+  ) {
+    this.ANALYTICS_EVENTS_TABLE = this.configService.get('ANALYTICS_TABLE', 'trinity-analytics-dev');
+  }
 
   /**
    * 📝 Track a single analytics event
@@ -229,7 +235,8 @@ export class EventTracker {
       await this.multiTableService.putItem(this.ANALYTICS_EVENTS_TABLE, event);
     } catch (error) {
       this.logger.error('❌ Error storing event:', error);
-      throw error;
+      // Don't throw - analytics failures shouldn't break main functionality
+      // Just log the error and continue
     }
   }
 
@@ -242,7 +249,7 @@ export class EventTracker {
       );
     } catch (error) {
       this.logger.error('❌ Error storing batch events:', error);
-      throw error;
+      // Don't throw - analytics failures shouldn't break main functionality
     }
   }
 

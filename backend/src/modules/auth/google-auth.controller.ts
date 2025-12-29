@@ -40,16 +40,16 @@ export class GoogleAuthController {
   }
 
   @Post('login')
-  @ApiOperation({ summary: 'Iniciar sesión con Google usando ID Token' })
+  @ApiOperation({ summary: 'Iniciar sesión con Google usando ID Token (Federado)' })
   @ApiResponse({ 
     status: 200, 
-    description: 'Login exitoso con Google',
+    description: 'Login exitoso con Google usando Cognito Identity Pool',
     type: GoogleAuthResponseDto,
   })
   @ApiResponse({ status: 401, description: 'Token de Google inválido' })
   @ApiResponse({ status: 400, description: 'Google Auth no está disponible' })
   async loginWithGoogle(@Body() googleTokenDto: GoogleTokenDto) {
-    this.logger.log('🔐 Iniciando login con Google...');
+    this.logger.log('🔐 Iniciando login federado con Google...');
     
     if (!this.authService.isGoogleAuthAvailable()) {
       this.logger.error('❌ Google Auth no está disponible');
@@ -57,26 +57,45 @@ export class GoogleAuthController {
     }
 
     try {
-      const result = await this.authService.loginWithGoogle(googleTokenDto.idToken);
+      // Intentar autenticación federada primero
+      const result = await this.authService.loginWithGoogleFederated(googleTokenDto.idToken);
       
-      this.logger.log(`✅ Login con Google exitoso: ${result.user.email}`);
+      this.logger.log(`✅ Login federado con Google exitoso: ${result.user.email}`);
       
       return {
         success: true,
-        message: 'Login con Google exitoso',
+        message: 'Login federado con Google exitoso',
         data: result,
+        federatedAuth: true,
       };
       
-    } catch (error) {
-      this.logger.error(`❌ Error en login con Google: ${error.message}`);
-      throw error;
+    } catch (federatedError) {
+      this.logger.warn(`⚠️ Autenticación federada falló, intentando método legacy: ${federatedError.message}`);
+      
+      try {
+        // Fallback al método legacy
+        const result = await this.authService.loginWithGoogle(googleTokenDto.idToken);
+        
+        this.logger.log(`✅ Login legacy con Google exitoso: ${result.user.email}`);
+        
+        return {
+          success: true,
+          message: 'Login con Google exitoso (modo legacy)',
+          data: result,
+          federatedAuth: false,
+        };
+        
+      } catch (legacyError) {
+        this.logger.error(`❌ Error en ambos métodos de login: federado=${federatedError.message}, legacy=${legacyError.message}`);
+        throw legacyError;
+      }
     }
   }
 
   @Post('link')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Vincular cuenta de Google a usuario autenticado' })
+  @ApiOperation({ summary: 'Vincular cuenta de Google a usuario autenticado (Federado)' })
   @ApiResponse({ status: 200, description: 'Cuenta de Google vinculada exitosamente' })
   @ApiResponse({ status: 401, description: 'No autorizado o token de Google inválido' })
   @ApiResponse({ status: 409, description: 'Cuenta de Google ya vinculada a otro usuario' })
@@ -89,34 +108,56 @@ export class GoogleAuthController {
     }
 
     try {
-      const updatedUser = await this.authService.linkGoogleAccount(
+      // Intentar vinculación federada primero
+      const updatedUser = await this.authService.linkGoogleAccountFederated(
         req.user.id,
         linkGoogleDto.idToken
       );
       
-      this.logger.log(`✅ Cuenta de Google vinculada exitosamente: ${req.user.id}`);
+      this.logger.log(`✅ Cuenta de Google vinculada exitosamente (federado): ${req.user.id}`);
       
       return {
         success: true,
         message: 'Cuenta de Google vinculada exitosamente',
         user: updatedUser,
+        federatedAuth: true,
       };
       
-    } catch (error) {
-      this.logger.error(`❌ Error vinculando cuenta de Google: ${error.message}`);
+    } catch (federatedError) {
+      this.logger.warn(`⚠️ Vinculación federada falló, intentando método legacy: ${federatedError.message}`);
       
-      if (error.message.includes('ya está vinculada')) {
-        throw new Error('Esta cuenta de Google ya está vinculada a otro usuario');
+      try {
+        // Fallback al método legacy
+        const updatedUser = await this.authService.linkGoogleAccount(
+          req.user.id,
+          linkGoogleDto.idToken
+        );
+        
+        this.logger.log(`✅ Cuenta de Google vinculada exitosamente (legacy): ${req.user.id}`);
+        
+        return {
+          success: true,
+          message: 'Cuenta de Google vinculada exitosamente (modo legacy)',
+          user: updatedUser,
+          federatedAuth: false,
+        };
+        
+      } catch (legacyError) {
+        this.logger.error(`❌ Error en ambos métodos de vinculación: federado=${federatedError.message}, legacy=${legacyError.message}`);
+        
+        if (legacyError.message.includes('ya está vinculada')) {
+          throw new Error('Esta cuenta de Google ya está vinculada a otro usuario');
+        }
+        
+        throw legacyError;
       }
-      
-      throw error;
     }
   }
 
   @Delete('unlink')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Desvincular cuenta de Google del usuario autenticado' })
+  @ApiOperation({ summary: 'Desvincular cuenta de Google del usuario autenticado (Federado)' })
   @ApiResponse({ status: 200, description: 'Cuenta de Google desvinculada exitosamente' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
   @ApiResponse({ status: 400, description: 'No se puede desvincular: único método de autenticación' })
@@ -124,24 +165,43 @@ export class GoogleAuthController {
     this.logger.log(`🔓 Desvinculando cuenta de Google del usuario: ${req.user.id}`);
     
     try {
-      const updatedUser = await this.authService.unlinkGoogleAccount(req.user.id);
+      // Intentar desvinculación federada primero
+      const updatedUser = await this.authService.unlinkGoogleAccountFederated(req.user.id);
       
-      this.logger.log(`✅ Cuenta de Google desvinculada exitosamente: ${req.user.id}`);
+      this.logger.log(`✅ Cuenta de Google desvinculada exitosamente (federado): ${req.user.id}`);
       
       return {
         success: true,
         message: 'Cuenta de Google desvinculada exitosamente',
         user: updatedUser,
+        federatedAuth: true,
       };
       
-    } catch (error) {
-      this.logger.error(`❌ Error desvinculando cuenta de Google: ${error.message}`);
+    } catch (federatedError) {
+      this.logger.warn(`⚠️ Desvinculación federada falló, intentando método legacy: ${federatedError.message}`);
       
-      if (error.message.includes('único método')) {
-        throw new Error('No se puede desvincular Google: es el único método de autenticación. Configura una contraseña primero.');
+      try {
+        // Fallback al método legacy
+        const updatedUser = await this.authService.unlinkGoogleAccount(req.user.id);
+        
+        this.logger.log(`✅ Cuenta de Google desvinculada exitosamente (legacy): ${req.user.id}`);
+        
+        return {
+          success: true,
+          message: 'Cuenta de Google desvinculada exitosamente (modo legacy)',
+          user: updatedUser,
+          federatedAuth: false,
+        };
+        
+      } catch (legacyError) {
+        this.logger.error(`❌ Error en ambos métodos de desvinculación: federado=${federatedError.message}, legacy=${legacyError.message}`);
+        
+        if (legacyError.message.includes('único método')) {
+          throw new Error('No se puede desvincular Google: es el único método de autenticación. Configura una contraseña primero.');
+        }
+        
+        throw legacyError;
       }
-      
-      throw error;
     }
   }
 
@@ -156,12 +216,74 @@ export class GoogleAuthController {
     
     const isGoogleLinked = req.user.isGoogleLinked || false;
     const authProviders = req.user.authProviders || ['email'];
+    const canUnlinkGoogle = await this.authService.canUnlinkGoogle(req.user.id);
     
     return {
       isGoogleLinked,
       authProviders,
-      canUnlinkGoogle: authProviders.length > 1,
+      canUnlinkGoogle,
       googleAuthAvailable: this.authService.isGoogleAuthAvailable(),
+      federatedAuthConfigured: await this.checkFederatedAuthConfiguration(),
     };
+  }
+
+  @Post('exchange-token')
+  @ApiOperation({ summary: 'Intercambiar token de Google por tokens de Cognito' })
+  @ApiResponse({ status: 200, description: 'Tokens de Cognito obtenidos exitosamente' })
+  @ApiResponse({ status: 401, description: 'Token de Google inválido' })
+  @ApiResponse({ status: 400, description: 'Autenticación federada no configurada' })
+  async exchangeGoogleToken(@Body() googleTokenDto: GoogleTokenDto) {
+    this.logger.log('🔄 Intercambiando token de Google por tokens de Cognito...');
+    
+    try {
+      const cognitoTokens = await this.authService.exchangeGoogleTokenForCognito(googleTokenDto.idToken);
+      
+      this.logger.log('✅ Intercambio de tokens exitoso');
+      
+      return {
+        success: true,
+        message: 'Token intercambiado exitosamente',
+        tokens: cognitoTokens,
+      };
+      
+    } catch (error) {
+      this.logger.error(`❌ Error intercambiando token: ${error.message}`);
+      throw error;
+    }
+  }
+
+  @Get('federated-config')
+  @ApiOperation({ summary: 'Verificar configuración de autenticación federada' })
+  @ApiResponse({ status: 200, description: 'Estado de configuración federada' })
+  async getFederatedConfiguration() {
+    const federatedConfigured = await this.checkFederatedAuthConfiguration();
+    const googleAvailable = this.authService.isGoogleAuthAvailable();
+    
+    return {
+      federatedAuthConfigured: federatedConfigured,
+      googleAuthAvailable: googleAvailable,
+      capabilities: {
+        tokenExchange: federatedConfigured,
+        federatedLogin: federatedConfigured && googleAvailable,
+        legacyLogin: googleAvailable,
+      },
+      message: federatedConfigured 
+        ? 'Autenticación federada completamente configurada'
+        : 'Autenticación federada no configurada - usando modo legacy',
+    };
+  }
+
+  /**
+   * Verificar si la autenticación federada está configurada
+   */
+  private async checkFederatedAuthConfiguration(): Promise<boolean> {
+    try {
+      // Verificar si CognitoService tiene configuración federada
+      const cognitoService = this.authService['cognitoService'];
+      return cognitoService?.validateProviderConfiguration() || false;
+    } catch (error) {
+      this.logger.error(`Error verificando configuración federada: ${error.message}`);
+      return false;
+    }
   }
 }

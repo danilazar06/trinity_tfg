@@ -15,6 +15,7 @@ import {
   MemberRole,
 } from '../../domain/entities/room.entity';
 import { MemberService } from './member.service';
+import { MediaService } from '../media/media.service';
 import { RealtimeCompatibilityService } from '../realtime/realtime-compatibility.service';
 import { EventTracker } from '../analytics/event-tracker.service';
 import { EventType } from '../analytics/interfaces/analytics.interfaces';
@@ -26,6 +27,7 @@ export class RoomService {
   constructor(
     private dynamoDBService: DynamoDBService,
     private memberService: MemberService,
+    private mediaService: MediaService,
     private realtimeService: RealtimeCompatibilityService,
     private eventTracker: EventTracker,
   ) {}
@@ -199,6 +201,13 @@ export class RoomService {
       const shuffledList = this.memberService.generateShuffledList(room.masterList, userId);
       await this.memberService.updateMemberShuffledList(room.id, userId, shuffledList);
       this.logger.log(`Lista desordenada generada para nuevo miembro ${userId} en sala ${room.id}`);
+
+      // 🚀 PRE-CARGA INICIAL: Cargar los primeros 15 títulos inmediatamente
+      const initialTitles = shuffledList.slice(0, 15);
+      this.mediaService.prefetchMovieDetails(initialTitles).catch(error =>
+        this.logger.error(`Error prefetching initial titles for user ${userId}: ${error.message}`)
+      );
+      this.logger.log(`Pre-cargando ${initialTitles.length} títulos iniciales para usuario ${userId}`);
     }
 
     // Notificar cambio de estado de sala en tiempo real

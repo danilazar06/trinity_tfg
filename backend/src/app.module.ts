@@ -20,10 +20,14 @@ import { RoomChatModule } from './modules/room-chat/room-chat.module';
 import { ContentSuggestionModule } from './modules/content-suggestion/content-suggestion.module';
 import { RoomAutomationModule } from './modules/room-automation/room-automation.module';
 import { PerformanceOptimizerModule } from './optimization/performance-optimizer.module';
+import { SecurityModule } from './security/security.module';
+import { MonitoringModule } from './monitoring/monitoring.module';
+import { ProductionModule } from './production/production.module';
 import { DatabaseModule } from './infrastructure/database/database.module';
 import { HealthModule } from './modules/health/health.module';
 import { AIModule } from './modules/ai/ai.module';
 import { PermissionAuditMiddleware } from './common/middleware/permission-audit.middleware';
+import { SecurityMiddleware } from './security/middleware/security.middleware';
 
 @Module({
   imports: [
@@ -31,6 +35,9 @@ import { PermissionAuditMiddleware } from './common/middleware/permission-audit.
       isGlobal: true,
       envFilePath: '.env',
     }),
+    SecurityModule, // Security hardening - FASE 1 TAREA 21 ✅
+    MonitoringModule, // Monitoring & Logging - FASE 3 TAREA 21 ✅
+    ProductionModule, // Production Configuration - FASE 4 TAREA 21 ✅
     DatabaseModule,
     AuthModule,
     RoomModule,
@@ -58,6 +65,9 @@ import { PermissionAuditMiddleware } from './common/middleware/permission-audit.
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    // Security middleware - aplicar primero para máxima protección
+    consumer.apply(SecurityMiddleware).forRoutes('*');
+    
     // Temporalmente deshabilitado para debugging
     // consumer.apply(PermissionAuditMiddleware).forRoutes('*'); // Aplicar auditoría a todas las rutas
   }

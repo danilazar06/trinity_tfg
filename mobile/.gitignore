@@ -74,3 +74,10 @@ yarn-error.log
 !.yarn/sdks
 !.yarn/versions
 
+# Google Services (keep templates, ignore real files)
+google-services.json
+GoogleService-Info.plist
+# Keep templates for reference
+!google-services.json.template
+!GoogleService-Info.plist.template
+
