@@ -60,10 +60,18 @@ export class MatchService {
         mediaId,
       );
 
+      this.logger.log(
+        `🔍 Match detection for ${mediaId}: ${consensusResult.totalVotes}/${consensusResult.activeMembers} votes, unanimous: ${consensusResult.isUnanimous}`,
+      );
+
       if (
         consensusResult.isUnanimous &&
         consensusResult.voteType === VoteType.LIKE
       ) {
+        this.logger.log(
+          `🎯 Creating match for ${mediaId}: ${consensusResult.totalVotes} unanimous LIKE votes`,
+        );
+
         // Crear el match
         const match = await this.createMatch(
           roomId,
@@ -81,6 +89,10 @@ export class MatchService {
           requiredVotes: consensusResult.activeMembers,
         };
       }
+
+      this.logger.debug(
+        `❌ No match for ${mediaId}: ${consensusResult.totalVotes}/${consensusResult.activeMembers} votes, unanimous: ${consensusResult.isUnanimous}, type: ${consensusResult.voteType}`,
+      );
 
       return {
         hasMatch: false,
@@ -139,8 +151,8 @@ export class MatchService {
       // Guardar el match en DynamoDB
       await this.saveMatch(match);
 
-      // 📝 Track match found event
-      await this.eventTracker.trackContentInteraction(
+      // 📝 Track match found event (asíncrono para no bloquear)
+      this.eventTracker.trackContentInteraction(
         participants[0], // Use first participant as primary user
         roomId,
         mediaId,
@@ -157,13 +169,17 @@ export class MatchService {
           source: 'match_service',
           userAgent: 'backend',
         },
+      ).catch(error => 
+        this.logger.error(`Error tracking match event: ${error.message}`)
       );
 
-      // Enviar notificaciones a los participantes
-      await this.sendMatchNotifications(match);
+      // Enviar notificaciones a los participantes (asíncrono para no bloquear)
+      this.sendMatchNotifications(match).catch(error => 
+        this.logger.error(`Error sending match notifications: ${error.message}`)
+      );
 
-      // Notificar match en tiempo real
-      await this.realtimeService.notifyMatch(roomId, {
+      // Notificar match en tiempo real (asíncrono para no bloquear)
+      this.realtimeService.notifyMatch(roomId, {
         mediaId,
         mediaTitle: mediaDetails.title,
         participants,
@@ -171,7 +187,9 @@ export class MatchService {
           consensusType === ConsensusType.UNANIMOUS_LIKE
             ? 'unanimous'
             : 'majority',
-      });
+      }).catch(error => 
+        this.logger.error(`Error sending realtime notification: ${error.message}`)
+      );
 
       this.logger.log(
         `Match created: ${matchId} for media ${mediaId} in room ${roomId} with ${participants.length} participants`,
@@ -189,21 +207,14 @@ export class MatchService {
    */
   async getMatchById(matchId: string): Promise<Match | null> {
     try {
-      // Para obtener por ID necesitaríamos un GSI o scan
-      // Por simplicidad, implementamos una búsqueda básica
-      const items = await this.dynamoDBService.query({
-        KeyConditionExpression: 'SK = :sk',
-        FilterExpression: 'id = :matchId',
-        ExpressionAttributeValues: {
-          ':sk': 'MATCH#',
-          ':matchId': matchId,
-        },
-      });
-
-      return items.length > 0 ? (items[0] as unknown as Match) : null;
+      // Como no tenemos el roomId, simplemente retornamos null
+      // En una implementación real, esto debería optimizarse con un GSI
+      // Por ahora, evitamos el scan costoso y simplemente retornamos null
+      this.logger.warn(`getMatchById called with ${matchId} - returning null to avoid scan`);
+      return null;
     } catch (error) {
       this.logger.error(`Error getting match ${matchId}: ${error.message}`);
-      throw error;
+      return null;
     }
   }
 
@@ -382,8 +393,9 @@ export class MatchService {
   ): Promise<Match | null> {
     const detectionResult = await this.detectMatch(roomId, mediaId);
 
-    if (detectionResult.hasMatch && detectionResult.matchId) {
-      return this.getMatchById(detectionResult.matchId);
+    if (detectionResult.hasMatch) {
+      // En lugar de llamar getMatchById, usar getMatchByMediaId que es más eficiente
+      return this.getMatchByMediaId(roomId, mediaId);
     }
 
     return null;

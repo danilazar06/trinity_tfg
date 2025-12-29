@@ -2,7 +2,8 @@ import React, { createContext, useContext, useReducer, useEffect, ReactNode } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthState, User, LoginCredentials, RegisterData } from '../types';
 import { authService } from '../services/authService';
-import { googleSignInService } from '../services/googleSignInService';
+import { googleSignInService, GoogleSignInStatus } from '../services/googleSignInService';
+import { environmentDetectionService } from '../services/environmentDetectionService';
 import { setOnUnauthorizedCallback } from '../services/apiClient';
 
 // Flag para usar mock o backend real
@@ -18,6 +19,13 @@ interface AuthContextType extends AuthState {
   updateUser: (user: User) => Promise<void>;
   linkGoogleAccount: () => Promise<void>;
   unlinkGoogleAccount: () => Promise<void>;
+  // Nuevos métodos para manejo de Google Sign-In
+  getGoogleSignInAvailability: () => Promise<{
+    available: boolean;
+    status: GoogleSignInStatus;
+    message: string;
+    method: 'native' | 'web' | 'none';
+  }>;
 }
 
 type AuthAction =
@@ -247,19 +255,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await AsyncStorage.setItem('userData', JSON.stringify(mockUser));
         dispatch({ type: 'SET_USER', payload: mockUser });
       } else {
-        // Verificar si Google Auth está disponible
-        const availabilityCheck = await authService.checkGoogleAuthAvailability();
-        if (!availabilityCheck.success || !availabilityCheck.data?.available) {
+        // Verificar disponibilidad de Google Sign-In
+        const availability = await googleSignInService.getAvailabilityStatus();
+        
+        if (!availability.canSignIn) {
+          let errorMessage = availability.message;
+          
+          // Proporcionar mensajes más específicos según el entorno
+          if (availability.status === GoogleSignInStatus.NOT_AVAILABLE) {
+            const env = environmentDetectionService.detectEnvironment();
+            if (env.runtime === 'expo-go') {
+              errorMessage = 'Google Sign-In no está disponible en Expo Go. Usa un Development Build o prueba en el navegador web.';
+            } else {
+              errorMessage = 'Google Sign-In no está configurado correctamente. Revisa la configuración de Google Services.';
+            }
+          } else if (availability.status === GoogleSignInStatus.CONFIGURATION_ERROR) {
+            errorMessage = 'Google Sign-In no está configurado. Revisa los archivos google-services.json y GoogleService-Info.plist.';
+          }
+          
+          dispatch({ type: 'SET_ERROR', payload: errorMessage });
+          return;
+        }
+
+        // Verificar si Google Auth está disponible en el backend
+        const backendAvailability = await authService.checkGoogleAuthAvailability();
+        if (!backendAvailability.success || !backendAvailability.data?.available) {
           dispatch({ type: 'SET_ERROR', payload: 'Google Sign-In no está configurado en el servidor' });
           return;
         }
 
-        // Configurar e inicializar Google Sign-In
-        await googleSignInService.configure();
-        
-        if (!await googleSignInService.isAvailable()) {
-          dispatch({ type: 'SET_ERROR', payload: 'Google Sign-In no está disponible en este dispositivo' });
-          return;
+        // Configurar Google Sign-In si es necesario
+        if (availability.method === 'native') {
+          await googleSignInService.configure();
         }
 
         // Realizar Google Sign-In
@@ -301,11 +328,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (error: any) {
       console.error('Google Sign-In error:', error);
       
-      // Manejar errores específicos de Google Sign-In
+      // Manejar errores específicos de Google Sign-In con mensajes más informativos
       if (error.message?.includes('cancelado')) {
         dispatch({ type: 'SET_ERROR', payload: 'Inicio de sesión cancelado' });
       } else if (error.message?.includes('Play Services')) {
-        dispatch({ type: 'SET_ERROR', payload: 'Google Play Services no está disponible' });
+        dispatch({ type: 'SET_ERROR', payload: 'Google Play Services no está disponible en este dispositivo' });
+      } else if (error.message?.includes('no implementado')) {
+        const env = environmentDetectionService.detectEnvironment();
+        if (env.runtime === 'expo-go') {
+          dispatch({ type: 'SET_ERROR', payload: 'Google Sign-In requiere un Development Build. Usa email y contraseña en Expo Go.' });
+        } else {
+          dispatch({ type: 'SET_ERROR', payload: 'Google Sign-In web no está implementado aún. Usa email y contraseña.' });
+        }
+      } else if (error.message?.includes('SDK no está disponible')) {
+        dispatch({ type: 'SET_ERROR', payload: 'Google Sign-In no está disponible en este entorno. Usa email y contraseña.' });
       } else {
         dispatch({ type: 'SET_ERROR', payload: error.message || 'Error con Google Sign-In' });
       }
@@ -353,19 +389,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           dispatch({ type: 'SET_USER', payload: updatedUser });
         }
       } else {
-        // Verificar si Google Auth está disponible
-        const availabilityCheck = await authService.checkGoogleAuthAvailability();
-        if (!availabilityCheck.success || !availabilityCheck.data?.available) {
+        // Verificar disponibilidad de Google Sign-In
+        const availability = await googleSignInService.getAvailabilityStatus();
+        
+        if (!availability.canSignIn) {
+          let errorMessage = availability.message;
+          
+          if (availability.status === GoogleSignInStatus.NOT_AVAILABLE) {
+            const env = environmentDetectionService.detectEnvironment();
+            if (env.runtime === 'expo-go') {
+              errorMessage = 'No se puede vincular Google en Expo Go. Usa un Development Build.';
+            }
+          }
+          
+          dispatch({ type: 'SET_ERROR', payload: errorMessage });
+          return;
+        }
+
+        // Verificar si Google Auth está disponible en el backend
+        const backendAvailability = await authService.checkGoogleAuthAvailability();
+        if (!backendAvailability.success || !backendAvailability.data?.available) {
           dispatch({ type: 'SET_ERROR', payload: 'Google Sign-In no está configurado en el servidor' });
           return;
         }
 
-        // Configurar e inicializar Google Sign-In
-        await googleSignInService.configure();
-        
-        if (!await googleSignInService.isAvailable()) {
-          dispatch({ type: 'SET_ERROR', payload: 'Google Sign-In no está disponible en este dispositivo' });
-          return;
+        // Configurar Google Sign-In si es necesario
+        if (availability.method === 'native') {
+          await googleSignInService.configure();
         }
 
         // Realizar Google Sign-In para obtener el token
@@ -396,6 +446,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         dispatch({ type: 'SET_ERROR', payload: 'Vinculación cancelada' });
       } else if (error.message?.includes('ya está vinculada')) {
         dispatch({ type: 'SET_ERROR', payload: 'Esta cuenta de Google ya está vinculada a otro usuario' });
+      } else if (error.message?.includes('no implementado')) {
+        const env = environmentDetectionService.detectEnvironment();
+        if (env.runtime === 'expo-go') {
+          dispatch({ type: 'SET_ERROR', payload: 'Vinculación de Google requiere un Development Build.' });
+        } else {
+          dispatch({ type: 'SET_ERROR', payload: 'Vinculación de Google web no está implementada aún.' });
+        }
       } else {
         dispatch({ type: 'SET_ERROR', payload: error.message || 'Error al vincular cuenta de Google' });
       }
@@ -470,6 +527,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const getGoogleSignInAvailability = async () => {
+    try {
+      const availability = await googleSignInService.getAvailabilityStatus();
+      
+      return {
+        available: availability.canSignIn,
+        status: availability.status,
+        message: availability.message,
+        method: availability.method,
+      };
+    } catch (error: any) {
+      return {
+        available: false,
+        status: GoogleSignInStatus.NOT_AVAILABLE,
+        message: error.message || 'Error al verificar disponibilidad de Google Sign-In',
+        method: 'none' as const,
+      };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -483,6 +560,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         updateUser,
         linkGoogleAccount,
         unlinkGoogleAccount,
+        getGoogleSignInAvailability,
       }}
     >
       {children}

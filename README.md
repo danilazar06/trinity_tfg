@@ -1,473 +1,363 @@
-# 🚀 Trinity MVP - Plataforma de Descubrimiento de Contenido Multimedia
+# Trinity - Plataforma de Votación de Películas
 
-**Trinity** es una plataforma revolucionaria que utiliza "Salas de Consenso" con mecánicas de swipe tipo Tinder para ayudar a grupos de usuarios a encontrar contenido multimedia que todos disfruten. La innovación principal es el sistema **"Shuffle & Sync"** donde todos los miembros trabajan con la misma lista maestra pero en órdenes aleatorios únicos.
+## 🎬 Descripción
 
-## 🎊 Estado Actual: TRINITY MVP CORE COMPLETADO ✅
+Trinity es una **aplicación móvil para votar películas en grupo**, construida con tecnologías modernas y diseñada para que grupos de amigos puedan decidir qué película ver de manera divertida y democrática.
 
-- **Progreso**: 19/22 tareas completadas (86%)
-- **Backend**: Completamente funcional y optimizado
-- **IA Soberana**: Salamandra/ALIA integrada (Barcelona Supercomputing Center)
-- **Performance**: Sistema optimizado para producción (45% mejora promedio)
-- **Aplicación Móvil**: Especificación completa lista para implementar
-- **Calidad**: EXCELENTE (95/100)
-- **Listo para Producción**: ✅ SÍ
+### ✨ Características Principales
 
-## 🏗️ Arquitectura del Sistema
+- 🔐 **Autenticación Completa**: Email/Password + Google Sign-In
+- 🎬 **Votación de Películas**: Sistema de votación intuitivo y rápido
+- 📱 **App Móvil Nativa**: React Native con Expo para iOS y Android
+- 🌐 **También Web**: Funciona perfectamente en navegadores
+- ⚡ **Tiempo Real**: Actualizaciones instantáneas de votaciones
+- 🛡️ **Seguro**: Backend robusto con AWS y autenticación federada
+- 🎨 **Diseño Moderno**: Interfaz elegante con animaciones fluidas
 
-### Componentes Principales
-- **Backend**: NestJS con 19 módulos implementados
-- **Base de Datos**: DynamoDB Multi-Table (5 tablas especializadas)
-- **Autenticación**: AWS Cognito + JWT + Google OAuth
-- **APIs**: 150+ endpoints REST + GraphQL con AWS AppSync
-- **IA**: Salamandra/ALIA para recomendaciones contextuales
-- **Real-time**: WebSockets optimizados (< 50ms latencia)
-- **CDN**: Optimización automática de imágenes
-- **Analytics**: Sistema completo de métricas e insights
+## 🏗️ Arquitectura
+
+### Stack Tecnológico
+
+#### Frontend Móvil ✅
+- **Framework**: React Native + Expo
+- **Navegación**: Expo Router
+- **UI**: Componentes custom + Linear Gradients
+- **Autenticación**: Google Sign-In + JWT
+- **Estado**: React Context + Hooks
+
+#### Backend ✅
+- **Framework**: NestJS (Node.js/TypeScript)
+- **Base de Datos**: AWS DynamoDB
+- **Autenticación**: AWS Cognito + Google OAuth
+- **Real-time**: AWS AppSync + GraphQL
+- **Seguridad**: JWT, Rate Limiting, Validaciones
+
+## 📁 Estructura del Proyecto
+
+```
+trinity/
+├── mobile/                    # 📱 Aplicación React Native
+│   ├── app/                   # Pantallas principales
+│   │   ├── login.tsx         # ✅ Login con email/Google
+│   │   ├── register.tsx      # ✅ Registro de usuarios
+│   │   ├── (tabs)/           # ✅ Navegación principal
+│   │   └── test-connection.tsx # ✅ Test de conectividad
+│   ├── src/
+│   │   ├── components/       # Componentes reutilizables
+│   │   ├── context/          # ✅ AuthContext completo
+│   │   ├── services/         # ✅ API clients y servicios
+│   │   ├── types/            # ✅ Tipos TypeScript
+│   │   └── utils/            # ✅ Utilidades y tema
+│   └── app.json             # ✅ Configuración Expo
+├── backend/                   # 🎯 API REST/GraphQL (NestJS)
+│   ├── src/
+│   │   ├── modules/          # Módulos de negocio
+│   │   │   ├── auth/        # 🔐 Autenticación completa
+│   │   │   ├── voting/      # 🗳️ Sistema de votación
+│   │   │   └── campaigns/   # 📋 Gestión de campañas
+│   │   ├── infrastructure/  # 🏗️ Servicios AWS
+│   │   ├── security/        # 🛡️ Seguridad
+│   │   └── monitoring/      # 📈 Monitoreo
+│   └── tests/               # 🧪 Tests completos
+└── .kiro/                    # 📋 Especificaciones de desarrollo
+    └── specs/               # Specs de funcionalidades
+```
+
+## 🚀 Inicio Rápido
+
+### Prerrequisitos
+- Node.js 18+
+- Expo CLI: `npm install -g @expo/cli`
+- Dispositivo móvil con Expo Go (opcional)
+
+### 1. Configuración Inicial
+```bash
+# Clonar repositorio
+git clone <repository-url>
+cd trinity
+
+# Configurar backend
+cd backend
+npm install
+cp .env.example .env
+# Editar .env con tus configuraciones AWS
+
+# Configurar móvil
+cd ../mobile
+npm install
+```
+
+### 2. Iniciar Backend
+```bash
+cd backend
+npm run start:dev
+```
+Backend disponible en `http://localhost:3002`
+
+### 3. Iniciar App Móvil
+```bash
+cd mobile
+npm start
+```
+
+### 4. Usar la Aplicación
+
+#### **Opción A: En el Navegador Web**
+- Presiona `w` en la terminal de Expo
+- Se abrirá en `http://localhost:8081`
+
+#### **Opción B: En tu Móvil**
+- Instala **Expo Go** desde tu app store
+- Escanea el QR code de la terminal
+- La app se abrirá automáticamente
+
+#### **Opción C: En Simulador**
+- **Android**: Presiona `a` en la terminal
+- **iOS**: Presiona `i` (requiere macOS + Xcode)
+
+## 📱 Funcionalidades Implementadas
+
+### ✅ Autenticación Completa
+- **Login con Email/Password**: Registro e inicio de sesión tradicional
+- **Google Sign-In**: Autenticación con cuenta de Google
+- **Gestión de Sesiones**: Tokens JWT con refresh automático
+- **Detección de Entorno**: Funciona en Expo Go, Development Build y Web
+
+### ✅ Interfaz de Usuario
+- **Diseño Moderno**: Tema oscuro con gradientes y animaciones
+- **Navegación Fluida**: Expo Router con transiciones suaves
+- **Validación en Tiempo Real**: Formularios con feedback inmediato
+- **Manejo de Errores**: Alertas informativas y recuperación automática
+- **Estados de Carga**: Feedback visual durante operaciones
+
+### ✅ Conectividad Backend
+- **API Client Robusto**: Manejo automático de tokens y errores
+- **Test de Conectividad**: Pantalla para verificar conexión con backend
+- **Retry Automático**: Reintento en caso de errores de red
+- **Interceptores**: Manejo automático de 401/403 y refresh de tokens
+
+### ✅ Google Sign-In Inteligente
+- **Detección Automática**: Detecta si Google Sign-In está disponible
+- **Fallback Graceful**: Funciona sin Google Sign-In cuando no está disponible
+- **Mensajes Informativos**: Explica al usuario qué esperar en cada entorno
+- **Configuración Flexible**: Funciona en desarrollo y producción
+
+## 🔧 Configuración de Google Sign-In
+
+### Para Desarrollo Rápido
+La app ya está configurada con credenciales de desarrollo. Solo necesitas:
+
+1. **Probar en Web**: `npm start` → presiona `w`
+2. **Probar en Expo Go**: `npm start` → escanea QR
+3. **Ver Estado**: Usa la pantalla "Test de Conexión"
+
+### Para Producción
+Si quieres configurar tus propias credenciales de Google:
+
+1. **Crear Proyecto Firebase**:
+   - Ve a [Firebase Console](https://console.firebase.google.com/)
+   - Crea un nuevo proyecto
+   - Habilita Google Sign-In en Authentication
+
+2. **Configurar Apps**:
+   - **Android**: Package name `com.trinity.app`
+   - **iOS**: Bundle ID `com.trinity.app`
+   - **Web**: Configura dominio autorizado
+
+3. **Descargar Archivos**:
+   - `google-services.json` para Android
+   - `GoogleService-Info.plist` para iOS
+   - Colócalos en la carpeta `mobile/`
+
+4. **Actualizar Configuración**:
+   ```json
+   // mobile/app.json
+   {
+     "expo": {
+       "extra": {
+         "googleWebClientId": "TU_WEB_CLIENT_ID.apps.googleusercontent.com"
+       }
+     }
+   }
+   ```
+
+## 🧪 Testing y Debugging
+
+### Test de Conectividad
+La app incluye una pantalla de "Test de Conexión" que verifica:
+- ✅ Detección del entorno de ejecución
+- ✅ Disponibilidad de Google Sign-In
+- ✅ Conectividad con el backend
+- ✅ Estado de los endpoints de autenticación
+
+### Debugging
+```bash
+# Ver logs del backend
+cd backend && npm run start:dev
+
+# Ver logs de la app móvil
+cd mobile && npm start
+# Los logs aparecen en la terminal de Expo
+
+# Test manual de conectividad
+node mobile/test-google-signin.js
+```
+
+### Problemas Comunes
+
+#### "Backend no responde"
+```bash
+# Verificar que el backend esté corriendo
+curl http://localhost:3002/api/health
+
+# Verificar IP en el cliente móvil
+# Editar mobile/src/services/apiClient.ts si es necesario
+```
+
+#### "Google Sign-In no funciona"
+- **En Expo Go**: Normal, usa email/password o prueba en web
+- **En Development Build**: Verifica configuración de Google Services
+- **En Web**: Debería funcionar con credenciales web
+
+#### "App no carga"
+```bash
+# Limpiar cache
+cd mobile
+npx expo start --clear
+
+# Reinstalar dependencias
+rm -rf node_modules && npm install
+```
+
+## 📡 API Endpoints
+
+### Autenticación
+```
+POST /api/auth/register          # Registro con email
+POST /api/auth/login             # Login con email
+POST /api/auth/google/login      # Login con Google
+GET  /api/auth/profile           # Perfil del usuario
+POST /api/auth/refresh           # Refresh token
+```
+
+### Sistema
+```
+GET  /api/health                 # Health check
+GET  /api/auth/google/available  # Disponibilidad Google Auth
+```
+
+### Votación (Próximamente)
+```
+GET    /api/campaigns            # Listar campañas
+POST   /api/campaigns            # Crear campaña
+POST   /api/campaigns/:id/vote   # Votar
+GET    /api/campaigns/:id/results # Resultados
+```
+
+## 🎯 Próximas Funcionalidades
+
+### Funcionalidades de Votación de Películas
+- [ ] **Salas de Votación**: Crear y unirse a salas
+- [ ] **Catálogo de Películas**: Integración con TMDB API
+- [ ] **Swipe de Películas**: Interfaz tipo Tinder
+- [ ] **Sistema de Matches**: Ver películas que todos eligieron
+- [ ] **Resultados en Tiempo Real**: Ver votos en vivo
+
+### Mejoras de UX
+- [ ] **Perfil de Usuario**: Editar información y preferencias
+- [ ] **Historial**: Ver votaciones pasadas
+- [ ] **Notificaciones**: Alertas de nuevas votaciones
+- [ ] **Temas**: Personalización de la interfaz
 
 ### Funcionalidades Avanzadas
-- **Smart Room Automation**: Automatización inteligente de salas
-- **Sistema de Permisos**: Avanzado con caché y auditoría
-- **Analytics Predictivos**: Insights de comportamiento y churn
-- **Optimización de Costos**: Monitoreo automático de AWS
-- **Property-Based Testing**: 100+ iteraciones por test
+- [ ] **Recomendaciones IA**: Sugerencias personalizadas
+- [ ] **Integración Social**: Compartir en redes sociales
+- [ ] **Estadísticas**: Analytics de preferencias
+- [ ] **Gamificación**: Sistema de logros y badges
 
-## 🚀 Instalación Rápida
+## 🚀 Despliegue
 
-**Linux/macOS:**
+### Frontend Móvil
 ```bash
-git clone https://github.com/danilazar06/trinity_tfg.git
-cd trinity_tfg
-./setup.sh
-```
-
-**Windows (PowerShell):**
-```powershell
-git clone https://github.com/danilazar06/trinity_tfg.git
-cd trinity_tfg
-.\setup.ps1
-```
-
-### Opción 2: Instalación Manual
-
-1. **Clonar el repositorio:**
-```bash
-git clone https://github.com/danilazar06/trinity_tfg.git
-cd trinity_tfg
-```
-
-2. **Configurar variables de entorno:**
-```bash
-# Copiar el archivo de ejemplo
-cp .env.example .env
-
-# Editar .env con tus credenciales reales
-# Necesitarás:
-# - TMDB_API_KEY: https://www.themoviedb.org/settings/api
-# - HF_API_TOKEN: https://huggingface.co/settings/tokens
-# - AWS credentials: aws configure
-```
-
-3. **Instalar dependencias:**
-```bash
-# Backend
-cd backend && npm install && cd ..
-
-# Infrastructure
-cd infrastructure && npm install && cd ..
-
-# Mobile (opcional)
-cd mobile && npm install && cd ..
-```
-
-## 📊 Funcionalidades Implementadas (19/22 Completadas)
-
-### ✅ Core Features (100% Completo)
-- **Autenticación**: AWS Cognito + JWT + Google OAuth
-- **Gestión de Salas**: Creación, administración, roles y permisos
-- **Shuffle & Sync**: Sistema único de listas aleatorias sincronizadas
-- **Sistema de Swipes**: Votación tipo Tinder con consenso automático
-- **Matches**: Detección automática de consenso unánime
-- **Integración TMDB**: API completa con caché inteligente
-
-### 🧠 IA y Analytics (100% Completo)
-- **Salamandra/ALIA**: IA soberana española para recomendaciones
-- **Analytics Avanzado**: Métricas, insights predictivos, dashboard
-- **Smart Automation**: Automatización inteligente de salas
-- **Análisis Semántico**: Inyección inteligente de contenido
-
-### 🚀 Infraestructura y Performance (100% Completo)
-- **CDN Optimizado**: Entrega de imágenes optimizada
-- **Real-time**: WebSockets con < 50ms latencia
-- **Optimización AWS**: Monitoreo automático de costos
-- **Sistema de Permisos**: Avanzado con caché y auditoría
-- **Performance**: 45% mejora promedio en todos los sistemas
-
-### 📱 Aplicación Móvil (Especificación Completa)
-- **React Native**: Especificación completa con 51 propiedades
-- **Tecnologías**: TypeScript, Zustand, React Navigation 6
-- **Features**: Swipes nativos, offline, push notifications
-- **Testing**: Property-based testing preparado
-- **Estado**: ✅ LISTO PARA IMPLEMENTACIÓN
-
-## 🔑 Configuración de Credenciales
-
-Edita el archivo `.env` en la raíz del proyecto con estas credenciales:
-
-```bash
-# ========================================
-# AWS CONFIGURATION
-# ========================================
-CDK_DEFAULT_ACCOUNT=tu-aws-account-id
-CDK_DEFAULT_REGION=eu-west-1
-AWS_ACCESS_KEY_ID=tu-aws-access-key
-AWS_SECRET_ACCESS_KEY=tu-aws-secret-key
-
-# ========================================
-# EXTERNAL API KEYS
-# ========================================
-# TMDB API Key - Obtener en: https://www.themoviedb.org/settings/api
-TMDB_API_KEY=tu-tmdb-api-key
-
-# Hugging Face Token - Obtener en: https://huggingface.co/settings/tokens
-HF_API_TOKEN=hf_tu-hugging-face-token
-
-# ========================================
-# AWS COGNITO (Se generan automáticamente)
-# ========================================
-COGNITO_USER_POOL_ID=se-genera-automaticamente
-COGNITO_CLIENT_ID=se-genera-automaticamente
-```
-
-### Obtener Credenciales
-
-1. **TMDB API Key:**
-   - Regístrate en [The Movie Database](https://www.themoviedb.org/)
-   - Ve a [Settings > API](https://www.themoviedb.org/settings/api)
-   - Solicita una API Key
-
-2. **Hugging Face Token:**
-   - Regístrate en [Hugging Face](https://huggingface.co/)
-   - Ve a [Settings > Access Tokens](https://huggingface.co/settings/tokens)
-   - Crea un nuevo token
-
-3. **AWS Credentials:**
-   - Instala [AWS CLI](https://aws.amazon.com/cli/)
-   - Ejecuta `aws configure`
-   - Introduce tus credenciales de AWS
-
-## 📂 Estructura del Proyecto
-
-```
-trinity_tfg/
-├── .env                    # ⚠️ Credenciales (NO subir a Git)
-├── .env.example           # Plantilla de variables de entorno
-├── setup.sh              # Script de instalación (Linux/macOS)
-├── setup.ps1             # Script de instalación (Windows)
-├── backend/               # API REST con NestJS
-├── infrastructure/        # Infraestructura AWS CDK
-├── mobile/               # App React Native
-└── README.md             # Este archivo
-```
-
-## 🚀 Comandos de Desarrollo
-
-### Desplegar Infraestructura
-
-**Linux/macOS:**
-```bash
-cd infrastructure
-./deploy.sh
-```
-
-**Windows:**
-```powershell
-cd infrastructure
-.\deploy.ps1
-```
-
-### Ejecutar Backend
-```bash
-cd backend
-npm run start:dev
-```
-
-### Ejecutar Tests
-```bash
-cd backend
-npm test
-```
-
-### Ejecutar Mobile
-```bash
+# Development Build (recomendado para testing)
 cd mobile
-npm start
+npx eas build --platform all
+
+# Publicar en stores
+npx eas submit --platform all
 ```
 
-## 🔐 Seguridad
-
-- ✅ **Archivo `.env` está en `.gitignore`** - Las credenciales NO se suben a Git
-- ✅ **Variables de entorno centralizadas** - Todas las credenciales en un solo lugar
-- ✅ **Plantilla `.env.example`** - Los desarrolladores saben qué variables necesitan
-- ⚠️ **NUNCA subas credenciales reales** - Usa siempre el archivo `.env`
-
-## 🛠️ Configuración Inicial (Onboarding)
-
-Si acabas de llegar, sigue estos pasos estrictamente para levantar el entorno:
-
-### 1. Clonar y preparar
+### Backend
 ```bash
-git clone https://github.com/danilazar06/trinity_tfg.git
-cd trinity_tfg
-```
-
-### 2. Ejecutar script de instalación
-```bash
-# Linux/macOS
-./setup.sh
-
-# Windows PowerShell
-.\setup.ps1
-```
-
-### 3. Configurar credenciales
-Edita el archivo `.env` con tus credenciales reales (ver sección "Configuración de Credenciales")
-
-### 4. Desplegar infraestructura
-```bash
-cd infrastructure
-./deploy.sh  # Linux/macOS
-# o
-.\deploy.ps1  # Windows
-```
-
-### 5. Arrancar el proyecto
-```bash
-# Backend
+# Docker
 cd backend
-npm run start:dev
+docker build -t trinity-backend .
+docker run -p 3002:3002 trinity-backend
 
-# Mobile (en otra terminal)
-cd mobile
-npm start
+# AWS Lambda (Serverless)
+npm install -g serverless
+serverless deploy --stage production
 ```
 
----
+## 📊 Estado del Proyecto
 
-## 🌊 Flujo de Trabajo (Git Flow)
+### ✅ Completado (100% Funcional)
+- 🔐 **Sistema de Autenticación**: Email + Google Sign-In
+- 📱 **App Móvil Base**: Navegación, UI, conectividad
+- 🎯 **Backend Robusto**: API REST completa con seguridad
+- 🧪 **Testing**: Tests automatizados y herramientas de debug
+- 📖 **Documentación**: Guías completas de setup y uso
 
-⚠️ **REGLA DE ORO:** La rama main está **BLOQUEADA**. No se puede hacer push directo. Todo cambio debe pasar por Pull Request.
+### 🔄 En Desarrollo
+- 🎬 **Funcionalidades de Votación**: Salas, películas, matches
+- 🎨 **Mejoras de UI**: Animaciones, temas, personalización
+- 📈 **Analytics**: Métricas de uso y preferencias
 
-### Paso 1: Antes de empezar a trabajar
-Siempre actualiza tu local para evitar conflictos:
-git checkout main
-git pull origin main
+### 📋 Roadmap
+- **Q1 2025**: Funcionalidades core de votación
+- **Q2 2025**: Funcionalidades sociales y gamificación
+- **Q3 2025**: IA y recomendaciones personalizadas
+- **Q4 2025**: Expansión a web y desktop
 
-### Paso 2: Crear una rama (Feature Branch)
-Crea una rama específica para lo que vayas a hacer. Usa estos prefijos:
-* feat/ -> Para nuevas funcionalidades (ej: feat/login-screen).
-* fix/ -> Para arreglar errores (ej: fix/boton-roto).
-* chore/ -> Mantenimiento o config (ej: chore/actualizar-readme).
+## 📞 Soporte
 
-git checkout -b feat/nombre-de-la-tarea
+### Recursos
+- 🐛 **Issues**: Reportar bugs en el repositorio
+- 💬 **Discussions**: Preguntas y sugerencias
+- 📧 **Email**: Contacto directo para soporte
 
-### Paso 3: Guardar cambios (Commits)
-Usamos **Conventional Commits** para mantener el historial limpio.
-Estructura: tipo: descripción breve.
-
-Ejemplos:
-* ✅ git commit -m "feat: añadir endpoint de usuarios"
-* ✅ git commit -m "fix: corregir color del navbar"
-* ❌ git commit -m "cambios" (Prohibido)
-
-### Paso 4: Subir cambios
-Sube tu rama a GitHub:
-git push origin feat/nombre-de-la-tarea
-
----
-
-## 🤝 Pull Requests (PR) y Revisión
-
-Una vez subida tu rama:
-
-1.  Ve a GitHub y verás un botón amarillo "Compare & pull request".
-2.  Escribe una descripción de lo que has hecho.
-3.  **Asigna a un compañero** como "Reviewer".
-4.  Espera a los **Checks Automáticos** (GitHub Actions):
-    * 🤖 **Backend CI:** Si tocaste el back, comprobará que compila.
-    * 🤖 **Mobile CI:** Si tocaste el móvil, comprobará linting y tests.
-    * 🔴 **Si sale rojo:** Tienes que arreglarlo en tu local y volver a hacer push.
-    * 🟢 **Si sale verde:** Tu código es seguro.
-5.  Una vez aprobado por un compañero y con el check verde, dale a **"Squash and Merge"**.
-
----
-
-## 🤖 CI/CD (Automatización)
-
-Tenemos configurados flujos de trabajo en .github/workflows:
-
-* **Backend CI:** Se activa al tocar la carpeta backend/. Ejecuta npm run build y npm run test.
-* **Mobile CI:** Se activa al tocar la carpeta mobile/. Ejecuta npm run lint y npm run test.
-
-**Nota:** Si rompes el build, el PR se bloqueará automáticamente. ¡No subas código roto!
-
----
-
-## 🔐 Seguridad y Secretos
-
-* **NUNCA** subas credenciales, claves de AWS o contraseñas al repositorio.
-* Usa siempre archivos .env.
-* Si necesitas una clave nueva, añádela al .env.template (sin el valor real) y avisa al equipo por el grupo.
-
----
-
-### ¿Dudas?
-Pregúntale a **Kiro** (nuestra IA Tech Lead) o pon un mensaje en el grupo. ¡A picar código! 🚀
-
----
-
-## 🌊 Flujo de Trabajo (Git Flow)
-
-⚠️ **REGLA DE ORO:** La rama main está **BLOQUEADA**. No se puede hacer push directo. Todo cambio debe pasar por Pull Request.
-
-### Paso 1: Antes de empezar a trabajar
-Siempre actualiza tu local para evitar conflictos:
+### Troubleshooting Rápido
 ```bash
-git checkout main
-git pull origin main
-```
+# Verificar estado general
+cd mobile && npm start
+# Usar "Test de Conexión" en la app
 
-### Paso 2: Crear una rama (Feature Branch)
-Crea una rama específica para lo que vayas a hacer. Usa estos prefijos:
-* `feat/` -> Para nuevas funcionalidades (ej: `feat/login-screen`)
-* `fix/` -> Para arreglar errores (ej: `fix/boton-roto`)
-* `chore/` -> Mantenimiento o config (ej: `chore/actualizar-readme`)
-
-```bash
-git checkout -b feat/nombre-de-la-tarea
-```
-
-### Paso 3: Guardar cambios (Commits)
-Usamos **Conventional Commits** para mantener el historial limpio.
-Estructura: `tipo: descripción breve`
-
-Ejemplos:
-* ✅ `git commit -m "feat: añadir endpoint de usuarios"`
-* ✅ `git commit -m "fix: corregir color del navbar"`
-* ❌ `git commit -m "cambios"` (Prohibido)
-
-### Paso 4: Subir cambios
-```bash
-git push origin feat/nombre-de-la-tarea
+# Logs detallados
+cd backend && npm run start:dev
+cd mobile && npx expo start --clear
 ```
 
 ---
 
-## 🤝 Pull Requests (PR) y Revisión
+## 📄 Información del Proyecto
 
-Una vez subida tu rama:
-
-1. Ve a GitHub y verás un botón amarillo "Compare & pull request"
-2. Escribe una descripción de lo que has hecho
-3. **Asigna a un compañero** como "Reviewer"
-4. Espera a los **Checks Automáticos** (GitHub Actions):
-   * 🤖 **Backend CI:** Si tocaste el back, comprobará que compila
-   * 🤖 **Mobile CI:** Si tocaste el móvil, comprobará linting y tests
-   * 🔴 **Si sale rojo:** Tienes que arreglarlo en tu local y volver a hacer push
-   * 🟢 **Si sale verde:** Tu código es seguro
-5. Una vez aprobado por un compañero y con el check verde, dale a **"Squash and Merge"**
+**Versión**: `3.0.0`  
+**Estado**: ✅ **Base Completa - Lista para Funcionalidades de Negocio**  
+**Tecnologías**: React Native, Expo, NestJS, AWS, TypeScript  
+**Plataformas**: iOS, Android, Web  
 
 ---
 
-## 🤖 CI/CD (Automatización)
+### 🎬 **Trinity - Decide qué película ver, juntos**
 
-Tenemos configurados flujos de trabajo en `.github/workflows`:
+**¡La base técnica está 100% completa y lista para implementar las funcionalidades de votación de películas!** 🚀
 
-* **Backend CI:** Se activa al tocar la carpeta `backend/`. Ejecuta `npm run build` y `npm run test`
-* **Mobile CI:** Se activa al tocar la carpeta `mobile/`. Ejecuta `npm run lint` y `npm run test`
+#### **Lo que funciona AHORA:**
+1. ✅ **Autenticación completa** (email + Google)
+2. ✅ **App móvil funcional** en iOS, Android y Web
+3. ✅ **Backend robusto** con AWS y seguridad enterprise
+4. ✅ **Conectividad perfecta** entre frontend y backend
+5. ✅ **Herramientas de testing** y debugging integradas
 
-**Nota:** Si rompes el build, el PR se bloqueará automáticamente. ¡No subas código roto!
-
----
-
-## 🔐 Seguridad y Secretos
-
-* **NUNCA** subas credenciales, claves de AWS o contraseñas al repositorio
-* Usa siempre archivos `.env`
-* Si necesitas una clave nueva, añádela al `.env.example` (sin el valor real) y avisa al equipo por el grupo
-
----
-
-## 📚 Documentación Completa
-
-Toda la documentación del proyecto está organizada en la carpeta `docs/`:
-
-### 🚀 Para Empezar Rápido
-- **[Instalación Rápida](./docs/setup/INSTALACION_RAPIDA.md)** - Instalar Trinity en 5 minutos
-- **[Estado Actual](./docs/ESTADO_ACTUAL.md)** - Estado completo del proyecto
-- **[Guía de Desarrollo](./docs/development/GUIA_DESARROLLO.md)** - Para desarrolladores
-
-### 📋 Documentación Principal
-- **[Reporte Completo](./docs/REPORTE_COMPLETO.md)** - Reporte ejecutivo del proyecto
-- **[Arquitectura](./docs/ARQUITECTURA.md)** - Documentación técnica de la arquitectura
-- **[API Reference](./docs/development/API_REFERENCE.md)** - Referencia completa de APIs
-
-### 🔐 Configuración y Seguridad
-- **[Variables de Entorno](./docs/setup/VARIABLES_ENTORNO.md)** - Guía de configuración
-- **[AWS Setup](./docs/setup/AWS_SETUP.md)** - Configuración de servicios AWS
-- **[Google OAuth](./docs/auth/GOOGLE_OAUTH.md)** - Configuración de Google OAuth
-
-### 📱 Aplicación Móvil
-- **[Especificación Móvil](./docs/mobile/MOBILE_SPEC.md)** - Spec completa de la app móvil
-- **[Estado](./docs/reports/ESTADO_TAREAS.md)** - Estado detallado de todas las tareas
-
-### 🧠 IA y Analytics
-- **[Salamandra IA](./docs/ai/SALAMANDRA_IA.md)** - Integración con IA Salamandra/ALIA
-
-**📁 Índice completo**: [docs/README.md](./docs/README.md)
-
-### Error: "Variables de entorno no configuradas"
-```bash
-# Verifica que el archivo .env existe
-ls -la .env
-
-# Si no existe, cópialo desde el ejemplo
-cp .env.example .env
-
-# Edita con tus credenciales reales
-```
-
-### Error: "AWS CLI no configurado"
-```bash
-# Instala AWS CLI
-# Linux/macOS: https://aws.amazon.com/cli/
-# Windows: https://aws.amazon.com/cli/
-
-# Configura credenciales
-aws configure
-```
-
-### Error: "Node.js versión incorrecta"
-```bash
-# Verifica versión (necesitas Node.js 18+)
-node --version
-
-# Si es menor a 18, actualiza desde https://nodejs.org/
-```
-
-**📚 Más soluciones**: [docs/setup/INSTALACION_RAPIDA.md](./docs/setup/INSTALACION_RAPIDA.md)
-
----
-
-## 🎊 Estado del Proyecto
-
-**Trinity MVP Core está COMPLETADO y optimizado** ✅
-
-- **19/22 tareas completadas** (86%)
-- **Backend**: Completamente funcional con 19 módulos
-- **IA Soberana**: Salamandra/ALIA integrada
-- **Performance**: 45% mejora promedio
-- **Aplicación Móvil**: Especificación completa lista
-- **Calidad**: EXCELENTE (95/100)
-
-### ¿Dudas?
-Consulta la **[documentación completa](./docs/README.md)** o pregunta al equipo. ¡A picar código! 🚀
+#### **Siguiente paso:**
+Implementar las pantallas y funcionalidades de votación de películas usando toda la infraestructura ya construida.

@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { RoomController } from './room.controller';
 import { ShuffleSyncController } from './shuffle-sync.controller';
+import { RoomPerformanceController } from './room-performance.controller';
 import {
   InactiveMemberController,
   InactivityConfigController,
@@ -10,6 +11,7 @@ import { RoomService } from './room.service';
 import { MemberService } from './member.service';
 import { ShuffleSyncService } from './shuffle-sync.service';
 import { InactiveMemberService } from './inactive-member.service';
+import { RoomRefreshService } from './room-refresh.service';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { AnalyticsModule } from '../analytics/analytics.module';
 import { MediaModule } from '../media/media.module';
@@ -28,6 +30,7 @@ import { RoomModerationModule } from '../room-moderation/room-moderation.module'
   controllers: [
     RoomController,
     ShuffleSyncController,
+    RoomPerformanceController,
     InactiveMemberController,
     InactivityConfigController,
   ],
@@ -36,12 +39,14 @@ import { RoomModerationModule } from '../room-moderation/room-moderation.module'
     MemberService,
     ShuffleSyncService,
     InactiveMemberService,
+    RoomRefreshService,
   ],
   exports: [
     RoomService,
     MemberService,
     ShuffleSyncService,
     InactiveMemberService,
+    RoomRefreshService,
   ],
 })
 export class RoomModule {}

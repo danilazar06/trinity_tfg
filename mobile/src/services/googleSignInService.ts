@@ -1,4 +1,6 @@
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+import { environmentDetectionService, EnvironmentInfo, GoogleSignInCapabilities } from './environmentDetectionService';
 
 // Importar Google Sign-In de forma condicional
 let GoogleSignin: any = null;
@@ -27,16 +29,143 @@ export interface GoogleSignInConfig {
   androidClientId?: string;
 }
 
+export enum GoogleSignInStatus {
+  NATIVE_AVAILABLE = 'native_available',
+  WEB_FALLBACK = 'web_fallback',
+  NOT_AVAILABLE = 'not_available',
+  CONFIGURATION_ERROR = 'configuration_error'
+}
+
+export interface GoogleSignInAvailability {
+  status: GoogleSignInStatus;
+  canSignIn: boolean;
+  method: 'native' | 'web' | 'none';
+  message: string;
+  environment: EnvironmentInfo;
+  capabilities: GoogleSignInCapabilities;
+}
+
 class GoogleSignInService {
   private isConfigured = false;
+  private environment: EnvironmentInfo | null = null;
+  private capabilities: GoogleSignInCapabilities | null = null;
 
   /**
-   * Configurar Google Sign-In
+   * Inicializar el servicio detectando el entorno
+   */
+  private async initialize(): Promise<void> {
+    if (!this.environment) {
+      this.environment = environmentDetectionService.detectEnvironment();
+      this.capabilities = environmentDetectionService.getGoogleSignInCapabilities();
+      
+      console.log('🔍 Google Sign-In Service initialized:');
+      console.log(`  Environment: ${this.environment.runtime}`);
+      console.log(`  Recommended method: ${this.capabilities.recommendedMethod}`);
+      
+      if (this.capabilities.limitations.length > 0) {
+        console.log('  Limitations:');
+        this.capabilities.limitations.forEach(limitation => {
+          console.log(`    - ${limitation}`);
+        });
+      }
+    }
+  }
+
+  /**
+   * Obtener el estado de disponibilidad de Google Sign-In
+   */
+  async getAvailabilityStatus(): Promise<GoogleSignInAvailability> {
+    await this.initialize();
+    
+    if (!this.environment || !this.capabilities) {
+      return {
+        status: GoogleSignInStatus.CONFIGURATION_ERROR,
+        canSignIn: false,
+        method: 'none',
+        message: 'Error al detectar el entorno de ejecución',
+        environment: this.environment!,
+        capabilities: this.capabilities!,
+      };
+    }
+
+    const config = Constants.expoConfig?.extra as any;
+    const hasWebClientId = config?.googleWebClientId && 
+                          config.googleWebClientId !== 'your_google_web_client_id_here';
+
+    // Determinar disponibilidad basada en el entorno
+    switch (this.capabilities.recommendedMethod) {
+      case 'native':
+        if (GoogleSignin && hasWebClientId) {
+          return {
+            status: GoogleSignInStatus.NATIVE_AVAILABLE,
+            canSignIn: true,
+            method: 'native',
+            message: 'Google Sign-In nativo disponible',
+            environment: this.environment,
+            capabilities: this.capabilities,
+          };
+        } else {
+          return {
+            status: GoogleSignInStatus.CONFIGURATION_ERROR,
+            canSignIn: false,
+            method: 'none',
+            message: 'Configuración de Google Sign-In incompleta',
+            environment: this.environment,
+            capabilities: this.capabilities,
+          };
+        }
+
+      case 'web':
+        if (hasWebClientId) {
+          return {
+            status: GoogleSignInStatus.WEB_FALLBACK,
+            canSignIn: true,
+            method: 'web',
+            message: this.environment.runtime === 'expo-go' 
+              ? 'Usando autenticación web (Expo Go no soporta nativo)'
+              : 'Usando autenticación web como fallback',
+            environment: this.environment,
+            capabilities: this.capabilities,
+          };
+        } else {
+          return {
+            status: GoogleSignInStatus.CONFIGURATION_ERROR,
+            canSignIn: false,
+            method: 'none',
+            message: 'Google Web Client ID no configurado',
+            environment: this.environment,
+            capabilities: this.capabilities,
+          };
+        }
+
+      case 'disabled':
+      default:
+        return {
+          status: GoogleSignInStatus.NOT_AVAILABLE,
+          canSignIn: false,
+          method: 'none',
+          message: 'Google Sign-In no está disponible en este entorno',
+          environment: this.environment,
+          capabilities: this.capabilities,
+        };
+    }
+  }
+
+  /**
+   * Configurar Google Sign-In basado en el entorno detectado
    */
   async configure(): Promise<void> {
     try {
-      if (!GoogleSignin) {
-        console.warn('⚠️ Google Sign-In SDK no está disponible');
+      await this.initialize();
+      
+      if (!this.environment || !this.capabilities) {
+        console.warn('⚠️ No se pudo detectar el entorno para configurar Google Sign-In');
+        return;
+      }
+
+      // Solo configurar si tenemos el SDK nativo y es recomendado
+      if (!GoogleSignin || this.capabilities.recommendedMethod !== 'native') {
+        console.log('ℹ️ Configuración nativa de Google Sign-In omitida (no disponible o no recomendada)');
         return;
       }
 
@@ -60,7 +189,7 @@ class GoogleSignInService {
       });
 
       this.isConfigured = true;
-      console.log('✅ Google Sign-In configurado correctamente');
+      console.log('✅ Google Sign-In nativo configurado correctamente');
       
     } catch (error) {
       console.error('❌ Error configurando Google Sign-In:', error);
@@ -72,30 +201,56 @@ class GoogleSignInService {
    * Verificar si Google Sign-In está disponible
    */
   async isAvailable(): Promise<boolean> {
-    if (!GoogleSignin) {
-      return false;
-    }
-    
-    if (!this.isConfigured) {
-      await this.configure();
-    }
-    
-    return this.isConfigured;
+    const availability = await this.getAvailabilityStatus();
+    return availability.canSignIn;
   }
 
   /**
-   * Iniciar sesión con Google
+   * Iniciar sesión con Google (nativo o web fallback)
    */
   async signIn(): Promise<GoogleUser> {
     try {
-      if (!GoogleSignin || !statusCodes) {
-        throw new Error('Google Sign-In SDK no está disponible en este entorno');
+      const availability = await this.getAvailabilityStatus();
+      
+      if (!availability.canSignIn) {
+        throw new Error(availability.message);
       }
 
-      if (!await this.isAvailable()) {
-        throw new Error('Google Sign-In no está configurado');
+      // Usar método nativo si está disponible
+      if (availability.method === 'native') {
+        return await this.signInNative();
+      }
+      
+      // Usar web fallback
+      if (availability.method === 'web') {
+        return await this.signInWithWebFallback();
       }
 
+      throw new Error('Ningún método de Google Sign-In está disponible');
+      
+    } catch (error: any) {
+      console.error('❌ Error en Google Sign-In:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Iniciar sesión con Google nativo
+   */
+  private async signInNative(): Promise<GoogleUser> {
+    if (!GoogleSignin || !statusCodes) {
+      throw new Error('Google Sign-In SDK no está disponible');
+    }
+
+    if (!this.isConfigured) {
+      await this.configure();
+    }
+
+    if (!this.isConfigured) {
+      throw new Error('Google Sign-In no está configurado correctamente');
+    }
+
+    try {
       // Verificar si Google Play Services está disponible (Android)
       await GoogleSignin.hasPlayServices();
 
@@ -115,23 +270,71 @@ class GoogleSignInService {
         accessToken: userInfo.data.serverAuthCode || undefined,
       };
 
-      console.log('✅ Google Sign-In exitoso:', googleUser.email);
+      console.log('✅ Google Sign-In nativo exitoso:', googleUser.email);
       return googleUser;
       
     } catch (error: any) {
-      console.error('❌ Error en Google Sign-In:', error);
-      
-      // Manejar errores específicos solo si statusCodes está disponible
-      if (statusCodes && error.code === statusCodes.SIGN_IN_CANCELLED) {
+      // Manejar errores específicos
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
         throw new Error('Inicio de sesión cancelado por el usuario');
-      } else if (statusCodes && error.code === statusCodes.IN_PROGRESS) {
+      } else if (error.code === statusCodes.IN_PROGRESS) {
         throw new Error('Inicio de sesión en progreso');
-      } else if (statusCodes && error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
         throw new Error('Google Play Services no está disponible');
       } else {
-        throw new Error(error.message || 'Error desconocido en Google Sign-In');
+        throw new Error(error.message || 'Error desconocido en Google Sign-In nativo');
       }
     }
+  }
+
+  /**
+   * Iniciar sesión con Google usando web fallback
+   */
+  async signInWithWebFallback(): Promise<GoogleUser> {
+    try {
+      await this.initialize();
+      
+      if (!this.environment) {
+        throw new Error('No se pudo detectar el entorno de ejecución');
+      }
+
+      const config = Constants.expoConfig?.extra as any;
+      const webClientId = config?.googleWebClientId;
+      
+      if (!webClientId || webClientId === 'your_google_web_client_id_here') {
+        throw new Error('Google Web Client ID no configurado');
+      }
+
+      // En entorno web, usar la API web de Google
+      if (this.environment.platform === 'web') {
+        return await this.signInWeb(webClientId);
+      }
+
+      // En móvil (Expo Go), usar WebBrowser para OAuth
+      return await this.signInMobileWeb(webClientId);
+      
+    } catch (error: any) {
+      console.error('❌ Error en Google Sign-In web fallback:', error);
+      throw new Error(error.message || 'Error en autenticación web de Google');
+    }
+  }
+
+  /**
+   * Iniciar sesión web (navegador)
+   */
+  private async signInWeb(webClientId: string): Promise<GoogleUser> {
+    // Para entorno web, necesitaríamos implementar la API de Google
+    // Por ahora, lanzamos un error informativo
+    throw new Error('Google Sign-In web no implementado aún. Usa email y contraseña.');
+  }
+
+  /**
+   * Iniciar sesión móvil web (WebBrowser)
+   */
+  private async signInMobileWeb(webClientId: string): Promise<GoogleUser> {
+    // Para Expo Go, necesitaríamos usar WebBrowser para OAuth flow
+    // Por ahora, lanzamos un error informativo
+    throw new Error('Google Sign-In en Expo Go no implementado aún. Usa un Development Build para funcionalidad completa.');
   }
 
   /**
@@ -139,12 +342,15 @@ class GoogleSignInService {
    */
   async signOut(): Promise<void> {
     try {
-      if (!GoogleSignin || !await this.isAvailable()) {
-        return;
+      const availability = await this.getAvailabilityStatus();
+      
+      // Solo hacer sign-out nativo si está disponible y configurado
+      if (availability.method === 'native' && GoogleSignin && this.isConfigured) {
+        await GoogleSignin.signOut();
+        console.log('✅ Google Sign-Out nativo exitoso');
+      } else {
+        console.log('ℹ️ Google Sign-Out: solo limpieza local (no hay sesión nativa)');
       }
-
-      await GoogleSignin.signOut();
-      console.log('✅ Google Sign-Out exitoso');
       
     } catch (error) {
       console.error('❌ Error en Google Sign-Out:', error);
@@ -157,12 +363,15 @@ class GoogleSignInService {
    */
   async revokeAccess(): Promise<void> {
     try {
-      if (!GoogleSignin || !await this.isAvailable()) {
-        return;
+      const availability = await this.getAvailabilityStatus();
+      
+      // Solo revocar acceso nativo si está disponible y configurado
+      if (availability.method === 'native' && GoogleSignin && this.isConfigured) {
+        await GoogleSignin.revokeAccess();
+        console.log('✅ Google Access nativo revocado');
+      } else {
+        console.log('ℹ️ Google Revoke Access: solo limpieza local (no hay sesión nativa)');
       }
-
-      await GoogleSignin.revokeAccess();
-      console.log('✅ Google Access revocado');
       
     } catch (error) {
       console.error('❌ Error revocando acceso de Google:', error);
@@ -175,7 +384,10 @@ class GoogleSignInService {
    */
   async getCurrentUser(): Promise<GoogleUser | null> {
     try {
-      if (!GoogleSignin || !await this.isAvailable()) {
+      const availability = await this.getAvailabilityStatus();
+      
+      // Solo obtener usuario nativo si está disponible y configurado
+      if (availability.method !== 'native' || !GoogleSignin || !this.isConfigured) {
         return null;
       }
 
@@ -205,17 +417,41 @@ class GoogleSignInService {
    */
   async isSignedIn(): Promise<boolean> {
     try {
-      if (!await this.isAvailable()) {
+      const availability = await this.getAvailabilityStatus();
+      
+      if (availability.method !== 'native') {
         return false;
       }
 
-      const currentUser = this.getCurrentUser();
+      const currentUser = await this.getCurrentUser();
       return currentUser !== null;
       
     } catch (error) {
       console.error('❌ Error verificando estado de Google Sign-In:', error);
       return false;
     }
+  }
+
+  /**
+   * Obtener información detallada para debugging
+   */
+  async getDebugInfo(): Promise<Record<string, any>> {
+    await this.initialize();
+    const availability = await this.getAvailabilityStatus();
+    
+    return {
+      availability,
+      environment: this.environment,
+      capabilities: this.capabilities,
+      isConfigured: this.isConfigured,
+      hasGoogleSigninSDK: !!GoogleSignin,
+      hasStatusCodes: !!statusCodes,
+      configuration: {
+        webClientId: Constants.expoConfig?.extra?.googleWebClientId || 'not_set',
+        iosClientId: Constants.expoConfig?.extra?.googleIosClientId || 'not_set',
+        androidClientId: Constants.expoConfig?.extra?.googleAndroidClientId || 'not_set',
+      },
+    };
   }
 }
 

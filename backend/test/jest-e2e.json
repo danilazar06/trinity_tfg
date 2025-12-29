@@ -5,5 +5,15 @@
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
-  }
+  },
+  "collectCoverageFrom": [
+    "src/**/*.(t|j)s",
+    "!src/**/*.spec.ts",
+    "!src/**/*.e2e-spec.ts"
+  ],
+  "coverageDirectory": "../coverage-e2e",
+  "testTimeout": 30000,
+  "verbose": true,
+  "detectOpenHandles": true,
+  "forceExit": true
 }

@@ -1,0 +1,278 @@
+version: '3.8'
+
+services:
+  # === TRINITY API INSTANCES ===
+  trinity-api-1:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: trinity-api-1
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+      - INSTANCE_ID=trinity-api-1
+      - INSTANCE_WEIGHT=100
+      - MAX_CONNECTIONS=1000
+      
+      # AWS Configuration
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID}
+      
+      # Database Configuration
+      - DYNAMODB_TABLE_NAME=${DYNAMODB_TABLE_NAME}
+      - USERS_TABLE=${USERS_TABLE}
+      - MOVIES_CACHE_TABLE=${MOVIES_CACHE_TABLE}
+      - ANALYTICS_TABLE=${ANALYTICS_TABLE}
+      
+      # External APIs
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - HF_API_TOKEN=${HF_API_TOKEN}
+      
+      # Production optimizations
+      - ENABLE_COMPRESSION=true
+      - ENABLE_CACHING=true
+      - ENABLE_CONNECTION_POOLING=true
+      - ENABLE_MEMORY_OPTIMIZATION=true
+      - ENABLE_STATIC_ASSET_OPTIMIZATION=true
+      
+      # Security
+      - ENABLE_RATE_LIMITING=true
+      - ENABLE_INPUT_VALIDATION=true
+      - ENABLE_SECURITY_HEADERS=true
+      - ENABLE_HTTPS_ONLY=true
+      - ENABLE_CSRF_PROTECTION=true
+      
+      # Monitoring
+      - ENABLE_STRUCTURED_LOGGING=true
+      - ENABLE_METRICS_COLLECTION=true
+      - ENABLE_ERROR_TRACKING=true
+      - ENABLE_PERFORMANCE_MONITORING=true
+      - ENABLE_HEALTH_CHECKS=true
+      
+      # Disable development features
+      - ENABLE_DEBUGGING=false
+      - ENABLE_SWAGGER=false
+      - ENABLE_DETAILED_LOGGING=false
+      
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./logs:/app/logs
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - trinity-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/api/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  trinity-api-2:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: trinity-api-2
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+      - INSTANCE_ID=trinity-api-2
+      - INSTANCE_WEIGHT=100
+      - MAX_CONNECTIONS=1000
+      
+      # Same environment variables as trinity-api-1
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID}
+      - DYNAMODB_TABLE_NAME=${DYNAMODB_TABLE_NAME}
+      - USERS_TABLE=${USERS_TABLE}
+      - MOVIES_CACHE_TABLE=${MOVIES_CACHE_TABLE}
+      - ANALYTICS_TABLE=${ANALYTICS_TABLE}
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - HF_API_TOKEN=${HF_API_TOKEN}
+      
+      # Production settings
+      - ENABLE_COMPRESSION=true
+      - ENABLE_CACHING=true
+      - ENABLE_CONNECTION_POOLING=true
+      - ENABLE_MEMORY_OPTIMIZATION=true
+      - ENABLE_STATIC_ASSET_OPTIMIZATION=true
+      - ENABLE_RATE_LIMITING=true
+      - ENABLE_INPUT_VALIDATION=true
+      - ENABLE_SECURITY_HEADERS=true
+      - ENABLE_HTTPS_ONLY=true
+      - ENABLE_CSRF_PROTECTION=true
+      - ENABLE_STRUCTURED_LOGGING=true
+      - ENABLE_METRICS_COLLECTION=true
+      - ENABLE_ERROR_TRACKING=true
+      - ENABLE_PERFORMANCE_MONITORING=true
+      - ENABLE_HEALTH_CHECKS=true
+      - ENABLE_DEBUGGING=false
+      - ENABLE_SWAGGER=false
+      - ENABLE_DETAILED_LOGGING=false
+      
+    ports:
+      - "3003:3002"
+    volumes:
+      - ./logs:/app/logs
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - trinity-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/api/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # === NGINX LOAD BALANCER ===
+  nginx-lb:
+    image: nginx:alpine
+    container_name: trinity-nginx-lb
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    networks:
+      - trinity-network
+    depends_on:
+      - trinity-api-1
+      - trinity-api-2
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/api/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
+          cpus: '0.25'
+
+  # === REDIS FOR CACHING (Optional) ===
+  redis:
+    image: redis:7-alpine
+    container_name: trinity-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - trinity-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+
+  # === MONITORING STACK (Optional) ===
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: trinity-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - trinity-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: trinity-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - trinity-network
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+# === NETWORKS ===
+networks:
+  trinity-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# === VOLUMES ===
+volumes:
+  redis-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local

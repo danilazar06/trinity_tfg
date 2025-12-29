@@ -33,9 +33,11 @@ const MOVIE_POSTERS = [
 ];
 
 export default function LoginScreen() {
-  const { login, isLoading, error, clearError, loginWithGoogle, loginWithApple, isAuthenticated } = useAuth();
+  const { login, isLoading, error, clearError, loginWithGoogle, loginWithApple, isAuthenticated, getGoogleSignInAvailability } = useAuth();
   const [credentials, setCredentials] = useState<LoginCredentials>({ email: '', password: '' });
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [googleAvailable, setGoogleAvailable] = useState(false);
+  const [googleMessage, setGoogleMessage] = useState('');
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
   const logoScale = useRef(new Animated.Value(0.8)).current;
@@ -48,7 +50,21 @@ export default function LoginScreen() {
       Animated.spring(logoScale, { toValue: 1, tension: 100, friction: 8, useNativeDriver: true }),
     ]).start();
     Animated.loop(Animated.timing(posterScrollAnim, { toValue: 1, duration: 30000, useNativeDriver: true })).start();
+    
+    // Verificar disponibilidad de Google Sign-In
+    checkGoogleAvailability();
   }, []);
+
+  const checkGoogleAvailability = async () => {
+    try {
+      const availability = await getGoogleSignInAvailability();
+      setGoogleAvailable(availability.available);
+      setGoogleMessage(availability.message);
+    } catch (error) {
+      setGoogleAvailable(false);
+      setGoogleMessage('Error al verificar Google Sign-In');
+    }
+  };
 
   useEffect(() => { if (isAuthenticated) router.replace('/(tabs)'); }, [isAuthenticated]);
   useEffect(() => { if (error) Alert.alert('Error', error, [{ text: 'OK', onPress: clearError }]); }, [error]);
@@ -138,10 +154,31 @@ export default function LoginScreen() {
               </View>
               <View style={styles.divider}><View style={styles.dividerLine} /><Text style={styles.dividerText}>o continua con</Text><View style={styles.dividerLine} /></View>
               <View style={styles.socialButtons}>
-                <TouchableOpacity style={styles.socialButton} onPress={loginWithGoogle} activeOpacity={0.8}><Text style={styles.socialIcon}>G</Text><Text style={styles.socialButtonText}>Google</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.socialButton} onPress={loginWithApple} activeOpacity={0.8}><Text style={styles.socialIcon}>A</Text><Text style={styles.socialButtonText}>Apple</Text></TouchableOpacity>
+                {googleAvailable ? (
+                  <TouchableOpacity style={styles.socialButton} onPress={loginWithGoogle} activeOpacity={0.8}>
+                    <Text style={styles.socialIcon}>G</Text>
+                    <Text style={styles.socialButtonText}>Google</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={[styles.socialButton, styles.socialButtonDisabled]}>
+                    <Text style={[styles.socialIcon, styles.socialIconDisabled]}>G</Text>
+                    <Text style={[styles.socialButtonText, styles.socialButtonTextDisabled]}>Google</Text>
+                  </View>
+                )}
+                <TouchableOpacity style={styles.socialButton} onPress={loginWithApple} activeOpacity={0.8}>
+                  <Text style={styles.socialIcon}>A</Text>
+                  <Text style={styles.socialButtonText}>Apple</Text>
+                </TouchableOpacity>
               </View>
+              {!googleAvailable && (
+                <View style={styles.googleMessageContainer}>
+                  <Text style={styles.googleMessageText}>ℹ️ {googleMessage}</Text>
+                </View>
+              )}
               <View style={styles.footer}><Text style={styles.footerText}>No tienes cuenta? </Text><TouchableOpacity onPress={() => router.push('/register')}><Text style={styles.registerLink}>Registrate aqui</Text></TouchableOpacity></View>
+              <TouchableOpacity onPress={() => router.push('/test-connection')} style={styles.testButton}>
+                <Text style={styles.testButtonText}>🔍 Test de Conexión</Text>
+              </TouchableOpacity>
             </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -185,9 +222,16 @@ const styles = StyleSheet.create({
   dividerText: { color: colors.textMuted, fontSize: fontSize.sm, paddingHorizontal: spacing.md },
   socialButtons: { flexDirection: 'row', gap: spacing.md, width: '100%' },
   socialButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: borderRadius.lg, paddingVertical: spacing.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', gap: spacing.sm },
+  socialButtonDisabled: { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.05)' },
   socialIcon: { fontSize: 16, fontWeight: 'bold', color: colors.textPrimary },
+  socialIconDisabled: { color: colors.textMuted },
   socialButtonText: { fontSize: fontSize.md, fontWeight: '600', color: colors.textPrimary },
+  socialButtonTextDisabled: { color: colors.textMuted },
+  googleMessageContainer: { marginTop: spacing.sm, paddingHorizontal: spacing.md, alignItems: 'center' },
+  googleMessageText: { fontSize: fontSize.xs, color: colors.textMuted, textAlign: 'center', lineHeight: 16 },
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: spacing.xl },
   footerText: { color: colors.textSecondary, fontSize: fontSize.sm },
   registerLink: { color: colors.primary, fontSize: fontSize.sm, fontWeight: '600' },
+  testButton: { marginTop: spacing.md, padding: spacing.sm, alignItems: 'center' },
+  testButtonText: { color: colors.textMuted, fontSize: fontSize.xs },
 });

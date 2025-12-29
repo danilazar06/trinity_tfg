@@ -5,7 +5,7 @@ import Constants from 'expo-constants';
 const getApiUrl = () => {
   // En desarrollo, usar la IP local del servidor
   // Cambiar esta IP por la de tu máquina si es diferente
-  const DEV_API_URL = 'http://192.168.1.59:3000/api';
+  const DEV_API_URL = 'http://192.168.0.27:3002/api';
   const PROD_API_URL = 'https://api.trinity.app/api'; // URL de producción
   
   return __DEV__ ? DEV_API_URL : PROD_API_URL;

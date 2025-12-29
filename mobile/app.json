@@ -17,12 +17,10 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.trinity.app",
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "bundleIdentifier": "com.trinity.app"
     },
     "android": {
-      "package": "com.trinity.app",
-      "googleServicesFile": "./google-services.json"
+      "package": "com.trinity.app"
     },
     "web": {
       "bundler": "metro"
@@ -30,12 +28,20 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "@react-native-google-signin/google-signin"
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.320120465080-4lf6l426q4ct2jn4mpgte9m5mbmlss7j"
+        }
+      ]
     ],
     "extra": {
-      "googleWebClientId": "your_google_web_client_id_here",
-      "googleIosClientId": "your_google_ios_client_id_here",
-      "googleAndroidClientId": "your_google_android_client_id_here"
+      "googleWebClientId": "320120465080-4lf6l426q4ct2jn4mpgte9m5mbmlss7j.apps.googleusercontent.com",
+      "googleIosClientId": "320120465080-4lf6l426q4ct2jn4mpgte9m5mbmlss7j.apps.googleusercontent.com",
+      "googleAndroidClientId": "320120465080-4lf6l426q4ct2jn4mpgte9m5mbmlss7j.apps.googleusercontent.com",
+      "eas": {
+        "projectId": "trinity-voting-app"
+      }
     }
   }
 }

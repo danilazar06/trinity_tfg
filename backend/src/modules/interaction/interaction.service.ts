@@ -10,6 +10,7 @@ import { DynamoDBKeys } from '../../infrastructure/database/dynamodb.constants';
 import { MemberService } from '../room/member.service';
 import { RoomService } from '../room/room.service';
 import { MediaService } from '../media/media.service';
+import { RoomRefreshService } from '../room/room-refresh.service';
 import { RealtimeCompatibilityService } from '../realtime/realtime-compatibility.service';
 import { EventTracker } from '../analytics/event-tracker.service';
 import { EventType } from '../analytics/interfaces/analytics.interfaces';
@@ -32,6 +33,7 @@ export class InteractionService {
     private memberService: MemberService,
     private roomService: RoomService,
     private mediaService: MediaService,
+    private roomRefreshService: RoomRefreshService,
     private realtimeService: RealtimeCompatibilityService,
     private eventTracker: EventTracker,
   ) {}
@@ -90,8 +92,8 @@ export class InteractionService {
 
       await this.saveVote(vote);
 
-      // 📝 Track content vote event
-      await this.eventTracker.trackContentInteraction(
+      // 📝 Track content vote event (asíncrono para no bloquear)
+      this.eventTracker.trackContentInteraction(
         userId,
         roomId,
         createVoteDto.mediaId,
@@ -104,6 +106,8 @@ export class InteractionService {
           source: 'interaction_service',
           userAgent: 'backend',
         },
+      ).catch(error => 
+        this.logger.error(`Error tracking vote event: ${error.message}`)
       );
 
       // 5. Avanzar el índice del miembro
@@ -127,8 +131,8 @@ export class InteractionService {
         userId,
       );
 
-      // 9. Notificar voto en tiempo real
-      await this.realtimeService.notifyVote(roomId, {
+      // 9. Notificar voto en tiempo real (asíncrono para no bloquear)
+      this.realtimeService.notifyVote(roomId, {
         userId,
         mediaId: createVoteDto.mediaId,
         voteType: createVoteDto.voteType,
@@ -137,7 +141,19 @@ export class InteractionService {
           requiredVotes: progress.totalItems,
           percentage: progress.progressPercentage,
         },
-      });
+      }).catch(error => 
+        this.logger.error(`Error sending realtime vote notification: ${error.message}`)
+      );
+
+      // 10. Pre-cargar próximos títulos para optimizar rendimiento
+      this.prefetchUpcomingTitles(roomId, userId).catch(error =>
+        this.logger.error(`Error prefetching upcoming titles: ${error.message}`)
+      );
+
+      // 11. Verificar si la sala necesita renovación automática
+      this.checkRoomRefresh(roomId).catch(error =>
+        this.logger.error(`Error checking room refresh: ${error.message}`)
+      );
 
       this.logger.log(
         `Voto registrado: ${userId} votó ${createVoteDto.voteType} por ${createVoteDto.mediaId} en sala ${roomId}`,
@@ -291,14 +307,20 @@ export class InteractionService {
         activeMemberIds.has(vote.userId),
       );
 
-      // Verificar unanimidad
+      // CORRECCIÓN: Requiere al menos 2 miembros activos para crear un match
+      // Un match solo tiene sentido cuando múltiples personas están de acuerdo
       if (
         activeVotes.length === activeMembers.length &&
-        activeVotes.length > 0
+        activeVotes.length >= 2 && // ← NUEVA CONDICIÓN: Mínimo 2 miembros
+        activeMembers.length >= 2   // ← NUEVA CONDICIÓN: Mínimo 2 miembros activos
       ) {
         const firstVoteType = activeVotes[0].voteType;
         const isUnanimous = activeVotes.every(
           (vote) => vote.voteType === firstVoteType,
+        );
+
+        this.logger.log(
+          `🎯 Checking unanimity for ${mediaId}: ${activeVotes.length}/${activeMembers.length} votes, all ${firstVoteType}? ${isUnanimous}`,
         );
 
         return {
@@ -308,6 +330,11 @@ export class InteractionService {
           activeMembers: activeMembers.length,
         };
       }
+
+      // Si hay menos de 2 miembros o no todos han votado, no hay unanimidad
+      this.logger.debug(
+        `❌ No unanimity for ${mediaId}: ${activeVotes.length}/${activeMembers.length} votes (need at least 2 members)`,
+      );
 
       return {
         isUnanimous: false,
@@ -548,5 +575,58 @@ export class InteractionService {
     this.logger.debug(
       `Sesión de swipe iniciada: ${session.sessionId} para usuario ${session.userId}`,
     );
+  }
+
+  /**
+   * Pre-cargar próximos títulos para optimizar rendimiento (AGRESIVO)
+   */
+  private async prefetchUpcomingTitles(roomId: string, userId: string): Promise<void> {
+    try {
+      const member = await this.memberService.getMember(roomId, userId);
+      if (!member || !member.shuffledList) {
+        return;
+      }
+
+      // Pre-cargar los próximos 10 títulos (más agresivo)
+      const lookAhead = 10;
+      const upcomingIds = member.shuffledList.slice(
+        member.currentIndex,
+        member.currentIndex + lookAhead
+      );
+
+      if (upcomingIds.length > 0) {
+        await this.mediaService.prefetchMovieDetails(upcomingIds);
+        this.logger.debug(
+          `Prefetched ${upcomingIds.length} upcoming titles for user ${userId} in room ${roomId}`
+        );
+      }
+    } catch (error) {
+      this.logger.error(`Error prefetching titles: ${error.message}`);
+    }
+  }
+
+  /**
+   * Verificar si la sala necesita renovación automática
+   */
+  private async checkRoomRefresh(roomId: string): Promise<void> {
+    try {
+      // Obtener filtros de contenido de la sala
+      const room = await this.roomService.getRoomById(roomId);
+      if (!room) {
+        return;
+      }
+
+      // Verificar y renovar si es necesario
+      const refreshed = await this.roomRefreshService.checkAndRefreshIfNeeded(
+        roomId,
+        room.filters // Usar 'filters' en lugar de 'contentFilters'
+      );
+
+      if (refreshed) {
+        this.logger.log(`Room ${roomId} was automatically refreshed with new content`);
+      }
+    } catch (error) {
+      this.logger.error(`Error checking room refresh: ${error.message}`);
+    }
   }
 }
