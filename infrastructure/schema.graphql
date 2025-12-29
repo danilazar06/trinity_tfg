@@ -259,9 +259,15 @@ enum NotificationType {
   SYSTEM_MESSAGE
 }
 
+# Trini AI Response Type
+type TriniResponse {
+  chatResponse: String!
+  recommendedGenres: [String!]!
+}
+
 type Query {
   getMovies(genre: String): [Movie]           # DataSource: MovieHandler
-  getChatRecommendations(text: String!): [String] # DataSource: AIHandler
+  getChatRecommendations(text: String!): TriniResponse # DataSource: AIHandler (Trini)
   getMyHistory: [Room]                        # DataSource: RoomHandler
 }
 

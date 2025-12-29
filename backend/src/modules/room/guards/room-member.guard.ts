@@ -12,8 +12,10 @@ export class RoomMemberGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const userId = request.user?.id;
-    const roomId = request.params?.id;
+    // Support both 'id' and 'sub' for user identification (Cognito uses 'sub')
+    const userId = request.user?.sub || request.user?.id;
+    // Support both 'id' and 'roomId' for room identification
+    const roomId = request.params?.roomId || request.params?.id;
 
     if (!userId || !roomId) {
       throw new ForbiddenException('Usuario o sala no identificados');

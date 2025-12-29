@@ -5,6 +5,7 @@ export { mediaService } from './mediaService';
 export { roomService } from './roomService';
 export { voteService } from './voteService';
 export { matchService } from './matchService';
+export { aiService } from './aiService';
 
 // Re-exportar tipos
 export type {
@@ -38,3 +39,5 @@ export type {
   MatchDetectionResult,
   PendingMatchResult,
 } from './matchService';
+
+export type { TriniResponse } from './aiService';

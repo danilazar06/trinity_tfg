@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../src/context/AuthContext';
 import { colors, spacing, fontSize, borderRadius } from '../src/utils/theme';
 import { RegisterData } from '../src/types';
+import TrinityLogo from '../src/components/TrinityLogo';
 
 const { width, height } = Dimensions.get('window');
 
@@ -113,7 +114,7 @@ export default function RegisterScreen() {
               {/* Logo */}
               <Animated.View style={[styles.logoContainer, { transform: [{ scale: logoScale }] }]}>
                 <LinearGradient colors={['rgba(139,92,246,0.4)', 'rgba(6,182,212,0.3)']} style={styles.logoGlow} />
-                <Image source={require('../assets/logo-trinity-v1.png')} style={styles.logo} resizeMode="contain" />
+                <TrinityLogo size={100} />
               </Animated.View>
 
               <Text style={styles.title}>Crear cuenta</Text>
@@ -268,8 +269,7 @@ const styles = StyleSheet.create({
   backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: spacing.sm },
   content: { alignItems: 'center' },
   logoContainer: { alignItems: 'center', marginBottom: spacing.md, position: 'relative' },
-  logoGlow: { position: 'absolute', width: 100, height: 100, borderRadius: 50, opacity: 0.8 },
-  logo: { width: 80, height: 80 },
+  logoGlow: { position: 'absolute', width: 120, height: 120, borderRadius: 60, opacity: 0.6 },
   title: { fontSize: 28, fontWeight: '800', color: colors.textPrimary, marginBottom: 4 },
   subtitle: { fontSize: fontSize.md, color: colors.textMuted, marginBottom: spacing.lg },
   form: { width: '100%', gap: spacing.sm },

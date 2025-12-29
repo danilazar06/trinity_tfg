@@ -171,7 +171,7 @@ export class MemberService {
       await this.dynamoDBService.conditionalUpdate(
         DynamoDBKeys.roomPK(roomId),
         DynamoDBKeys.memberSK(userId),
-        'SET lastActivityAt = :lastActivityAt, #status = :status',
+        'SET lastActivityAt = :lastActivityAt, #status = :status, updatedAt = :updatedAt',
         'attribute_exists(PK)',
         {
           '#status': 'status',
@@ -227,7 +227,7 @@ export class MemberService {
     await this.dynamoDBService.conditionalUpdate(
       DynamoDBKeys.roomPK(roomId),
       DynamoDBKeys.memberSK(userId),
-      'SET currentIndex = :currentIndex, lastActivityAt = :lastActivityAt',
+      'SET currentIndex = :currentIndex, lastActivityAt = :lastActivityAt, updatedAt = :updatedAt',
       'attribute_exists(PK)',
       undefined,
       {

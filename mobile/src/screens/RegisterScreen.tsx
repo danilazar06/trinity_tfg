@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { Input } from '../components';
+import TrinityLogo from '../components/TrinityLogo';
 import { colors, spacing, fontSize, borderRadius, shadows } from '../utils/theme';
 import { RegisterData } from '../types';
 
@@ -180,19 +181,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
             <Animated.View 
               style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
             >
-              {/* Logo */}
+              {/* Logo - usando el logo PNG real */}
               <Animated.View style={[styles.logoContainer, { transform: [{ scale: logoScale }] }]}>
-                <LinearGradient
-                  colors={['rgba(6, 182, 212, 0.3)', 'rgba(139, 92, 246, 0.2)']}
-                  style={styles.logoGlow}
-                />
-                <View style={styles.logo}>
-                  <View style={styles.logoShape}>
-                    <LinearGradient colors={[colors.secondary, colors.secondaryLight]} style={[styles.logoBar, { height: 24 }]} />
-                    <LinearGradient colors={[colors.primary, colors.primaryLight]} style={[styles.logoBar, { height: 32 }]} />
-                    <LinearGradient colors={[colors.accent, colors.accentLight]} style={[styles.logoBar, { height: 18 }]} />
-                  </View>
-                </View>
+                <TrinityLogo size={90} />
               </Animated.View>
 
               <Text style={styles.title}>Crear cuenta</Text>
@@ -325,14 +316,6 @@ const styles = StyleSheet.create({
   },
   content: { alignItems: 'center' },
   logoContainer: { alignItems: 'center', marginBottom: spacing.md, position: 'relative' },
-  logoGlow: { position: 'absolute', width: 100, height: 100, borderRadius: 50, opacity: 0.8 },
-  logo: {
-    width: 70, height: 70, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 22,
-    borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  logoShape: { flexDirection: 'row', alignItems: 'flex-end', height: 36, gap: 5 },
-  logoBar: { width: 11, borderRadius: 6 },
   title: { fontSize: 32, fontWeight: '800', color: colors.textPrimary, marginBottom: spacing.xs },
   subtitle: { fontSize: fontSize.md, color: colors.textMuted, marginBottom: spacing.lg },
   formContainer: { width: '100%', gap: spacing.md },

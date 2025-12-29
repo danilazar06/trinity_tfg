@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { Input } from '../components';
+import TrinityLogo from '../components/TrinityLogo';
 import { colors, spacing, fontSize, borderRadius, shadows } from '../utils/theme';
 import { LoginCredentials } from '../types';
 
@@ -190,28 +191,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 }
               ]}
             >
-              {/* Logo animado */}
+              {/* Logo animado - usando el logo PNG real */}
               <Animated.View style={[styles.logoContainer, { transform: [{ scale: logoScale }] }]}>
-                <LinearGradient
-                  colors={['rgba(139, 92, 246, 0.4)', 'rgba(6, 182, 212, 0.2)']}
-                  style={styles.logoGlow}
-                />
-                <View style={styles.logo}>
-                  <View style={styles.logoShape}>
-                    <LinearGradient
-                      colors={[colors.secondary, colors.secondaryLight]}
-                      style={[styles.logoBar, { height: 28 }]}
-                    />
-                    <LinearGradient
-                      colors={[colors.primary, colors.primaryLight]}
-                      style={[styles.logoBar, { height: 38 }]}
-                    />
-                    <LinearGradient
-                      colors={[colors.accent, colors.accentLight]}
-                      style={[styles.logoBar, { height: 22 }]}
-                    />
-                  </View>
-                </View>
+                <TrinityLogo size={120} />
               </Animated.View>
 
               {/* Título */}
@@ -396,33 +378,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.lg,
     position: 'relative',
-  },
-  logoGlow: {
-    position: 'absolute',
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    opacity: 0.8,
-  },
-  logo: {
-    width: 90,
-    height: 90,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  logoShape: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    height: 45,
-    gap: 6,
-  },
-  logoBar: {
-    width: 14,
-    borderRadius: 7,
   },
   // Títulos
   welcomeText: {

@@ -196,4 +196,40 @@ export class ShuffleSyncController {
 
     return { message: 'Listas de la sala reseteadas exitosamente' };
   }
+
+  @Post('sync-index')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Sincronizar Índice del Miembro',
+    description:
+      'Sincroniza el índice del miembro basándose en los votos existentes. Útil cuando el índice se desincroniza por errores.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Índice sincronizado exitosamente',
+    schema: {
+      type: 'object',
+      properties: {
+        previousIndex: { type: 'number' },
+        newIndex: { type: 'number' },
+        votesFound: { type: 'number' },
+        synced: { type: 'boolean' },
+      },
+    },
+  })
+  async syncMemberIndex(
+    @Param('roomId') roomId: string,
+    @Request() req: any,
+  ): Promise<{
+    previousIndex: number;
+    newIndex: number;
+    votesFound: number;
+    synced: boolean;
+  }> {
+    this.logger.log(
+      `Syncing member index for user ${req.user.sub} in room ${roomId}`,
+    );
+
+    return this.shuffleSyncService.syncMemberIndex(roomId, req.user.sub);
+  }
 }

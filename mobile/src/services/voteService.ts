@@ -87,7 +87,7 @@ class VoteService {
       return await apiClient.post<VoteResponse>(`/rooms/${roomId}/interactions/vote`, dto);
     } catch (error) {
       console.error('Error registering vote:', error);
-      if (USE_MOCK || __DEV__) {
+      if (USE_MOCK) {
         return this.mockRegisterVote(dto);
       }
       throw error;
@@ -105,7 +105,7 @@ class VoteService {
       return await apiClient.get<QueueStatus>(`/rooms/${roomId}/interactions/queue/status`);
     } catch (error) {
       console.error('Error getting queue status:', error);
-      if (USE_MOCK || __DEV__) {
+      if (USE_MOCK) {
         return this.mockGetQueueStatus(roomId);
       }
       throw error;
@@ -123,7 +123,7 @@ class VoteService {
       return await apiClient.get(`/rooms/${roomId}/interactions/current-media`);
     } catch (error) {
       console.error('Error getting current media:', error);
-      if (USE_MOCK || __DEV__) {
+      if (USE_MOCK) {
         return this.mockGetCurrentMedia();
       }
       throw error;
@@ -141,7 +141,7 @@ class VoteService {
       return await apiClient.get<VoteHistoryItem[]>(`/rooms/${roomId}/interactions/votes/history?limit=${limit}`);
     } catch (error) {
       console.error('Error getting vote history:', error);
-      if (USE_MOCK || __DEV__) {
+      if (USE_MOCK) {
         return this.mockGetVoteHistory();
       }
       throw error;
@@ -159,7 +159,7 @@ class VoteService {
       return await apiClient.get<MediaVotes>(`/rooms/${roomId}/interactions/media/${mediaId}/votes`);
     } catch (error) {
       console.error('Error getting media votes:', error);
-      if (USE_MOCK || __DEV__) {
+      if (USE_MOCK) {
         return this.mockGetMediaVotes(mediaId);
       }
       throw error;
@@ -177,7 +177,7 @@ class VoteService {
       return await apiClient.get<ConsensusResult>(`/rooms/${roomId}/interactions/media/${mediaId}/consensus`);
     } catch (error) {
       console.error('Error checking consensus:', error);
-      if (USE_MOCK || __DEV__) {
+      if (USE_MOCK) {
         return this.mockCheckConsensus();
       }
       throw error;
@@ -195,7 +195,7 @@ class VoteService {
       return await apiClient.get<RoomVoteStats>(`/rooms/${roomId}/interactions/stats`);
     } catch (error) {
       console.error('Error getting room stats:', error);
-      if (USE_MOCK || __DEV__) {
+      if (USE_MOCK) {
         return this.mockGetRoomStats(roomId);
       }
       throw error;
@@ -213,7 +213,7 @@ class VoteService {
       return await apiClient.post<SwipeSession>(`/rooms/${roomId}/interactions/session/start`);
     } catch (error) {
       console.error('Error starting swipe session:', error);
-      if (USE_MOCK || __DEV__) {
+      if (USE_MOCK) {
         return this.mockStartSwipeSession();
       }
       throw error;
@@ -322,6 +322,23 @@ class VoteService {
    */
   resetMockState(): void {
     this.mockCurrentIndex = 0;
+  }
+
+  /**
+   * Sincronizar índice del miembro (útil cuando hay desincronización)
+   */
+  async syncMemberIndex(roomId: string): Promise<{
+    previousIndex: number;
+    newIndex: number;
+    votesFound: number;
+    synced: boolean;
+  }> {
+    try {
+      return await apiClient.post(`/rooms/${roomId}/shuffle-sync/sync-index`);
+    } catch (error) {
+      console.error('Error syncing member index:', error);
+      throw error;
+    }
   }
 }
 

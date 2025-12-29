@@ -6,9 +6,15 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "trinity",
+    "icon": "./assets/logo-trinity-v1.png",
     "splash": {
+      "image": "./assets/logo-trinity-v1.png",
+      "resizeMode": "contain",
       "backgroundColor": "#0D0D0F"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.trinity.app",

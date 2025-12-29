@@ -17,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { RoomService } from './room.service';
 import { MemberService } from './member.service';
+import { ShuffleSyncService } from './shuffle-sync.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import {
@@ -40,13 +41,27 @@ export class RoomController {
   constructor(
     private roomService: RoomService,
     private memberService: MemberService,
+    private shuffleSyncService: ShuffleSyncService,
   ) {}
 
   @Post()
   @ApiOperation({ summary: 'Crear una nueva sala' })
   @ApiResponse({ status: 201, description: 'Sala creada exitosamente' })
   async createRoom(@Request() req, @Body() createRoomDto: CreateRoomDto) {
-    return this.roomService.createRoom(req.user.sub, createRoomDto);
+    // 1. Crear la sala
+    const room = await this.roomService.createRoom(req.user.sub, createRoomDto);
+    
+    // 2. Generar la lista de películas basada en los filtros
+    try {
+      await this.shuffleSyncService.generateMasterListAndShuffledLists(room.id);
+    } catch (error) {
+      // Log el error pero no fallar la creación de la sala
+      console.error('Error generando lista de películas:', error.message);
+    }
+    
+    // 3. Devolver la sala actualizada con la lista
+    const updatedRoom = await this.roomService.getRoomById(room.id);
+    return updatedRoom || room;
   }
 
   @Get()
