@@ -205,28 +205,6 @@ export default function RoomSwipeScreen() {
     }
   }, [roomId, roomDetails, handleMatchFound]);
 
-  // Cleanup subscriptions
-  const cleanupSubscriptions = useCallback(() => {
-    console.log('🧹 Cleaning up subscriptions');
-    
-    if (unsubscribeVotes.current) {
-      unsubscribeVotes.current();
-      unsubscribeVotes.current = null;
-    }
-    
-    if (unsubscribeMatches.current) {
-      unsubscribeMatches.current();
-      unsubscribeMatches.current = null;
-    }
-    
-    if (unsubscribeRoom.current) {
-      unsubscribeRoom.current();
-      unsubscribeRoom.current = null;
-    }
-    
-    setRealtimeStatus('disconnected');
-  }, []);
-
   // Load matched movie details
   const loadMatchedMovie = async (movieId: string) => {
     try {
@@ -281,7 +259,6 @@ export default function RoomSwipeScreen() {
       }
     }, 3000); // Show match modal for 3 seconds, then navigate
   }, [roomId, router]);
-  }, [roomId, roomDetails]);
 
   // Cleanup subscriptions
   const cleanupSubscriptions = useCallback(() => {
@@ -304,32 +281,6 @@ export default function RoomSwipeScreen() {
     
     setRealtimeStatus('disconnected');
   }, []);
-
-  // Load matched movie details
-  const loadMatchedMovie = async (movieId: string) => {
-    try {
-      const movieDetails = await mediaService.getMovieDetails(parseInt(movieId));
-      setMatchedMedia({
-        id: `existing-match-${roomId}`,
-        roomId: roomId!,
-        mediaId: movieId,
-        mediaTitle: movieDetails.title,
-        mediaPosterPath: movieDetails.posterPath || '',
-        participantCount: memberCount,
-        createdAt: new Date().toISOString(),
-        consensusType: 'unanimous_like',
-      });
-      setShowMatch(true);
-      setCurrentMedia(null);
-    } catch (error) {
-      console.error('Error loading matched movie details:', error);
-    }
-  };
-    Animated.spring(position, {
-      toValue: { x: 0, y: 0 },
-      useNativeDriver: false,
-    }).start();
-  };
 
   const swipeRight = async () => {
     Animated.timing(position, {

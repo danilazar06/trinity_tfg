@@ -5,8 +5,8 @@
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { cognitoAuthService, CognitoUser, CognitoTokens } from '../services/cognitoAuthService';
+import { federatedAuthService } from '../services/federatedAuthService';
 import { migrationService } from '../services/migrationService';
-import { useAppSync } from '../services/apiClient';
 
 interface AuthState {
   user: CognitoUser | null;
@@ -19,6 +19,7 @@ interface AuthState {
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<{ success: boolean; message?: string }>;
+  signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
   updateProfile: (attributes: { name?: string; picture?: string }) => Promise<void>;
@@ -195,15 +196,48 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   };
 
+  const signInWithGoogle = async () => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'CLEAR_ERROR' });
+
+    try {
+      const result = await federatedAuthService.signInWithGoogle();
+      
+      if (result.success && result.data) {
+        // Store tokens
+        await cognitoAuthService.storeTokens(result.data.tokens);
+        
+        dispatch({ 
+          type: 'SET_USER', 
+          payload: { 
+            user: result.data.user, 
+            tokens: result.data.tokens 
+          } 
+        });
+        
+        // Mark migration as completed after successful login
+        dispatch({ type: 'SET_MIGRATION_STATUS', payload: 'completed' });
+        
+        console.log('✅ Google Sign-In successful with Cognito');
+      } else {
+        dispatch({ type: 'SET_ERROR', payload: result.error || 'Error al iniciar sesión con Google' });
+      }
+    } catch (error: any) {
+      console.error('Google Sign-In error:', error);
+      dispatch({ type: 'SET_ERROR', payload: error.message || 'Error de conexión con Google' });
+    }
+  };
+
   const logout = async () => {
     try {
       // Get current tokens to sign out from Cognito
       const storedTokens = await cognitoAuthService.checkStoredAuth();
       if (storedTokens.isAuthenticated && storedTokens.tokens) {
-        await cognitoAuthService.signOut(storedTokens.tokens.accessToken);
+        // Sign out from both Cognito and Google
+        await federatedAuthService.signOut(storedTokens.tokens.accessToken);
       }
     } catch (error) {
-      console.warn('Error signing out from Cognito:', error);
+      console.warn('Error signing out:', error);
     } finally {
       // Always clear local tokens and state
       await cognitoAuthService.clearTokens();
@@ -311,6 +345,7 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
         ...state,
         login,
         register,
+        signInWithGoogle,
         logout,
         clearError,
         updateProfile,

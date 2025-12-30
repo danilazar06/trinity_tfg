@@ -19,8 +19,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useCognitoAuth } from '../src/context/CognitoAuthContext';
-import { useGoogleSignIn } from '../src/hooks/useGoogleSignIn';
-import GoogleSignInButton from '../src/components/GoogleSignInButton';
 import { colors, spacing, fontSize, borderRadius } from '../src/utils/theme';
 import TrinityLogo from '../src/components/TrinityLogo';
 
@@ -36,8 +34,7 @@ const MOVIE_POSTERS = [
 ];
 
 export default function RegisterScreen() {
-  const { register, isLoading, error, clearError } = useCognitoAuth();
-  const { isAvailable: googleAvailable, capabilities } = useGoogleSignIn();
+  const { register, signInWithGoogle, isLoading, error, clearError } = useCognitoAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -90,28 +87,17 @@ export default function RegisterScreen() {
     }
   };
 
-  const handleGoogleSignUp = async (user: any) => {
+  const handleGoogleSignUp = async () => {
     try {
-      console.log('✅ Google Sign-Up successful:', user);
-      Alert.alert(
-        'Google Sign-Up Exitoso',
-        `¡Bienvenido ${user.name || user.email}!\n\nTu cuenta ha sido creada usando Google.\n\nNota: La integración completa con Cognito estará disponible próximamente.`,
-        [{ text: 'OK' }]
-      );
-      // TODO: Create Cognito user from Google account
-      // This would involve:
-      // 1. Send Google ID token to backend
-      // 2. Backend creates Cognito user
-      // 3. Return Cognito tokens
-      // 4. Navigate to main app
+      await signInWithGoogle();
     } catch (err) {
-      console.error('Error handling Google Sign-Up:', err);
+      console.error('Google Sign-Up error:', err);
     }
   };
 
   const handleGoogleSignUpError = (error: string) => {
-    console.error('Google Sign-Up error:', error);
-    // Error handling is done by GoogleSignInButton
+    // Google Sign-In removed - using Cognito only
+    console.log('Google Sign-In not available - using Cognito authentication only');
   };
 
   const translateX = posterScrollAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -width * 0.8] });
@@ -232,41 +218,23 @@ export default function RegisterScreen() {
                     <Text style={styles.registerButtonText}>{isLoading ? 'Creando...' : 'Crear cuenta'}</Text>
                   </LinearGradient>
                 </TouchableOpacity>
+                
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>o continúa con</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+                
+                <TouchableOpacity onPress={handleGoogleSignUp} disabled={isLoading} activeOpacity={0.85} style={styles.googleButton}>
+                  <View style={[styles.socialButton, isLoading && styles.socialButtonDisabled]}>
+                    <Text style={[styles.socialIcon, isLoading && styles.socialIconDisabled]}>G</Text>
+                    <Text style={[styles.socialButtonText, isLoading && styles.socialButtonTextDisabled]}>
+                      {isLoading ? 'Conectando...' : 'Google'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               </View>
               
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>
-                  {googleAvailable ? 'o regístrate con' : 'Próximamente más opciones'}
-                </Text>
-                <View style={styles.dividerLine} />
-              </View>
-              
-              {googleAvailable ? (
-                <GoogleSignInButton
-                  onSuccess={handleGoogleSignUp}
-                  onError={handleGoogleSignUpError}
-                  style={styles.googleButton}
-                />
-              ) : (
-                <View style={styles.socialButtons}>
-                  <GoogleSignInButton
-                    onSuccess={handleGoogleSignUp}
-                    onError={handleGoogleSignUpError}
-                    showFallbackInfo={true}
-                    style={styles.googleButtonFallback}
-                  />
-                </View>
-              )}
-              
-              {capabilities?.environment === 'expo-go' && (
-                <View style={styles.expoGoMessageContainer}>
-                  <Text style={styles.expoGoMessageText}>
-                    ℹ️ Ejecutándose en Expo Go - Google Sign-In requiere Development Build
-                  </Text>
-                </View>
-              )}
-
               <View style={styles.footer}>
                 <Text style={styles.footerText}>Ya tienes cuenta? </Text>
                 <TouchableOpacity onPress={() => router.push('/login')}>
@@ -315,6 +283,8 @@ const styles = StyleSheet.create({
   socialButtons: { flexDirection: 'row', gap: spacing.md, width: '100%' },
   socialButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: borderRadius.lg, paddingVertical: spacing.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', gap: spacing.sm },
   socialButtonDisabled: { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.05)' },
+  socialIcon: { fontSize: 16, fontWeight: 'bold', color: colors.textPrimary },
+  socialIconDisabled: { color: colors.textMuted },
   socialButtonText: { fontSize: fontSize.md, fontWeight: '600', color: colors.textPrimary },
   socialButtonTextDisabled: { color: 'rgba(255,255,255,0.3)' },
   googleButton: { width: '100%' },

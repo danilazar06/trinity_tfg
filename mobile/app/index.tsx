@@ -1,10 +1,10 @@
 import { Redirect } from 'expo-router';
-import { useAuth } from '../src/context/AuthContext';
+import { useCognitoAuth } from '../src/context/CognitoAuthContext';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { colors } from '../src/utils/theme';
 
 export default function Index() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useCognitoAuth();
 
   if (isLoading) {
     return (

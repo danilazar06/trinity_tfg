@@ -12,8 +12,7 @@ import { router } from 'expo-router';
 import { colors, spacing, fontSize, borderRadius } from '../src/utils/theme';
 import { apiClient } from '../src/services/apiClient';
 import { environmentDetectionService } from '../src/services/environmentDetectionService';
-import { googleSignInService } from '../src/services/googleSignInService';
-import { useAuth } from '../src/context/AuthContext';
+import { useCognitoAuth } from '../src/context/CognitoAuthContext';
 
 interface TestResult {
   name: string;
@@ -23,7 +22,7 @@ interface TestResult {
 }
 
 export default function TestConnectionScreen() {
-  const { getGoogleSignInAvailability } = useAuth();
+  const { } = useCognitoAuth();
   const [tests, setTests] = useState<TestResult[]>([
     { name: 'Environment Detection', status: 'pending', message: 'Esperando...' },
     { name: 'Google Sign-In Availability', status: 'pending', message: 'Esperando...' },
@@ -63,22 +62,8 @@ export default function TestConnectionScreen() {
         updateTest(0, 'error', `Error: ${error.message}`);
       }
 
-      // Test 2: Google Sign-In Availability
-      updateTest(1, 'pending', 'Verificando Google Sign-In...');
-      try {
-        const availability = await getGoogleSignInAvailability();
-        const debugInfo = await googleSignInService.getDebugInfo();
-        
-        updateTest(1, availability.available ? 'success' : 'error',
-          `${availability.available ? 'Disponible' : 'No disponible'}: ${availability.message} (${availability.method})`,
-          {
-            availability,
-            debugInfo
-          }
-        );
-      } catch (error: any) {
-        updateTest(1, 'error', `Error: ${error.message}`);
-      }
+      // Test 2: Google Sign-In Availability (Disabled)
+      updateTest(1, 'success', 'Google Sign-In deshabilitado - usando solo Cognito');
 
       // Test 3: Health Check
       updateTest(2, 'pending', 'Probando...');

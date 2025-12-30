@@ -8,7 +8,8 @@ export interface AWSConfig {
   graphqlEndpoint: string;
   userPoolId: string;
   userPoolWebClientId: string;
-  identityPoolId?: string;
+  identityPoolId: string;
+  userPoolDomain?: string;
 }
 
 // Production AWS Configuration
@@ -17,7 +18,8 @@ export const AWS_CONFIG: AWSConfig = {
   graphqlEndpoint: 'https://imx6fos5lnd3xkdchl4rqtv4pi.appsync-api.eu-west-1.amazonaws.com/graphql',
   userPoolId: 'eu-west-1_6UxioIj4z',
   userPoolWebClientId: '59dpqsm580j14ulkcha19shl64', // From CDK deployment
-  // identityPoolId: 'YOUR_IDENTITY_POOL_ID', // Optional for unauthenticated access
+  identityPoolId: 'eu-west-1:YOUR_IDENTITY_POOL_ID', // Will be updated after deployment
+  userPoolDomain: 'trinity-auth-dev.auth.eu-west-1.amazoncognito.com', // Will be updated after deployment
 };
 
 // Environment detection

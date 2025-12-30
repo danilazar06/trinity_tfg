@@ -18,8 +18,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useCognitoAuth } from '../src/context/CognitoAuthContext';
-import { useGoogleSignIn } from '../src/hooks/useGoogleSignIn';
-import GoogleSignInButton from '../src/components/GoogleSignInButton';
 import { colors, spacing, fontSize, borderRadius, shadows } from '../src/utils/theme';
 
 const { width, height } = Dimensions.get('window');
@@ -34,8 +32,7 @@ const MOVIE_POSTERS = [
 ];
 
 export default function LoginScreen() {
-  const { login, isLoading, error, clearError, isAuthenticated } = useCognitoAuth();
-  const { isAvailable: googleAvailable, capabilities } = useGoogleSignIn();
+  const { login, signInWithGoogle, isLoading, error, clearError, isAuthenticated } = useCognitoAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
@@ -77,23 +74,17 @@ export default function LoginScreen() {
     }
   };
 
-  const handleGoogleSignIn = async (user: any) => {
+  const handleGoogleSignIn = async () => {
     try {
-      console.log('✅ Google Sign-In successful:', user);
-      Alert.alert(
-        'Google Sign-In Exitoso',
-        `¡Bienvenido ${user.name || user.email}!\n\nNota: La integración completa con Cognito estará disponible próximamente.`,
-        [{ text: 'OK' }]
-      );
-      // TODO: Integrate with Cognito authentication
+      await signInWithGoogle();
     } catch (err) {
-      console.error('Error handling Google Sign-In:', err);
+      console.error('Google Sign-In error:', err);
     }
   };
 
   const handleGoogleSignInError = (error: string) => {
-    console.error('Google Sign-In error:', error);
-    // Don't show alert here as GoogleSignInButton handles it
+    // Google Sign-In removed - using Cognito only
+    console.log('Google Sign-In not available - using Cognito authentication only');
   };
 
   const translateX = posterScrollAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -width] });
@@ -166,43 +157,23 @@ export default function LoginScreen() {
                     <Text style={styles.loginButtonText}>{isLoading ? 'Entrando...' : 'Iniciar sesion'}</Text>
                   </LinearGradient>
                 </TouchableOpacity>
-              </View>
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>
-                  {googleAvailable ? 'o continúa con' : 'Próximamente más opciones'}
-                </Text>
-                <View style={styles.dividerLine} />
-              </View>
-              
-              {googleAvailable ? (
-                <GoogleSignInButton
-                  onSuccess={handleGoogleSignIn}
-                  onError={handleGoogleSignInError}
-                  style={styles.googleButton}
-                />
-              ) : (
-                <View style={styles.socialButtons}>
-                  <GoogleSignInButton
-                    onSuccess={handleGoogleSignIn}
-                    onError={handleGoogleSignInError}
-                    showFallbackInfo={true}
-                    style={styles.googleButtonFallback}
-                  />
+                
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>o continúa con</Text>
+                  <View style={styles.dividerLine} />
                 </View>
-              )}
-              
-              {capabilities?.environment === 'expo-go' && (
-                <View style={styles.expoGoMessageContainer}>
-                  <Text style={styles.expoGoMessageText}>
-                    ℹ️ Ejecutándose en Expo Go - Google Sign-In requiere Development Build
-                  </Text>
-                </View>
-              )}
+                
+                <TouchableOpacity onPress={handleGoogleSignIn} disabled={isLoading} activeOpacity={0.85} style={styles.googleButton}>
+                  <View style={[styles.socialButton, isLoading && styles.socialButtonDisabled]}>
+                    <Text style={[styles.socialIcon, isLoading && styles.socialIconDisabled]}>G</Text>
+                    <Text style={[styles.socialButtonText, isLoading && styles.socialButtonTextDisabled]}>
+                      {isLoading ? 'Conectando...' : 'Google'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
               <View style={styles.footer}><Text style={styles.footerText}>No tienes cuenta? </Text><TouchableOpacity onPress={() => router.push('/register')}><Text style={styles.registerLink}>Registrate aqui</Text></TouchableOpacity></View>
-              <TouchableOpacity onPress={() => router.push('/debug/google-signin-test')} style={styles.testButton}>
-                <Text style={styles.testButtonText}>🔍 Test Google Sign-In</Text>
-              </TouchableOpacity>
             </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>

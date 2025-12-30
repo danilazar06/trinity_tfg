@@ -12,14 +12,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useAuth } from '../../src/context/AuthContext';
+import { useCognitoAuth } from '../../src/context/CognitoAuthContext';
 import { colors, spacing, fontSize, borderRadius, shadows } from '../../src/utils/theme';
 import { userListService } from '../../src/services/userListService';
 import { roomService } from '../../src/services/roomService';
 import Logo from '../../src/components/Logo';
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout } = useCognitoAuth();
   const [listCount, setListCount] = useState(0);
   const [totalMatches, setTotalMatches] = useState(0);
   const [roomCount, setRoomCount] = useState(0);
