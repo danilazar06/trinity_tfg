@@ -17,12 +17,38 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, fontSize, borderRadius } from '../../src/utils/theme';
 import { roomService, RoomDetails } from '../../src/services/roomService';
-import { voteService, VoteResponse } from '../../src/services/voteService';
+import { appSyncService } from '../../src/services/appSyncService';
 import { matchService, Match } from '../../src/services/matchService';
 import { mediaService, MediaItem, MediaItemDetails } from '../../src/services/mediaService';
 
 const { width, height } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.25;
+
+interface VoteUpdate {
+  roomId: string;
+  userId: string;
+  movieId: string;
+  voteType: 'LIKE' | 'DISLIKE' | 'POLLING_UPDATE';
+  currentVotes: number;
+  totalMembers: number;
+  timestamp: string;
+}
+
+interface MatchFound {
+  roomId: string;
+  movieId: string;
+  movieTitle: string;
+  participants: string[];
+  timestamp: string;
+}
+
+interface RoomUpdate {
+  id: string;
+  status: string;
+  resultMovieId?: string;
+  memberCount: number;
+  updatedAt: string;
+}
 
 export default function RoomSwipeScreen() {
   const { id: roomId } = useLocalSearchParams<{ id: string }>();
@@ -36,6 +62,16 @@ export default function RoomSwipeScreen() {
   const [isVoting, setIsVoting] = useState(false);
   const [showMatch, setShowMatch] = useState(false);
   const [matchedMedia, setMatchedMedia] = useState<Match | null>(null);
+  
+  // Real-time subscription state
+  const [voteCount, setVoteCount] = useState(0);
+  const [memberCount, setMemberCount] = useState(0);
+  const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
+  
+  // Subscription cleanup functions
+  const unsubscribeVotes = useRef<(() => void) | null>(null);
+  const unsubscribeMatches = useRef<(() => void) | null>(null);
+  const unsubscribeRoom = useRef<(() => void) | null>(null);
   
   // Animaciones
   const position = useRef(new Animated.ValueXY()).current;
@@ -72,7 +108,223 @@ export default function RoomSwipeScreen() {
     })
   ).current;
 
+  // Real-time subscription setup
+  const setupSubscriptions = useCallback(async () => {
+    if (!roomId) return;
+    
+    console.log('🔔 Setting up real-time subscriptions for room:', roomId);
+    setRealtimeStatus('connecting');
+    
+    try {
+      // Subscribe to vote updates
+      unsubscribeVotes.current = await appSyncService.subscribeToVoteUpdates(
+        roomId,
+        (voteUpdate: VoteUpdate) => {
+          console.log('📊 Vote update received:', voteUpdate);
+          
+          // Update vote count display
+          setVoteCount(voteUpdate.currentVotes);
+          setMemberCount(voteUpdate.totalMembers);
+          
+          // Show visual feedback for new votes
+          if (voteUpdate.voteType === 'LIKE' && voteUpdate.userId !== 'polling-update') {
+            // Could add a toast notification or animation here
+            console.log(`👍 ${voteUpdate.userId} voted LIKE for ${voteUpdate.movieId}`);
+          }
+        }
+      );
+      
+      // Subscribe to match found events
+      unsubscribeMatches.current = await appSyncService.subscribeToMatchFound(
+        roomId,
+        handleMatchFound
+      );
+      
+      // Subscribe to room updates
+      unsubscribeRoom.current = await appSyncService.subscribeToRoomUpdates(
+        roomId,
+        (roomUpdate: RoomUpdate) => {
+          console.log('🏠 Room update received:', roomUpdate);
+          
+          // Update member count in real-time
+          setMemberCount(roomUpdate.memberCount);
+          
+          // Handle room status changes
+          if (roomUpdate.status === 'MATCHED' && roomUpdate.resultMovieId) {
+            // Room has been matched, load match details
+            loadMatchedMovie(roomUpdate.resultMovieId);
+          }
+          
+          // Update room details if available
+          if (roomDetails) {
+            setRoomDetails({
+              ...roomDetails,
+              room: {
+                ...roomDetails.room,
+                status: roomUpdate.status,
+              },
+            });
+          }
+          
+          // Handle different room states
+          switch (roomUpdate.status) {
+            case 'ACTIVE':
+              console.log('🟢 Room is active and ready for voting');
+              break;
+            case 'PAUSED':
+              console.log('⏸️ Room has been paused');
+              Alert.alert('Sala pausada', 'El host ha pausado la votación temporalmente.');
+              break;
+            case 'COMPLETED':
+              console.log('✅ Room voting completed');
+              setCurrentMedia(null); // Stop showing content to vote on
+              break;
+            case 'MATCHED':
+              console.log('🎉 Room has found a match');
+              // Match handling is done above
+              break;
+            default:
+              console.log(`🔄 Room status changed to: ${roomUpdate.status}`);
+          }
+        }
+      );
+      
+      setRealtimeStatus('connected');
+      console.log('✅ All subscriptions established successfully');
+      
+    } catch (error) {
+      console.error('❌ Failed to setup subscriptions:', error);
+      setRealtimeStatus('disconnected');
+      
+      // Show user-friendly error message
+      Alert.alert(
+        'Conexión en tiempo real',
+        'No se pudo establecer la conexión en tiempo real. Las actualizaciones pueden no aparecer inmediatamente.',
+        [{ text: 'Entendido' }]
+      );
+    }
+  }, [roomId, roomDetails, handleMatchFound]);
+
+  // Cleanup subscriptions
+  const cleanupSubscriptions = useCallback(() => {
+    console.log('🧹 Cleaning up subscriptions');
+    
+    if (unsubscribeVotes.current) {
+      unsubscribeVotes.current();
+      unsubscribeVotes.current = null;
+    }
+    
+    if (unsubscribeMatches.current) {
+      unsubscribeMatches.current();
+      unsubscribeMatches.current = null;
+    }
+    
+    if (unsubscribeRoom.current) {
+      unsubscribeRoom.current();
+      unsubscribeRoom.current = null;
+    }
+    
+    setRealtimeStatus('disconnected');
+  }, []);
+
+  // Load matched movie details
+  const loadMatchedMovie = async (movieId: string) => {
+    try {
+      const movieDetails = await mediaService.getMovieDetails(parseInt(movieId));
+      setMatchedMedia({
+        id: `existing-match-${roomId}`,
+        roomId: roomId!,
+        mediaId: movieId,
+        mediaTitle: movieDetails.title,
+        mediaPosterPath: movieDetails.posterPath || '',
+        participantCount: memberCount,
+        createdAt: new Date().toISOString(),
+        consensusType: 'unanimous_like',
+      });
+      setShowMatch(true);
+      setCurrentMedia(null);
+    } catch (error) {
+      console.error('Error loading matched movie details:', error);
+    }
+  };
+
   const resetPosition = () => {
+    Animated.spring(position, {
+      toValue: { x: 0, y: 0 },
+      useNativeDriver: false,
+    }).start();
+  };
+
+  // Handle match found with automatic navigation
+  const handleMatchFound = useCallback((matchData: MatchFound) => {
+    console.log('🎉 Match found via subscription:', matchData);
+    
+    // Show match immediately
+    setMatchedMedia({
+      id: `realtime-match-${Date.now()}`,
+      roomId: matchData.roomId,
+      mediaId: matchData.movieId,
+      mediaTitle: matchData.movieTitle,
+      mediaPosterPath: '', // Will be loaded from TMDB if needed
+      participantCount: matchData.participants.length,
+      createdAt: matchData.timestamp,
+      consensusType: 'unanimous_like',
+    });
+    
+    setShowMatch(true);
+    setCurrentMedia(null); // Stop showing content to vote on
+    
+    // Optional: Navigate to match result screen after a delay
+    setTimeout(() => {
+      if (roomId) {
+        router.push(`/room/${roomId}/matches`);
+      }
+    }, 3000); // Show match modal for 3 seconds, then navigate
+  }, [roomId, router]);
+  }, [roomId, roomDetails]);
+
+  // Cleanup subscriptions
+  const cleanupSubscriptions = useCallback(() => {
+    console.log('🧹 Cleaning up subscriptions');
+    
+    if (unsubscribeVotes.current) {
+      unsubscribeVotes.current();
+      unsubscribeVotes.current = null;
+    }
+    
+    if (unsubscribeMatches.current) {
+      unsubscribeMatches.current();
+      unsubscribeMatches.current = null;
+    }
+    
+    if (unsubscribeRoom.current) {
+      unsubscribeRoom.current();
+      unsubscribeRoom.current = null;
+    }
+    
+    setRealtimeStatus('disconnected');
+  }, []);
+
+  // Load matched movie details
+  const loadMatchedMovie = async (movieId: string) => {
+    try {
+      const movieDetails = await mediaService.getMovieDetails(parseInt(movieId));
+      setMatchedMedia({
+        id: `existing-match-${roomId}`,
+        roomId: roomId!,
+        mediaId: movieId,
+        mediaTitle: movieDetails.title,
+        mediaPosterPath: movieDetails.posterPath || '',
+        participantCount: memberCount,
+        createdAt: new Date().toISOString(),
+        consensusType: 'unanimous_like',
+      });
+      setShowMatch(true);
+      setCurrentMedia(null);
+    } catch (error) {
+      console.error('Error loading matched movie details:', error);
+    }
+  };
     Animated.spring(position, {
       toValue: { x: 0, y: 0 },
       useNativeDriver: false,
@@ -101,20 +353,58 @@ export default function RoomSwipeScreen() {
     try {
       setLoading(true);
       
-      // Cargar detalles de la sala
-      const details = await roomService.getRoomDetails(roomId);
-      setRoomDetails(details);
+      // Cargar detalles de la sala usando AppSync
+      const roomResult = await appSyncService.getRoom(roomId);
       
-      // Iniciar sesión de swipe
-      const session = await voteService.startSwipeSession(roomId);
+      // Convertir formato GraphQL a formato esperado por el componente
+      if (roomResult.getRoom) {
+        const room = roomResult.getRoom;
+        setRoomDetails({
+          room: {
+            id: room.id,
+            name: room.name,
+            hostId: room.hostId,
+            status: room.status,
+            inviteCode: room.inviteCode,
+            createdAt: room.createdAt,
+          },
+          members: [], // TODO: Obtener miembros de la sala desde GraphQL
+        });
+        
+        // Verificar si la sala ya tiene un match
+        if (room.status === 'MATCHED' && room.resultMovieId) {
+          // Cargar detalles de la película que hizo match
+          try {
+            const movieDetails = await mediaService.getMovieDetails(parseInt(room.resultMovieId));
+            setMatchedMedia({
+              id: `existing-match-${room.id}`,
+              roomId,
+              mediaId: room.resultMovieId,
+              mediaTitle: movieDetails.title,
+              mediaPosterPath: movieDetails.posterPath || '',
+              participantCount: 0, // TODO: Obtener número real de participantes
+              createdAt: room.updatedAt || room.createdAt,
+              consensusType: 'unanimous_like',
+            });
+            setShowMatch(true);
+            setCurrentMedia(null); // No mostrar más contenido para votar
+            return;
+          } catch (error) {
+            console.error('Error loading matched movie details:', error);
+          }
+        }
+      }
+      
+      // Si no hay match, cargar contenido actual para votar
+      await loadCurrentMedia();
+      
+      // Inicializar progreso (en una implementación real, esto vendría del backend)
       setProgress({
-        current: session.currentIndex,
-        total: session.totalItems,
-        percentage: Math.round((session.currentIndex / session.totalItems) * 100),
+        current: 0,
+        total: 20, // Valor por defecto, debería venir del backend
+        percentage: 0,
       });
       
-      // Cargar contenido actual
-      await loadCurrentMedia();
     } catch (error) {
       console.error('Error loading room:', error);
       Alert.alert('Error', 'No se pudo cargar la sala');
@@ -127,19 +417,17 @@ export default function RoomSwipeScreen() {
     if (!roomId) return;
     
     try {
-      const queueStatus = await voteService.getQueueStatus(roomId);
+      // En una implementación real, esto debería obtener el contenido actual desde GraphQL
+      // Por ahora, usamos un ID de película de ejemplo para demostrar la funcionalidad
+      const currentMovieId = 550 + progress.current; // Fight Club + offset
       
-      if (queueStatus.isCompleted) {
-        setCurrentMedia(null);
-        return;
-      }
-      
-      if (queueStatus.currentMediaId) {
-        // Obtener detalles del media desde TMDB
-        const mediaDetails = await mediaService.getMovieDetails(
-          parseInt(queueStatus.currentMediaId)
-        );
+      try {
+        const mediaDetails = await mediaService.getMovieDetails(currentMovieId);
         setCurrentMedia(mediaDetails);
+      } catch (error) {
+        console.error('Error loading movie details:', error);
+        // Si no se puede cargar la película, marcar como completado
+        setCurrentMedia(null);
       }
     } catch (error) {
       console.error('Error loading current media:', error);
@@ -152,75 +440,111 @@ export default function RoomSwipeScreen() {
     setIsVoting(true);
     
     try {
-      const result = await voteService.registerVote(roomId, {
-        mediaId: currentMedia.tmdbId.toString(),
-        voteType,
-      });
-      
-      // Actualizar progreso
-      setProgress({
-        current: result.currentProgress.currentIndex,
-        total: result.currentProgress.totalItems,
-        percentage: result.currentProgress.progressPercentage,
-      });
-      
-      // Verificar si hay match
+      // Solo procesar votos "like" - los "dislike" se ignoran en Stop-on-Match
       if (voteType === 'like') {
-        const matchResult = await matchService.checkPendingMatches(
-          roomId,
-          currentMedia.tmdbId.toString()
-        );
+        const result = await appSyncService.vote(roomId, currentMedia.tmdbId.toString());
         
-        if (matchResult.hasNewMatch && matchResult.match) {
-          setMatchedMedia({
-            id: matchResult.match.id,
-            roomId,
-            mediaId: currentMedia.tmdbId.toString(),
-            mediaTitle: currentMedia.title,
-            mediaPosterPath: currentMedia.posterPath || '',
-            participantCount: matchResult.match.participantCount,
-            createdAt: matchResult.match.createdAt,
-            consensusType: 'unanimous_like',
-          });
+        console.log('🗳️ Vote result:', result);
+        
+        // Verificar si hay match inmediato (Stop-on-Match algorithm)
+        if (result.vote && result.vote.status === 'MATCHED' && result.vote.resultMovieId) {
+          // ¡Match encontrado localmente! Mostrar inmediatamente
+          console.log('🎉 Local match detected, showing match screen');
+          
+          // Cargar detalles de la película que hizo match
+          try {
+            const movieDetails = await mediaService.getMovieDetails(parseInt(result.vote.resultMovieId));
+            setMatchedMedia({
+              id: `local-match-${Date.now()}`,
+              roomId,
+              mediaId: result.vote.resultMovieId,
+              mediaTitle: movieDetails.title,
+              mediaPosterPath: movieDetails.posterPath || '',
+              participantCount: memberCount || roomDetails?.members.length || 0,
+              createdAt: new Date().toISOString(),
+              consensusType: 'unanimous_like',
+            });
+          } catch (movieError) {
+            // Fallback si no se pueden cargar detalles
+            setMatchedMedia({
+              id: `local-match-${Date.now()}`,
+              roomId,
+              mediaId: result.vote.resultMovieId,
+              mediaTitle: currentMedia.title,
+              mediaPosterPath: currentMedia.posterPath || '',
+              participantCount: memberCount || roomDetails?.members.length || 0,
+              createdAt: new Date().toISOString(),
+              consensusType: 'unanimous_like',
+            });
+          }
+          
           setShowMatch(true);
+          setCurrentMedia(null); // Detener votación
+          
+          // Reset posición
+          position.setValue({ x: 0, y: 0 });
+          return;
         }
+        
+        // Si no hay match local, actualizar conteo de votos optimísticamente
+        setVoteCount(prev => prev + 1);
       }
       
-      // Cargar siguiente contenido
-      if (result.queueCompleted) {
+      // Si no hay match, continuar con el siguiente contenido
+      // Simular progreso (en una implementación real, esto vendría del backend)
+      const newProgress = {
+        current: progress.current + 1,
+        total: progress.total,
+        percentage: Math.round(((progress.current + 1) / progress.total) * 100),
+      };
+      setProgress(newProgress);
+      
+      // Cargar siguiente contenido si no hemos terminado
+      if (newProgress.current < newProgress.total) {
+        // En una implementación real, el backend devolvería el siguiente movieId
+        // Por ahora, incrementamos el ID actual
+        const nextMovieId = parseInt(currentMedia.tmdbId.toString()) + 1;
+        try {
+          const nextMediaDetails = await mediaService.getMovieDetails(nextMovieId);
+          setCurrentMedia(nextMediaDetails);
+        } catch (error) {
+          console.error('Error loading next media:', error);
+          // Si no se puede cargar el siguiente, marcar como completado
+          setCurrentMedia(null);
+        }
+      } else {
+        // Cola completada
         setCurrentMedia(null);
-      } else if (result.nextMediaId) {
-        const nextMediaDetails = await mediaService.getMovieDetails(
-          parseInt(result.nextMediaId)
-        );
-        setCurrentMedia(nextMediaDetails);
       }
       
       // Reset posición
       position.setValue({ x: 0, y: 0 });
+      
     } catch (error: any) {
       console.error('Error voting:', error);
       
-      // Detectar si es error de "Ya has votado" y sincronizar índice
-      const errorMessage = error?.response?.data?.message || error?.message || '';
-      if (errorMessage.includes('Ya has votado') || errorMessage.includes('already voted')) {
-        console.log('Detected duplicate vote error, syncing index...');
-        try {
-          const syncResult = await voteService.syncMemberIndex(roomId);
-          console.log('Sync result:', syncResult);
-          
-          if (syncResult.synced) {
-            // Recargar el contenido actual después de sincronizar
-            await loadCurrentMedia();
-            position.setValue({ x: 0, y: 0 });
-            return; // No mostrar error, ya se sincronizó
-          }
-        } catch (syncError) {
-          console.error('Error syncing index:', syncError);
-        }
+      // Manejar errores específicos de GraphQL
+      const errorMessage = error?.message || error?.toString() || '';
+      
+      if (errorMessage.includes('duplicate') || errorMessage.includes('already voted')) {
+        Alert.alert(
+          'Voto duplicado', 
+          'Ya has votado por este contenido. Continuando con el siguiente...'
+        );
+        // Cargar siguiente contenido
+        await loadCurrentMedia();
+      } else if (errorMessage.includes('MATCHED')) {
+        // El error indica que ya hay un match - esto podría venir de la suscripción
+        console.log('🎉 Match detected via error message, waiting for subscription update');
+        Alert.alert(
+          '¡Match encontrado!', 
+          'Esta sala ya tiene un match. La pantalla se actualizará automáticamente.'
+        );
+      } else {
+        Alert.alert('Error', 'No se pudo registrar el voto. Inténtalo de nuevo.');
       }
       
-      Alert.alert('Error', 'No se pudo registrar el voto');
+      position.setValue({ x: 0, y: 0 });
     } finally {
       setIsVoting(false);
     }
@@ -228,7 +552,26 @@ export default function RoomSwipeScreen() {
 
   useEffect(() => {
     loadRoomData();
-  }, [roomId]);
+    
+    // Setup real-time subscriptions after room data is loaded
+    const initializeSubscriptions = async () => {
+      await setupSubscriptions();
+    };
+    
+    initializeSubscriptions();
+    
+    // Cleanup subscriptions when component unmounts or roomId changes
+    return () => {
+      cleanupSubscriptions();
+    };
+  }, [roomId, setupSubscriptions, cleanupSubscriptions]);
+
+  // Additional useEffect to setup subscriptions when room details are loaded
+  useEffect(() => {
+    if (roomDetails && realtimeStatus === 'disconnected') {
+      setupSubscriptions();
+    }
+  }, [roomDetails, realtimeStatus, setupSubscriptions]);
 
   if (loading) {
     return (
@@ -255,13 +598,32 @@ export default function RoomSwipeScreen() {
           <View style={styles.membersRow}>
             <Ionicons name="people" size={14} color={colors.textMuted} />
             <Text style={styles.membersText}>
-              {roomDetails?.members.length || 0} participantes
+              {memberCount || roomDetails?.members.length || 0} participantes
             </Text>
+            {voteCount > 0 && (
+              <>
+                <Text style={styles.separator}>•</Text>
+                <Ionicons name="heart" size={12} color={colors.primary} />
+                <Text style={styles.voteCountText}>{voteCount} votos</Text>
+              </>
+            )}
           </View>
         </View>
-        <TouchableOpacity style={styles.menuButton}>
-          <Ionicons name="ellipsis-vertical" size={20} color={colors.textMuted} />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          {/* Real-time connection status */}
+          <View style={styles.connectionStatus}>
+            <View style={[
+              styles.connectionDot,
+              {
+                backgroundColor: realtimeStatus === 'connected' ? '#4ECDC4' :
+                                realtimeStatus === 'connecting' ? '#FFD93D' : '#FF6B6B'
+              }
+            ]} />
+          </View>
+          <TouchableOpacity style={styles.menuButton}>
+            <Ionicons name="ellipsis-vertical" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Progress Bar */}
@@ -665,5 +1027,31 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     fontWeight: '600',
     color: '#FFF',
+  },
+  // Real-time UI styles
+  separator: {
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+    marginHorizontal: 4,
+  },
+  voteCountText: {
+    fontSize: fontSize.xs,
+    color: colors.primary,
+    fontWeight: '600',
+    marginLeft: 2,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  connectionStatus: {
+    padding: 4,
+  },
+  connectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF6B6B',
   },
 });

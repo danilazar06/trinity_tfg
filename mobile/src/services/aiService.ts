@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { appSyncService } from './appSyncService';
 
 export interface TriniResponse {
   chatResponse: string;
@@ -15,34 +15,84 @@ export interface TriniResponse {
 
 /**
  * Servicio de IA - Trini
- * Comunicación con el agente de recomendaciones cinematográficas
+ * Comunicación con el agente de recomendaciones cinematográficas usando AppSync GraphQL
  */
 export const aiService = {
   /**
    * Obtener recomendaciones de Trini basadas en el estado emocional del usuario
+   * Ahora usa AppSync GraphQL en lugar de REST API
    */
   async getChatRecommendations(userText: string): Promise<TriniResponse> {
     try {
-      // apiClient ya devuelve los datos directamente, no response.data
-      const response = await apiClient.post<TriniResponse>('/ai/chat-recommendations', {
-        userText,
-      });
+      console.log('🤖 Getting AI recommendations via AppSync for:', userText);
       
-      // Validar que la respuesta tenga el formato esperado
-      if (response && response.chatResponse && response.recommendedGenres) {
+      const result = await appSyncService.getAIRecommendations(userText);
+      
+      if (result.getAIRecommendations) {
+        const aiResponse = result.getAIRecommendations;
+        
+        // Transformar respuesta de GraphQL al formato esperado
+        const response: TriniResponse = {
+          chatResponse: aiResponse.chatResponse || 'Hmm, no estoy seguro de qué recomendarte. ¿Puedes ser más específico?',
+          recommendedGenres: aiResponse.recommendedGenres || [],
+          recommendedMovies: aiResponse.recommendedMovies || [],
+        };
+        
+        console.log('✅ AI recommendations received successfully');
         return response;
       }
       
-      // Si la respuesta no tiene el formato esperado, usar fallback
-      console.warn('⚠️ Trini response format invalid, using fallback');
+      // Si no hay respuesta válida, usar fallback
+      console.warn('⚠️ No valid AI response from GraphQL, using fallback');
       return getFallbackResponse(userText);
+      
     } catch (error: any) {
-      console.error('❌ Error getting Trini recommendations:', error);
-      // Fallback local si el backend falla
+      console.error('❌ Error getting AI recommendations via AppSync:', error);
+      
+      // Manejar errores específicos
+      if (error.message?.includes('Circuit breaker is OPEN')) {
+        console.warn('⚡ AI service circuit breaker is open, using enhanced fallback');
+        return getEnhancedFallbackResponse(userText);
+      }
+      
+      if (error.message?.includes('Service temporarily unavailable')) {
+        console.warn('🔧 AI service temporarily unavailable, using fallback');
+        return getFallbackResponse(userText);
+      }
+      
+      // Para otros errores, usar fallback local
       return getFallbackResponse(userText);
     }
   },
 };
+
+/**
+ * Respuesta de fallback mejorada cuando el Circuit Breaker está abierto
+ */
+function getEnhancedFallbackResponse(userText: string): TriniResponse {
+  return {
+    chatResponse: 'Disculpa, mi conexión con el servidor de recomendaciones está temporalmente interrumpida. Pero no te preocupes, puedo ayudarte con algunas sugerencias básicas. ¿Qué tipo de película te apetece ver?',
+    recommendedGenres: ['comedia', 'drama', 'acción', 'aventura'],
+    recommendedMovies: [
+      {
+        id: 550,
+        title: 'El Club de la Pelea',
+        overview: 'Un empleado de oficina insomne y un fabricante de jabón forman un club de lucha clandestino.',
+        poster_path: '/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg',
+        vote_average: 8.4,
+        release_date: '1999-10-15',
+      },
+      {
+        id: 13,
+        title: 'Forrest Gump',
+        overview: 'Las presidencias de Kennedy y Johnson a través de la perspectiva de un hombre de Alabama.',
+        poster_path: '/arw2vcBveWOVZr6pxd9XTd1TdQa.jpg',
+        vote_average: 8.5,
+        release_date: '1994-06-23',
+      },
+    ],
+  };
+}
 
 /**
  * Respuesta de fallback cuando el backend no está disponible

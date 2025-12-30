@@ -1,8 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as appsync from 'aws-cdk-lib/aws-appsync';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
-import * as lambda from 'aws-cdk-lib/aws-lambda-nodejs';
-import * as lambdaRuntime from 'aws-cdk-lib/aws-lambda';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
 import * as path from 'path';
@@ -14,29 +13,33 @@ export interface TrinityStackProps extends cdk.StackProps {
 export class TrinityStack extends cdk.Stack {
   private _api!: appsync.GraphqlApi;
   private _userPool!: cognito.UserPool;
+  private _userPoolClient!: cognito.UserPoolClient;
   
   // DynamoDB Tables
   private _usersTable!: dynamodb.Table;
   private _roomsTable!: dynamodb.Table;
   private _roomMembersTable!: dynamodb.Table;
   private _votesTable!: dynamodb.Table;
+  private _userVotesTable!: dynamodb.Table;
   private _moviesCacheTable!: dynamodb.Table;
   
   // Lambda Functions
-  private _authHandler!: lambda.NodejsFunction;
-  private _roomHandler!: lambda.NodejsFunction;
-  private _movieHandler!: lambda.NodejsFunction;
-  private _voteHandler!: lambda.NodejsFunction;
-  private _aiHandler!: lambda.NodejsFunction;
-  private _realtimeHandler!: lambda.NodejsFunction;
+  private _authHandler!: lambda.Function;
+  private _roomHandler!: lambda.Function;
+  private _movieHandler!: lambda.Function;
+  private _voteHandler!: lambda.Function;
+  private _aiHandler!: lambda.Function;
+  private _realtimeHandler!: lambda.Function;
 
   // Getters para acceso público
   public get api() { return this._api; }
   public get userPool() { return this._userPool; }
+  public get userPoolClient() { return this._userPoolClient; }
   public get usersTable() { return this._usersTable; }
   public get roomsTable() { return this._roomsTable; }
   public get roomMembersTable() { return this._roomMembersTable; }
   public get votesTable() { return this._votesTable; }
+  public get userVotesTable() { return this._userVotesTable; }
   public get moviesCacheTable() { return this._moviesCacheTable; }
   public get authHandler() { return this._authHandler; }
   public get roomHandler() { return this._roomHandler; }
@@ -108,7 +111,16 @@ export class TrinityStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // 5. MoviesCacheTable: PK: tmdbId + TTL
+    // 5. UserVotesTable: PK: userId, SK: roomId_movieId (prevent duplicate votes)
+    this._userVotesTable = new dynamodb.Table(this, 'UserVotesTable', {
+      tableName: `trinity-user-votes-${stage}`,
+      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'roomMovieId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // 6. MoviesCacheTable: PK: tmdbId + TTL
     this._moviesCacheTable = new dynamodb.Table(this, 'MoviesCacheTable', {
       tableName: `trinity-movies-cache-${stage}`,
       partitionKey: { name: 'tmdbId', type: dynamodb.AttributeType.STRING },
@@ -127,8 +139,9 @@ export class TrinityStack extends cdk.Stack {
         email: true,
       },
       autoVerify: {
-        email: true,
+        email: false, // Disabled for development - users can login immediately
       },
+      signInCaseSensitive: false,
       passwordPolicy: {
         minLength: 8,
         requireLowercase: true,
@@ -141,7 +154,7 @@ export class TrinityStack extends cdk.Stack {
     });
 
     // User Pool Client para app móvil
-    const userPoolClient = this._userPool.addClient('TrinityMobileClient', {
+    this._userPoolClient = this._userPool.addClient('TrinityMobileClient', {
       userPoolClientName: `trinity-mobile-${stage}`,
       authFlows: {
         userPassword: true,
@@ -159,21 +172,20 @@ export class TrinityStack extends cdk.Stack {
       ROOMS_TABLE: this._roomsTable.tableName,
       ROOM_MEMBERS_TABLE: this._roomMembersTable.tableName,
       VOTES_TABLE: this._votesTable.tableName,
+      USER_VOTES_TABLE: this._userVotesTable.tableName,
       MOVIES_CACHE_TABLE: this._moviesCacheTable.tableName,
       STAGE: stage,
     };
 
     // 1. AuthHandler: Post Confirmation Trigger
-    this._authHandler = new lambda.NodejsFunction(this, 'AuthHandler', {
+    this._authHandler = new lambda.Function(this, 'AuthHandler', {
       functionName: `trinity-auth-${stage}`,
-      entry: path.join(__dirname, '../src/handlers/auth.ts'),
-      runtime: lambdaRuntime.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'auth.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lib/handlers')),
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
       environment: commonEnvironment,
-      bundling: {
-        forceDockerBundling: false,
-      },
     });
 
     // Configurar Post Confirmation Trigger
@@ -183,16 +195,14 @@ export class TrinityStack extends cdk.Stack {
     this._usersTable.grantWriteData(this._authHandler);
 
     // 2. RoomHandler: Gestiona salas
-    this._roomHandler = new lambda.NodejsFunction(this, 'RoomHandler', {
+    this._roomHandler = new lambda.Function(this, 'RoomHandler', {
       functionName: `trinity-room-${stage}`,
-      entry: path.join(__dirname, '../src/handlers/room.ts'),
-      runtime: lambdaRuntime.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'room.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lib/handlers')),
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       environment: commonEnvironment,
-      bundling: {
-        forceDockerBundling: false,
-      },
     });
 
     // Permisos: RW en RoomsTable y RoomMembersTable
@@ -200,18 +210,16 @@ export class TrinityStack extends cdk.Stack {
     this._roomMembersTable.grantReadWriteData(this._roomHandler);
 
     // 3. MovieHandler: Circuit Breaker + Cache
-    this._movieHandler = new lambda.NodejsFunction(this, 'MovieHandler', {
+    this._movieHandler = new lambda.Function(this, 'MovieHandler', {
       functionName: `trinity-movie-${stage}`,
-      entry: path.join(__dirname, '../src/handlers/movie.ts'),
-      runtime: lambdaRuntime.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'movie.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lib/handlers')),
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       environment: {
         ...commonEnvironment,
         TMDB_API_KEY: process.env.TMDB_API_KEY || '',
-      },
-      bundling: {
-        forceDockerBundling: false,
       },
     });
 
@@ -219,50 +227,45 @@ export class TrinityStack extends cdk.Stack {
     this._moviesCacheTable.grantReadWriteData(this._movieHandler);
 
     // 4. VoteHandler: Lógica Stop-on-Match
-    this._voteHandler = new lambda.NodejsFunction(this, 'VoteHandler', {
+    this._voteHandler = new lambda.Function(this, 'VoteHandler', {
       functionName: `trinity-vote-${stage}`,
-      entry: path.join(__dirname, '../src/handlers/vote.ts'),
-      runtime: lambdaRuntime.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'vote.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lib/handlers')),
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       environment: commonEnvironment,
-      bundling: {
-        forceDockerBundling: false,
-      },
     });
 
-    // Permisos: RW en VotesTable y RoomsTable, Read en RoomMembersTable
+    // Permisos: RW en VotesTable y RoomsTable, Read en RoomMembersTable, RW en UserVotesTable
     this._votesTable.grantReadWriteData(this._voteHandler);
     this._roomsTable.grantReadWriteData(this._voteHandler);
     this._roomMembersTable.grantReadData(this._voteHandler);
+    this._userVotesTable.grantReadWriteData(this._voteHandler);
 
     // 5. AIHandler: Chat Contextual con Salamandra
-    this._aiHandler = new lambda.NodejsFunction(this, 'AIHandler', {
+    this._aiHandler = new lambda.Function(this, 'AIHandler', {
       functionName: `trinity-ai-${stage}`,
-      entry: path.join(__dirname, '../src/handlers/ai.ts'),
-      runtime: lambdaRuntime.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'ai.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lib/handlers')),
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       environment: {
         ...commonEnvironment,
         HF_API_TOKEN: process.env.HF_API_TOKEN || '',
       },
-      bundling: {
-        forceDockerBundling: false,
-      },
     });
 
     // 6. RealtimeHandler: AppSync Subscriptions
-    this._realtimeHandler = new lambda.NodejsFunction(this, 'RealtimeHandler', {
+    this._realtimeHandler = new lambda.Function(this, 'RealtimeHandler', {
       functionName: `trinity-realtime-${stage}`,
-      entry: path.join(__dirname, '../src/handlers/realtime.ts'),
-      runtime: lambdaRuntime.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'realtime.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lib/handlers')),
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       environment: commonEnvironment,
-      bundling: {
-        forceDockerBundling: false,
-      },
     });
 
     // Permisos para RealtimeHandler: Read en RoomMembersTable para validación de acceso
@@ -411,6 +414,11 @@ export class TrinityStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'UserPoolId', {
       value: this._userPool.userPoolId,
       description: 'ID del User Pool de Cognito',
+    });
+
+    new cdk.CfnOutput(this, 'UserPoolClientId', {
+      value: this._userPoolClient.userPoolClientId,
+      description: 'ID del User Pool Client para la app móvil',
     });
 
     new cdk.CfnOutput(this, 'Region', {

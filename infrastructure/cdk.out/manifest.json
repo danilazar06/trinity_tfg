@@ -18,7 +18,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::847850007406:role/cdk-hnb659fds-deploy-role-847850007406-eu-west-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::847850007406:role/cdk-hnb659fds-cfn-exec-role-847850007406-eu-west-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-847850007406-eu-west-1/691a4a6314020c30733c6fdc8c6adb098a1dadd206d9a88930147c6f1ae2a22d.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-847850007406-eu-west-1/675f3cc6b08f8af67d77b7567f238677825311df18bd7170f8aa0035ced3607f.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -88,6 +88,20 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "VotesTable39A917AC"
+          }
+        ],
+        "/TrinityMvpStack/UserVotesTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "UserVotesTable592E0AEF"
+            }
+          }
+        ],
+        "/TrinityMvpStack/UserVotesTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserVotesTable592E0AEF"
           }
         ],
         "/TrinityMvpStack/MoviesCacheTable": [
@@ -206,6 +220,24 @@
             "data": "AIHandler5D68B6F1"
           }
         ],
+        "/TrinityMvpStack/RealtimeHandler/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RealtimeHandlerServiceRoleCFE7FFEB"
+          }
+        ],
+        "/TrinityMvpStack/RealtimeHandler/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RealtimeHandlerServiceRoleDefaultPolicy11BB9995"
+          }
+        ],
+        "/TrinityMvpStack/RealtimeHandler/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RealtimeHandlerE448CE62"
+          }
+        ],
         "/TrinityMvpStack/TrinityGraphQLApi/ApiLogsRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -320,6 +352,24 @@
             "data": "TrinityGraphQLApiAIDataSourceCB67F05B"
           }
         ],
+        "/TrinityMvpStack/TrinityGraphQLApi/RealtimeDataSource/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiRealtimeDataSourceServiceRole8BC6F6A4"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/RealtimeDataSource/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiRealtimeDataSourceServiceRoleDefaultPolicy1745A7F9"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/RealtimeDataSource/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiRealtimeDataSource97A87834"
+          }
+        ],
         "/TrinityMvpStack/TrinityGraphQLApi/GetMoviesResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -356,6 +406,72 @@
             "data": "TrinityGraphQLApiVoteResolver7A6D1215"
           }
         ],
+        "/TrinityMvpStack/TrinityGraphQLApi/PublishRoomEventResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiPublishRoomEventResolver7E7E69F5"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/PublishVoteEventResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiPublishVoteEventResolverD347FB07"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/PublishMatchEventResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiPublishMatchEventResolver27978895"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/PublishMemberEventResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiPublishMemberEventResolverB89DB5EC"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/PublishRoleEventResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiPublishRoleEventResolver72F757C5"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/PublishModerationEventResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiPublishModerationEventResolverB059DFF6"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/PublishScheduleEventResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiPublishScheduleEventResolver27FFF260"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/PublishThemeEventResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiPublishThemeEventResolver5497A6D6"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/PublishSettingsEventResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiPublishSettingsEventResolver9C3519AB"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/PublishChatEventResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiPublishChatEventResolver26267A43"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/PublishSuggestionEventResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiPublishSuggestionEventResolver2B4EE956"
+          }
+        ],
         "/TrinityMvpStack/GraphQLApiUrl": [
           {
             "type": "aws:cdk:logicalId",
@@ -372,6 +488,12 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "UserPoolId"
+          }
+        ],
+        "/TrinityMvpStack/UserPoolClientId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserPoolClientId"
           }
         ],
         "/TrinityMvpStack/Region": [
@@ -410,10 +532,76 @@
             "data": "AIHandlerName"
           }
         ],
+        "/TrinityMvpStack/RealtimeHandlerName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RealtimeHandlerName"
+          }
+        ],
         "/TrinityMvpStack/CDKMetadata/Default": [
           {
             "type": "aws:cdk:logicalId",
             "data": "CDKMetadata"
+          }
+        ],
+        "/TrinityMvpStack/Exports/Output{\"Ref\":\"AuthHandler9DC767B7\"}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputRefAuthHandler9DC767B711DCB76A"
+          }
+        ],
+        "/TrinityMvpStack/Exports/Output{\"Ref\":\"RoomHandlerCF7B6EB0\"}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputRefRoomHandlerCF7B6EB08F83255F"
+          }
+        ],
+        "/TrinityMvpStack/Exports/Output{\"Ref\":\"MovieHandler51BC04A7\"}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputRefMovieHandler51BC04A76EBE3534"
+          }
+        ],
+        "/TrinityMvpStack/Exports/Output{\"Ref\":\"VoteHandler897F0396\"}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputRefVoteHandler897F0396D465FCE8"
+          }
+        ],
+        "/TrinityMvpStack/Exports/Output{\"Ref\":\"AIHandler5D68B6F1\"}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputRefAIHandler5D68B6F1A53B1EB9"
+          }
+        ],
+        "/TrinityMvpStack/Exports/Output{\"Ref\":\"UsersTable9725E9C8\"}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputRefUsersTable9725E9C857961836"
+          }
+        ],
+        "/TrinityMvpStack/Exports/Output{\"Ref\":\"RoomsTableA5C1D45B\"}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputRefRoomsTableA5C1D45BCB51EC57"
+          }
+        ],
+        "/TrinityMvpStack/Exports/Output{\"Ref\":\"RoomMembersTable66DCF076\"}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputRefRoomMembersTable66DCF076A160DBBD"
+          }
+        ],
+        "/TrinityMvpStack/Exports/Output{\"Ref\":\"VotesTable39A917AC\"}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputRefVotesTable39A917ACAB0439C7"
+          }
+        ],
+        "/TrinityMvpStack/Exports/Output{\"Ref\":\"MoviesCacheTableE1998D48\"}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputRefMoviesCacheTableE1998D4813880915"
           }
         ],
         "/TrinityMvpStack/BootstrapVersion": [
@@ -430,6 +618,289 @@
         ]
       },
       "displayName": "TrinityMvpStack"
+    },
+    "TrinityOptimizationStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "TrinityOptimizationStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "TrinityOptimizationStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://847850007406/eu-west-1",
+      "properties": {
+        "templateFile": "TrinityOptimizationStack.template.json",
+        "terminationProtection": false,
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::847850007406:role/cdk-hnb659fds-deploy-role-847850007406-eu-west-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::847850007406:role/cdk-hnb659fds-cfn-exec-role-847850007406-eu-west-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-847850007406-eu-west-1/d2c27a42fe5a8b4fad27968df05e5e74580e8c88e85c2c75e10489b41c1a4bb3.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "TrinityOptimizationStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::847850007406:role/cdk-hnb659fds-lookup-role-847850007406-eu-west-1",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "TrinityMvpStack",
+        "TrinityOptimizationStack.assets"
+      ],
+      "metadata": {
+        "/TrinityOptimizationStack/CostAlarmTopic/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostAlarmTopicFF27CABA"
+          }
+        ],
+        "/TrinityOptimizationStack/CostAlarmTopic/admin@trinity.com/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostAlarmTopicadmintrinitycom4BCBE0BB"
+          }
+        ],
+        "/TrinityOptimizationStack/TrinityBudget": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityBudget"
+          }
+        ],
+        "/TrinityOptimizationStack/LambdaDurationAlarm0/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaDurationAlarm0F16C630F"
+          }
+        ],
+        "/TrinityOptimizationStack/LambdaErrorAlarm0/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaErrorAlarm04445859B"
+          }
+        ],
+        "/TrinityOptimizationStack/LambdaInvocationAlarm0/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaInvocationAlarm0D7832B24"
+          }
+        ],
+        "/TrinityOptimizationStack/LambdaDurationAlarm1/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaDurationAlarm15F3D497F"
+          }
+        ],
+        "/TrinityOptimizationStack/LambdaErrorAlarm1/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaErrorAlarm12E4019CD"
+          }
+        ],
+        "/TrinityOptimizationStack/LambdaInvocationAlarm1/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaInvocationAlarm1D02F012B"
+          }
+        ],
+        "/TrinityOptimizationStack/LambdaDurationAlarm2/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaDurationAlarm22B9F6843"
+          }
+        ],
+        "/TrinityOptimizationStack/LambdaErrorAlarm2/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaErrorAlarm2F0F4706A"
+          }
+        ],
+        "/TrinityOptimizationStack/LambdaInvocationAlarm2/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaInvocationAlarm2FAEC221F"
+          }
+        ],
+        "/TrinityOptimizationStack/LambdaDurationAlarm3/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaDurationAlarm3B1BFC170"
+          }
+        ],
+        "/TrinityOptimizationStack/LambdaErrorAlarm3/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaErrorAlarm3503E430B"
+          }
+        ],
+        "/TrinityOptimizationStack/LambdaInvocationAlarm3/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaInvocationAlarm3C6553C09"
+          }
+        ],
+        "/TrinityOptimizationStack/LambdaDurationAlarm4/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaDurationAlarm4A5300540"
+          }
+        ],
+        "/TrinityOptimizationStack/LambdaErrorAlarm4/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaErrorAlarm4EF15E62D"
+          }
+        ],
+        "/TrinityOptimizationStack/LambdaInvocationAlarm4/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaInvocationAlarm4D57C8E6B"
+          }
+        ],
+        "/TrinityOptimizationStack/DynamoReadAlarm0/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DynamoReadAlarm061416ACE"
+          }
+        ],
+        "/TrinityOptimizationStack/DynamoWriteAlarm0/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DynamoWriteAlarm020DD74F2"
+          }
+        ],
+        "/TrinityOptimizationStack/DynamoThrottleAlarm0/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DynamoThrottleAlarm07AC4E4BE"
+          }
+        ],
+        "/TrinityOptimizationStack/DynamoReadAlarm1/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DynamoReadAlarm1C7CFB584"
+          }
+        ],
+        "/TrinityOptimizationStack/DynamoWriteAlarm1/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DynamoWriteAlarm13026BF6E"
+          }
+        ],
+        "/TrinityOptimizationStack/DynamoThrottleAlarm1/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DynamoThrottleAlarm110F02D94"
+          }
+        ],
+        "/TrinityOptimizationStack/DynamoReadAlarm2/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DynamoReadAlarm236FBC56E"
+          }
+        ],
+        "/TrinityOptimizationStack/DynamoWriteAlarm2/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DynamoWriteAlarm2EFC5391A"
+          }
+        ],
+        "/TrinityOptimizationStack/DynamoThrottleAlarm2/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DynamoThrottleAlarm2506534FF"
+          }
+        ],
+        "/TrinityOptimizationStack/DynamoReadAlarm3/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DynamoReadAlarm392BEE664"
+          }
+        ],
+        "/TrinityOptimizationStack/DynamoWriteAlarm3/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DynamoWriteAlarm380A4A1C8"
+          }
+        ],
+        "/TrinityOptimizationStack/DynamoThrottleAlarm3/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DynamoThrottleAlarm312D9C08F"
+          }
+        ],
+        "/TrinityOptimizationStack/DynamoReadAlarm4/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DynamoReadAlarm4055B2D33"
+          }
+        ],
+        "/TrinityOptimizationStack/DynamoWriteAlarm4/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DynamoWriteAlarm424CB7D60"
+          }
+        ],
+        "/TrinityOptimizationStack/DynamoThrottleAlarm4/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DynamoThrottleAlarm4075171C6"
+          }
+        ],
+        "/TrinityOptimizationStack/TrinityDashboard/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityDashboard41E4F1FC"
+          }
+        ],
+        "/TrinityOptimizationStack/DefaultLogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DefaultLogRetention4F638785"
+          }
+        ],
+        "/TrinityOptimizationStack/CostAlarmTopicArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostAlarmTopicArn"
+          }
+        ],
+        "/TrinityOptimizationStack/DashboardUrl": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DashboardUrl"
+          }
+        ],
+        "/TrinityOptimizationStack/BudgetName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BudgetName"
+          }
+        ],
+        "/TrinityOptimizationStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/TrinityOptimizationStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/TrinityOptimizationStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "TrinityOptimizationStack"
     },
     "Tree": {
       "type": "cdk:tree",

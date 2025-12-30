@@ -17,9 +17,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useAuth } from '../src/context/AuthContext';
+import { useCognitoAuth } from '../src/context/CognitoAuthContext';
+import { useGoogleSignIn } from '../src/hooks/useGoogleSignIn';
+import GoogleSignInButton from '../src/components/GoogleSignInButton';
 import { colors, spacing, fontSize, borderRadius, shadows } from '../src/utils/theme';
-import { LoginCredentials } from '../src/types';
 
 const { width, height } = Dimensions.get('window');
 
@@ -33,11 +34,11 @@ const MOVIE_POSTERS = [
 ];
 
 export default function LoginScreen() {
-  const { login, isLoading, error, clearError, loginWithGoogle, loginWithApple, isAuthenticated, getGoogleSignInAvailability } = useAuth();
-  const [credentials, setCredentials] = useState<LoginCredentials>({ email: '', password: '' });
+  const { login, isLoading, error, clearError, isAuthenticated } = useCognitoAuth();
+  const { isAvailable: googleAvailable, capabilities } = useGoogleSignIn();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  const [googleAvailable, setGoogleAvailable] = useState(false);
-  const [googleMessage, setGoogleMessage] = useState('');
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
   const logoScale = useRef(new Animated.Value(0.8)).current;
@@ -50,36 +51,50 @@ export default function LoginScreen() {
       Animated.spring(logoScale, { toValue: 1, tension: 100, friction: 8, useNativeDriver: true }),
     ]).start();
     Animated.loop(Animated.timing(posterScrollAnim, { toValue: 1, duration: 30000, useNativeDriver: true })).start();
-    
-    // Verificar disponibilidad de Google Sign-In
-    checkGoogleAvailability();
   }, []);
-
-  const checkGoogleAvailability = async () => {
-    try {
-      const availability = await getGoogleSignInAvailability();
-      setGoogleAvailable(availability.available);
-      setGoogleMessage(availability.message);
-    } catch (error) {
-      setGoogleAvailable(false);
-      setGoogleMessage('Error al verificar Google Sign-In');
-    }
-  };
 
   useEffect(() => { if (isAuthenticated) router.replace('/(tabs)'); }, [isAuthenticated]);
   useEffect(() => { if (error) Alert.alert('Error', error, [{ text: 'OK', onPress: clearError }]); }, [error]);
 
   const validate = (): boolean => {
     const newErrors: { email?: string; password?: string } = {};
-    if (!credentials.email) newErrors.email = 'El email es requerido';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(credentials.email)) newErrors.email = 'Email invalido';
-    if (!credentials.password) newErrors.password = 'La contrasena es requerida';
-    else if (credentials.password.length < 6) newErrors.password = 'Minimo 6 caracteres';
+    if (!email) newErrors.email = 'El email es requerido';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = 'Email invalido';
+    if (!password) newErrors.password = 'La contrasena es requerida';
+    else if (password.length < 6) newErrors.password = 'Minimo 6 caracteres';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleLogin = async () => { if (validate()) await login(credentials); };
+  const handleLogin = async () => { 
+    if (validate()) {
+      try {
+        await login(email, password);
+      } catch (err) {
+        // Error handling is done by the context
+        console.error('Login error:', err);
+      }
+    }
+  };
+
+  const handleGoogleSignIn = async (user: any) => {
+    try {
+      console.log('✅ Google Sign-In successful:', user);
+      Alert.alert(
+        'Google Sign-In Exitoso',
+        `¡Bienvenido ${user.name || user.email}!\n\nNota: La integración completa con Cognito estará disponible próximamente.`,
+        [{ text: 'OK' }]
+      );
+      // TODO: Integrate with Cognito authentication
+    } catch (err) {
+      console.error('Error handling Google Sign-In:', err);
+    }
+  };
+
+  const handleGoogleSignInError = (error: string) => {
+    console.error('Google Sign-In error:', error);
+    // Don't show alert here as GoogleSignInButton handles it
+  };
 
   const translateX = posterScrollAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -width] });
 
@@ -120,8 +135,8 @@ export default function LoginScreen() {
                   <View style={[styles.inputContainer, errors.email && styles.inputError]}>
                     <TextInput
                       placeholder="tu@email.com"
-                      value={credentials.email}
-                      onChangeText={(v) => setCredentials(prev => ({ ...prev, email: v }))}
+                      value={email}
+                      onChangeText={setEmail}
                       keyboardType="email-address"
                       autoCapitalize="none"
                       autoCorrect={false}
@@ -136,8 +151,8 @@ export default function LoginScreen() {
                   <View style={[styles.inputContainer, errors.password && styles.inputError]}>
                     <TextInput
                       placeholder="********"
-                      value={credentials.password}
-                      onChangeText={(v) => setCredentials(prev => ({ ...prev, password: v }))}
+                      value={password}
+                      onChangeText={setPassword}
                       secureTextEntry
                       autoCapitalize="none"
                       style={styles.input}
@@ -152,32 +167,41 @@ export default function LoginScreen() {
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
-              <View style={styles.divider}><View style={styles.dividerLine} /><Text style={styles.dividerText}>o continua con</Text><View style={styles.dividerLine} /></View>
-              <View style={styles.socialButtons}>
-                {googleAvailable ? (
-                  <TouchableOpacity style={styles.socialButton} onPress={loginWithGoogle} activeOpacity={0.8}>
-                    <Text style={styles.socialIcon}>G</Text>
-                    <Text style={styles.socialButtonText}>Google</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <View style={[styles.socialButton, styles.socialButtonDisabled]}>
-                    <Text style={[styles.socialIcon, styles.socialIconDisabled]}>G</Text>
-                    <Text style={[styles.socialButtonText, styles.socialButtonTextDisabled]}>Google</Text>
-                  </View>
-                )}
-                <TouchableOpacity style={styles.socialButton} onPress={loginWithApple} activeOpacity={0.8}>
-                  <Text style={styles.socialIcon}>A</Text>
-                  <Text style={styles.socialButtonText}>Apple</Text>
-                </TouchableOpacity>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>
+                  {googleAvailable ? 'o continúa con' : 'Próximamente más opciones'}
+                </Text>
+                <View style={styles.dividerLine} />
               </View>
-              {!googleAvailable && (
-                <View style={styles.googleMessageContainer}>
-                  <Text style={styles.googleMessageText}>ℹ️ {googleMessage}</Text>
+              
+              {googleAvailable ? (
+                <GoogleSignInButton
+                  onSuccess={handleGoogleSignIn}
+                  onError={handleGoogleSignInError}
+                  style={styles.googleButton}
+                />
+              ) : (
+                <View style={styles.socialButtons}>
+                  <GoogleSignInButton
+                    onSuccess={handleGoogleSignIn}
+                    onError={handleGoogleSignInError}
+                    showFallbackInfo={true}
+                    style={styles.googleButtonFallback}
+                  />
+                </View>
+              )}
+              
+              {capabilities?.environment === 'expo-go' && (
+                <View style={styles.expoGoMessageContainer}>
+                  <Text style={styles.expoGoMessageText}>
+                    ℹ️ Ejecutándose en Expo Go - Google Sign-In requiere Development Build
+                  </Text>
                 </View>
               )}
               <View style={styles.footer}><Text style={styles.footerText}>No tienes cuenta? </Text><TouchableOpacity onPress={() => router.push('/register')}><Text style={styles.registerLink}>Registrate aqui</Text></TouchableOpacity></View>
-              <TouchableOpacity onPress={() => router.push('/test-connection')} style={styles.testButton}>
-                <Text style={styles.testButtonText}>🔍 Test de Conexión</Text>
+              <TouchableOpacity onPress={() => router.push('/debug/google-signin-test')} style={styles.testButton}>
+                <Text style={styles.testButtonText}>🔍 Test Google Sign-In</Text>
               </TouchableOpacity>
             </Animated.View>
           </ScrollView>
@@ -227,8 +251,12 @@ const styles = StyleSheet.create({
   socialIconDisabled: { color: colors.textMuted },
   socialButtonText: { fontSize: fontSize.md, fontWeight: '600', color: colors.textPrimary },
   socialButtonTextDisabled: { color: colors.textMuted },
+  googleButton: { width: '100%' },
+  googleButtonFallback: { width: '100%' },
   googleMessageContainer: { marginTop: spacing.sm, paddingHorizontal: spacing.md, alignItems: 'center' },
   googleMessageText: { fontSize: fontSize.xs, color: colors.textMuted, textAlign: 'center', lineHeight: 16 },
+  expoGoMessageContainer: { marginTop: spacing.sm, paddingHorizontal: spacing.md, alignItems: 'center', backgroundColor: 'rgba(255,152,0,0.1)', borderRadius: borderRadius.md, padding: spacing.sm },
+  expoGoMessageText: { fontSize: fontSize.xs, color: '#FF9800', textAlign: 'center', lineHeight: 16 },
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: spacing.xl },
   footerText: { color: colors.textSecondary, fontSize: fontSize.sm },
   registerLink: { color: colors.primary, fontSize: fontSize.sm, fontWeight: '600' },

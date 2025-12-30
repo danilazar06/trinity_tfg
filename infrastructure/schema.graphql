@@ -327,9 +327,9 @@ type Subscription {
   onContentSuggestion(roomId: ID!): SuggestionEvent
     @aws_subscribe(mutations: ["publishSuggestionEvent"])
   
-  # User-specific subscriptions
-  onUserNotification(userId: ID!): UserNotification
-    @aws_subscribe(mutations: ["publishUserNotification"])
+  # User-specific subscriptions - REMOVED: publishUserNotification mutation doesn't exist
+  # onUserNotification(userId: ID!): UserNotification
+  #   @aws_subscribe(mutations: ["publishUserNotification"])
   
   # Legacy subscription for backward compatibility
   onRoomUpdated(roomId: ID!): Room

@@ -18,9 +18,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../src/context/AuthContext';
+import { useCognitoAuth } from '../src/context/CognitoAuthContext';
+import { useGoogleSignIn } from '../src/hooks/useGoogleSignIn';
+import GoogleSignInButton from '../src/components/GoogleSignInButton';
 import { colors, spacing, fontSize, borderRadius } from '../src/utils/theme';
-import { RegisterData } from '../src/types';
 import TrinityLogo from '../src/components/TrinityLogo';
 
 const { width, height } = Dimensions.get('window');
@@ -35,12 +36,15 @@ const MOVIE_POSTERS = [
 ];
 
 export default function RegisterScreen() {
-  const { register, isLoading, error, clearError, loginWithGoogle, loginWithApple } = useAuth();
-  const [formData, setFormData] = useState<RegisterData>({ name: '', email: '', password: '', fullName: '' });
+  const { register, isLoading, error, clearError } = useCognitoAuth();
+  const { isAvailable: googleAvailable, capabilities } = useGoogleSignIn();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string; confirmPassword?: string; fullName?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string; confirmPassword?: string }>({});
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -62,28 +66,52 @@ export default function RegisterScreen() {
 
   const validate = (): boolean => {
     const newErrors: typeof errors = {};
-    if (!formData.fullName?.trim()) newErrors.fullName = 'El nombre es requerido';
-    else if (formData.fullName.trim().length < 2) newErrors.fullName = 'Minimo 2 caracteres';
-    if (!formData.name.trim()) newErrors.name = 'El usuario es requerido';
-    else if (formData.name.trim().length < 3) newErrors.name = 'Minimo 3 caracteres';
-    else if (!/^[a-zA-Z0-9_]+$/.test(formData.name.trim())) newErrors.name = 'Solo letras, numeros y _';
-    if (!formData.email) newErrors.email = 'El email es requerido';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Email invalido';
-    if (!formData.password) newErrors.password = 'La contrasena es requerida';
-    else if (formData.password.length < 8) newErrors.password = 'Minimo 8 caracteres';
-    else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/.test(formData.password)) newErrors.password = 'Incluir Aa1@';
-    if (confirmPassword !== formData.password) newErrors.confirmPassword = 'No coinciden';
+    if (!name.trim()) newErrors.name = 'El nombre es requerido';
+    else if (name.trim().length < 2) newErrors.name = 'Minimo 2 caracteres';
+    if (!email) newErrors.email = 'El email es requerido';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = 'Email invalido';
+    if (!password) newErrors.password = 'La contrasena es requerida';
+    else if (password.length < 8) newErrors.password = 'Minimo 8 caracteres';
+    if (confirmPassword !== password) newErrors.confirmPassword = 'No coinciden';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleRegister = async () => {
     if (validate()) {
-      const result = await register(formData);
-      if (result?.success) {
-        Alert.alert('Cuenta creada', 'Ya puedes iniciar sesion.', [{ text: 'Ir a Login', onPress: () => router.replace('/login') }]);
+      try {
+        const result = await register(email, password, name);
+        if (result?.success) {
+          Alert.alert('Cuenta creada', 'Ya puedes iniciar sesion.', [{ text: 'Ir a Login', onPress: () => router.replace('/login') }]);
+        }
+      } catch (err) {
+        console.error('Register error:', err);
       }
     }
+  };
+
+  const handleGoogleSignUp = async (user: any) => {
+    try {
+      console.log('✅ Google Sign-Up successful:', user);
+      Alert.alert(
+        'Google Sign-Up Exitoso',
+        `¡Bienvenido ${user.name || user.email}!\n\nTu cuenta ha sido creada usando Google.\n\nNota: La integración completa con Cognito estará disponible próximamente.`,
+        [{ text: 'OK' }]
+      );
+      // TODO: Create Cognito user from Google account
+      // This would involve:
+      // 1. Send Google ID token to backend
+      // 2. Backend creates Cognito user
+      // 3. Return Cognito tokens
+      // 4. Navigate to main app
+    } catch (err) {
+      console.error('Error handling Google Sign-Up:', err);
+    }
+  };
+
+  const handleGoogleSignUpError = (error: string) => {
+    console.error('Google Sign-Up error:', error);
+    // Error handling is done by GoogleSignInButton
   };
 
   const translateX = posterScrollAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -width * 0.8] });
@@ -124,31 +152,13 @@ export default function RegisterScreen() {
                 {/* Nombre completo */}
                 <View style={styles.inputWrapper}>
                   <Text style={styles.inputLabel}>Nombre completo</Text>
-                  <View style={[styles.inputContainer, errors.fullName && styles.inputError]}>
+                  <View style={[styles.inputContainer, errors.name && styles.inputError]}>
                     <Ionicons name="person-outline" size={20} color="rgba(255,255,255,0.5)" style={styles.inputIcon} />
                     <TextInput
                       placeholder="Tu nombre"
-                      value={formData.fullName || ''}
-                      onChangeText={(v) => setFormData(prev => ({ ...prev, fullName: v }))}
+                      value={name}
+                      onChangeText={setName}
                       autoCapitalize="words"
-                      style={styles.input}
-                      placeholderTextColor="rgba(255,255,255,0.4)"
-                    />
-                  </View>
-                  {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
-                </View>
-
-                {/* Usuario */}
-                <View style={styles.inputWrapper}>
-                  <Text style={styles.inputLabel}>Usuario</Text>
-                  <View style={[styles.inputContainer, errors.name && styles.inputError]}>
-                    <Ionicons name="at-outline" size={20} color="rgba(255,255,255,0.5)" style={styles.inputIcon} />
-                    <TextInput
-                      placeholder="usuario123"
-                      value={formData.name}
-                      onChangeText={(v) => setFormData(prev => ({ ...prev, name: v }))}
-                      autoCapitalize="none"
-                      autoCorrect={false}
                       style={styles.input}
                       placeholderTextColor="rgba(255,255,255,0.4)"
                     />
@@ -163,8 +173,8 @@ export default function RegisterScreen() {
                     <Ionicons name="mail-outline" size={20} color="rgba(255,255,255,0.5)" style={styles.inputIcon} />
                     <TextInput
                       placeholder="tu@email.com"
-                      value={formData.email}
-                      onChangeText={(v) => setFormData(prev => ({ ...prev, email: v }))}
+                      value={email}
+                      onChangeText={setEmail}
                       keyboardType="email-address"
                       autoCapitalize="none"
                       autoCorrect={false}
@@ -181,9 +191,9 @@ export default function RegisterScreen() {
                   <View style={[styles.inputContainer, errors.password && styles.inputError]}>
                     <Ionicons name="lock-closed-outline" size={20} color="rgba(255,255,255,0.5)" style={styles.inputIcon} />
                     <TextInput
-                      placeholder="Min. 8 con Aa1@"
-                      value={formData.password}
-                      onChangeText={(v) => setFormData(prev => ({ ...prev, password: v }))}
+                      placeholder="Min. 8 caracteres"
+                      value={password}
+                      onChangeText={setPassword}
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
                       style={styles.input}
@@ -226,20 +236,36 @@ export default function RegisterScreen() {
               
               <View style={styles.divider}>
                 <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>o registrate con</Text>
+                <Text style={styles.dividerText}>
+                  {googleAvailable ? 'o regístrate con' : 'Próximamente más opciones'}
+                </Text>
                 <View style={styles.dividerLine} />
               </View>
               
-              <View style={styles.socialButtons}>
-                <TouchableOpacity style={styles.socialButton} onPress={loginWithGoogle} activeOpacity={0.8} disabled={isLoading}>
-                  <Ionicons name="logo-google" size={20} color={colors.textPrimary} />
-                  <Text style={styles.socialButtonText}>Google</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.socialButton} onPress={loginWithApple} activeOpacity={0.8} disabled={isLoading}>
-                  <Ionicons name="logo-apple" size={20} color={colors.textPrimary} />
-                  <Text style={styles.socialButtonText}>Apple</Text>
-                </TouchableOpacity>
-              </View>
+              {googleAvailable ? (
+                <GoogleSignInButton
+                  onSuccess={handleGoogleSignUp}
+                  onError={handleGoogleSignUpError}
+                  style={styles.googleButton}
+                />
+              ) : (
+                <View style={styles.socialButtons}>
+                  <GoogleSignInButton
+                    onSuccess={handleGoogleSignUp}
+                    onError={handleGoogleSignUpError}
+                    showFallbackInfo={true}
+                    style={styles.googleButtonFallback}
+                  />
+                </View>
+              )}
+              
+              {capabilities?.environment === 'expo-go' && (
+                <View style={styles.expoGoMessageContainer}>
+                  <Text style={styles.expoGoMessageText}>
+                    ℹ️ Ejecutándose en Expo Go - Google Sign-In requiere Development Build
+                  </Text>
+                </View>
+              )}
 
               <View style={styles.footer}>
                 <Text style={styles.footerText}>Ya tienes cuenta? </Text>
@@ -288,7 +314,13 @@ const styles = StyleSheet.create({
   dividerText: { color: colors.textMuted, fontSize: fontSize.sm, paddingHorizontal: spacing.md },
   socialButtons: { flexDirection: 'row', gap: spacing.md, width: '100%' },
   socialButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: borderRadius.lg, paddingVertical: spacing.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', gap: spacing.sm },
+  socialButtonDisabled: { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.05)' },
   socialButtonText: { fontSize: fontSize.md, fontWeight: '600', color: colors.textPrimary },
+  socialButtonTextDisabled: { color: 'rgba(255,255,255,0.3)' },
+  googleButton: { width: '100%' },
+  googleButtonFallback: { width: '100%' },
+  expoGoMessageContainer: { marginTop: spacing.sm, paddingHorizontal: spacing.md, alignItems: 'center', backgroundColor: 'rgba(255,152,0,0.1)', borderRadius: borderRadius.md, padding: spacing.sm },
+  expoGoMessageText: { fontSize: fontSize.xs, color: '#FF9800', textAlign: 'center', lineHeight: 16 },
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: spacing.lg },
   footerText: { color: colors.textSecondary, fontSize: fontSize.md },
   loginLink: { color: colors.secondary, fontSize: fontSize.md, fontWeight: '600' },

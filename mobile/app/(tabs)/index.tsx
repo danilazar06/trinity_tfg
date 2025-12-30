@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { colors, spacing, fontSize, borderRadius, shadows } from '../../src/utils/theme';
-import { roomService, RoomSummary } from '../../src/services/roomService';
+import { useAppSync } from '../../src/services/apiClient';
 import CreateRoomModal from '../../src/components/CreateRoomModal';
 import Logo from '../../src/components/Logo';
 
@@ -31,7 +31,8 @@ const TRENDING_POSTERS = [
 ];
 
 export default function HomeScreen() {
-  const [rooms, setRooms] = useState<RoomSummary[]>([]);
+  const appSync = useAppSync();
+  const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   
@@ -56,17 +57,31 @@ export default function HomeScreen() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const userRooms = await roomService.getUserRooms();
+      console.log('🔄 Loading user rooms via AppSync (Home)...');
+      
+      // Use AppSync GraphQL instead of REST API
+      const response = await appSync.getUserRooms();
+      const userRooms = response.getUserRooms || [];
+      
+      console.log('✅ Loaded rooms via AppSync (Home):', userRooms);
       setRooms(userRooms);
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('❌ Error loading data via AppSync (Home):', error);
+      
+      // Handle authentication errors gracefully
+      if (error instanceof Error && error.message.includes('Unauthorized')) {
+        console.warn('⚠️ User not authenticated, showing empty rooms list');
+        setRooms([]);
+      } else {
+        setRooms([]);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleRoomCreated = () => loadData();
-  const totalMatches = rooms.reduce((sum, room) => sum + room.matchCount, 0);
+  const totalMatches = rooms.reduce((sum, room) => sum + (room.matchCount || 0), 0);
 
   const translateX = posterScrollAnim.interpolate({
     inputRange: [0, 1],

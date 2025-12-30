@@ -13,15 +13,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, fontSize, borderRadius } from '../utils/theme';
-import { roomService, Room } from '../services/roomService';
+import { useAppSync } from '../services/apiClient';
 
 interface JoinRoomModalProps {
   visible: boolean;
   onClose: () => void;
-  onRoomJoined?: (room: Room) => void;
+  onRoomJoined?: (room: any) => void; // Using any for GraphQL response
 }
 
 export default function JoinRoomModal({ visible, onClose, onRoomJoined }: JoinRoomModalProps) {
+  const appSync = useAppSync();
   const [inviteCode, setInviteCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +44,15 @@ export default function JoinRoomModal({ visible, onClose, onRoomJoined }: JoinRo
     setError(null);
 
     try {
-      const room = await roomService.joinRoom(inviteCode.toUpperCase().trim());
+      console.log('🔄 Joining room via AppSync GraphQL...');
+      
+      // Use AppSync GraphQL instead of REST API
+      const response = await appSync.joinRoom(inviteCode.toUpperCase().trim());
+      
+      console.log('✅ Joined room via AppSync:', response);
+      
+      // Extract room data from GraphQL response
+      const room = response.joinRoom;
       
       if (onRoomJoined) {
         onRoomJoined(room);
@@ -54,8 +63,27 @@ export default function JoinRoomModal({ visible, onClose, onRoomJoined }: JoinRo
         `Ahora eres parte de "${room.name}"`,
         [{ text: 'OK', onPress: resetAndClose }]
       );
-    } catch (err: any) {
-      setError(err.message || 'Código de invitación inválido');
+    } catch (error: any) {
+      console.error('❌ Error joining room via AppSync:', error);
+      
+      let errorMessage = 'Código de invitación inválido';
+      
+      // Handle GraphQL errors
+      if (error.message) {
+        if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+          errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión de nuevo.';
+        } else if (error.message.includes('RoomNotFound') || error.message.includes('Invalid invite code')) {
+          errorMessage = 'Código de invitación inválido o expirado';
+        } else if (error.message.includes('RoomFull')) {
+          errorMessage = 'La sala está llena';
+        } else if (error.message.includes('AlreadyMember')) {
+          errorMessage = 'Ya eres miembro de esta sala';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsJoining(false);
     }

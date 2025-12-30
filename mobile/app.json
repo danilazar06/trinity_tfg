@@ -33,6 +33,17 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.320120465080-4lf6l426q4ct2jn4mpgte9m5mbmlss7j"
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "googleServicesFile": "./google-services.json"
+          },
+          "ios": {
+            "googleServicesFile": "./GoogleService-Info.plist"
+          }
+        }
       ]
     ],
     "extra": {

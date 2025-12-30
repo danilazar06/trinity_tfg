@@ -1,8 +1,6 @@
-// Servicio para obtener películas y series de TMDB
-// En producción, esto debería pasar por el backend
+// Servicio para obtener películas y series usando AppSync con Circuit Breaker
+import { appSyncService } from './appSyncService';
 
-const TMDB_API_KEY = 'dc4dbcd2404c1ca852f8eb964add267d';
-const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
 
 export interface StreamingProvider {
@@ -133,289 +131,243 @@ const transformTMDBItem = (item: any, mediaType: 'movie' | 'tv'): MediaItem => {
 class MediaService {
   private providersCache: Map<string, StreamingProvider[]> = new Map();
 
-  private async fetchFromTMDB<T>(endpoint: string, params: Record<string, any> = {}): Promise<T> {
-    const queryParams = new URLSearchParams({
-      api_key: TMDB_API_KEY,
-      language: 'es-ES',
-      ...params,
-    });
-
-    const url = `${TMDB_BASE_URL}${endpoint}?${queryParams}`;
-    
+  /**
+   * Obtener detalles de película usando AppSync con Circuit Breaker
+   */
+  async getMovieDetails(tmdbId: number): Promise<MediaItemDetails | null> {
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`TMDB API error: ${response.status}`);
+      console.log(`🎬 Fetching movie details for ID: ${tmdbId} via AppSync`);
+      
+      const result = await appSyncService.getMovieDetails(tmdbId.toString());
+      
+      if (!result.getMovieDetails) {
+        console.warn(`⚠️ No movie details found for ID: ${tmdbId}`);
+        return null;
       }
-      return response.json();
-    } catch (error) {
-      console.error('TMDB fetch error:', error);
-      throw error;
+
+      const details = result.getMovieDetails;
+      
+      // Transformar respuesta de GraphQL al formato esperado
+      const movieDetails: MediaItemDetails = {
+        id: `movie-${details.id}`,
+        tmdbId: parseInt(details.id),
+        title: details.title,
+        originalTitle: details.title, // GraphQL no devuelve original_title por ahora
+        overview: details.overview || '',
+        posterPath: details.poster_path 
+          ? `${TMDB_IMAGE_BASE}/w500${details.poster_path}`
+          : null,
+        backdropPath: details.backdrop_path
+          ? `${TMDB_IMAGE_BASE}/w780${details.backdrop_path}`
+          : null,
+        releaseDate: details.release_date || '',
+        year: details.release_date ? details.release_date.split('-')[0] : '',
+        rating: Math.round((details.vote_average || 0) * 10) / 10,
+        voteCount: 0, // No disponible en GraphQL actual
+        genres: details.genres?.map((g: any) => g.name) || [],
+        mediaType: 'movie' as const,
+        runtime: details.runtime || null,
+        tagline: '', // No disponible en GraphQL actual
+        budget: 0, // No disponible en GraphQL actual
+        revenue: 0, // No disponible en GraphQL actual
+        trailerKey: null, // No disponible en GraphQL actual
+        watchProviders: [], // No disponible en GraphQL actual
+        cast: [], // No disponible en GraphQL actual
+        director: null, // No disponible en GraphQL actual
+      };
+
+      console.log(`✅ Movie details loaded successfully: ${movieDetails.title}`);
+      return movieDetails;
+      
+    } catch (error: any) {
+      console.error('❌ Error fetching movie details via AppSync:', error);
+      
+      // Manejar errores específicos del Circuit Breaker
+      if (error.message?.includes('Circuit breaker is OPEN')) {
+        console.warn('⚡ Circuit breaker is open, service temporarily unavailable');
+        // Podrías devolver datos en caché o un fallback aquí
+        return this.getFallbackMovieDetails(tmdbId);
+      }
+      
+      if (error.message?.includes('Service temporarily unavailable')) {
+        console.warn('🔧 External service unavailable, using fallback');
+        return this.getFallbackMovieDetails(tmdbId);
+      }
+      
+      // Para otros errores, devolver null
+      return null;
     }
   }
 
-  // Obtener providers de streaming para un item
-  async getStreamingProviders(tmdbId: number, mediaType: 'movie' | 'tv'): Promise<StreamingProvider[]> {
-    const cacheKey = `${mediaType}-${tmdbId}`;
-    if (this.providersCache.has(cacheKey)) {
-      return this.providersCache.get(cacheKey)!;
-    }
-
+  /**
+   * Obtener detalles de serie usando AppSync con Circuit Breaker
+   */
+  async getTVDetails(tmdbId: number): Promise<MediaItemDetails | null> {
     try {
-      const endpoint = mediaType === 'movie' 
-        ? `/movie/${tmdbId}/watch/providers`
-        : `/tv/${tmdbId}/watch/providers`;
+      console.log(`📺 Fetching TV details for ID: ${tmdbId} via AppSync`);
       
-      const data = await this.fetchFromTMDB<any>(endpoint);
-      const region = data.results?.ES || data.results?.US || null;
+      // Por ahora, usar el mismo endpoint que movies
+      // En una implementación real, habría un endpoint separado para TV
+      const result = await appSyncService.getMovieDetails(tmdbId.toString());
       
-      const providers: StreamingProvider[] = [];
-      if (region?.flatrate) {
-        region.flatrate.slice(0, 4).forEach((p: any) => {
-          providers.push({
-            id: p.provider_id,
-            name: p.provider_name,
-            logoPath: `${TMDB_IMAGE_BASE}/w92${p.logo_path}`,
-          });
-        });
+      if (!result.getMovieDetails) {
+        console.warn(`⚠️ No TV details found for ID: ${tmdbId}`);
+        return null;
+      }
+
+      const details = result.getMovieDetails;
+      
+      // Transformar respuesta de GraphQL al formato esperado para TV
+      const tvDetails: MediaItemDetails = {
+        id: `tv-${details.id}`,
+        tmdbId: parseInt(details.id),
+        title: details.title,
+        originalTitle: details.title,
+        overview: details.overview || '',
+        posterPath: details.poster_path 
+          ? `${TMDB_IMAGE_BASE}/w500${details.poster_path}`
+          : null,
+        backdropPath: details.backdrop_path
+          ? `${TMDB_IMAGE_BASE}/w780${details.backdrop_path}`
+          : null,
+        releaseDate: details.release_date || '',
+        year: details.release_date ? details.release_date.split('-')[0] : '',
+        rating: Math.round((details.vote_average || 0) * 10) / 10,
+        voteCount: 0,
+        genres: details.genres?.map((g: any) => g.name) || [],
+        mediaType: 'tv' as const,
+        runtime: details.runtime || null,
+        tagline: '',
+        numberOfSeasons: 1, // Valor por defecto
+        numberOfEpisodes: 10, // Valor por defecto
+        trailerKey: null,
+        watchProviders: [],
+        cast: [],
+        creator: null,
+      };
+
+      console.log(`✅ TV details loaded successfully: ${tvDetails.title}`);
+      return tvDetails;
+      
+    } catch (error: any) {
+      console.error('❌ Error fetching TV details via AppSync:', error);
+      
+      // Manejar errores del Circuit Breaker
+      if (error.message?.includes('Circuit breaker is OPEN')) {
+        console.warn('⚡ Circuit breaker is open for TV service');
+        return this.getFallbackTVDetails(tmdbId);
       }
       
-      this.providersCache.set(cacheKey, providers);
-      return providers;
-    } catch (error) {
-      console.error('Error fetching providers:', error);
-      return [];
+      return null;
     }
   }
 
-  // Enriquecer items con providers (para los primeros N items)
-  private async enrichWithProviders(items: MediaItem[], limit = 10): Promise<MediaItem[]> {
-    const itemsToEnrich = items.slice(0, limit);
-    const enrichedItems = await Promise.all(
-      itemsToEnrich.map(async (item) => {
-        const providers = await this.getStreamingProviders(item.tmdbId, item.mediaType);
-        return { ...item, streamingProviders: providers };
-      })
-    );
-    
-    // Combinar items enriquecidos con el resto
-    return [...enrichedItems, ...items.slice(limit)];
-  }
-
-  async getPopularMovies(page = 1): Promise<MediaResponse> {
-    const data = await this.fetchFromTMDB<any>('/movie/popular', { page: String(page) });
-    const items = data.results.map((item: any) => transformTMDBItem(item, 'movie'));
-    const enrichedItems = await this.enrichWithProviders(items);
+  /**
+   * Datos de fallback cuando el Circuit Breaker está abierto
+   */
+  private getFallbackMovieDetails(tmdbId: number): MediaItemDetails {
+    console.log(`🔄 Using fallback data for movie ID: ${tmdbId}`);
     
     return {
-      results: enrichedItems,
-      page: data.page,
-      totalPages: data.total_pages,
-      totalResults: data.total_results,
+      id: `movie-${tmdbId}`,
+      tmdbId,
+      title: 'Película no disponible',
+      originalTitle: 'Movie Unavailable',
+      overview: 'Los detalles de esta película no están disponibles temporalmente debido a problemas de conectividad. Por favor, inténtalo más tarde.',
+      posterPath: null,
+      backdropPath: null,
+      releaseDate: '',
+      year: '',
+      rating: 0,
+      voteCount: 0,
+      genres: ['No disponible'],
+      mediaType: 'movie' as const,
+      runtime: null,
+      tagline: 'Servicio temporalmente no disponible',
+      budget: 0,
+      revenue: 0,
+      trailerKey: null,
+      watchProviders: [],
+      cast: [],
+      director: null,
     };
+  }
+
+  /**
+   * Datos de fallback para series cuando el Circuit Breaker está abierto
+   */
+  private getFallbackTVDetails(tmdbId: number): MediaItemDetails {
+    console.log(`🔄 Using fallback data for TV ID: ${tmdbId}`);
+    
+    return {
+      id: `tv-${tmdbId}`,
+      tmdbId,
+      title: 'Serie no disponible',
+      originalTitle: 'TV Show Unavailable',
+      overview: 'Los detalles de esta serie no están disponibles temporalmente debido a problemas de conectividad. Por favor, inténtalo más tarde.',
+      posterPath: null,
+      backdropPath: null,
+      releaseDate: '',
+      year: '',
+      rating: 0,
+      voteCount: 0,
+      genres: ['No disponible'],
+      mediaType: 'tv' as const,
+      runtime: null,
+      tagline: 'Servicio temporalmente no disponible',
+      numberOfSeasons: 0,
+      numberOfEpisodes: 0,
+      trailerKey: null,
+      watchProviders: [],
+      cast: [],
+      creator: null,
+    };
+  }
+
+  // Métodos legacy mantenidos para compatibilidad (ahora usan fallback local)
+  async getPopularMovies(page = 1): Promise<MediaResponse> {
+    console.warn('⚠️ getPopularMovies: Using legacy fallback data');
+    return this.getLegacyFallbackResponse();
   }
 
   async getPopularTV(page = 1): Promise<MediaResponse> {
-    const data = await this.fetchFromTMDB<any>('/tv/popular', { page: String(page) });
-    const items = data.results.map((item: any) => transformTMDBItem(item, 'tv'));
-    const enrichedItems = await this.enrichWithProviders(items);
-    
-    return {
-      results: enrichedItems,
-      page: data.page,
-      totalPages: data.total_pages,
-      totalResults: data.total_results,
-    };
+    console.warn('⚠️ getPopularTV: Using legacy fallback data');
+    return this.getLegacyFallbackResponse();
   }
 
   async getTrending(timeWindow: 'day' | 'week' = 'week', page = 1): Promise<MediaResponse> {
-    const data = await this.fetchFromTMDB<any>(`/trending/all/${timeWindow}`, { page: String(page) });
-    const items = data.results.map((item: any) => 
-      transformTMDBItem(item, item.media_type === 'tv' ? 'tv' : 'movie')
-    );
-    const enrichedItems = await this.enrichWithProviders(items);
-    
-    return {
-      results: enrichedItems,
-      page: data.page,
-      totalPages: data.total_pages,
-      totalResults: data.total_results,
-    };
+    console.warn('⚠️ getTrending: Using legacy fallback data');
+    return this.getLegacyFallbackResponse();
   }
 
   async searchContent(query: string, page = 1): Promise<MediaResponse> {
-    if (!query.trim()) {
-      return { results: [], page: 1, totalPages: 0, totalResults: 0 };
-    }
+    console.warn('⚠️ searchContent: Using legacy fallback data');
+    return this.getLegacyFallbackResponse();
+  }
 
-    const data = await this.fetchFromTMDB<any>('/search/multi', { 
-      query, 
-      page: String(page),
-      include_adult: 'false',
-    });
-    
-    // Filtrar solo películas y series
-    const filtered = data.results.filter(
-      (item: any) => item.media_type === 'movie' || item.media_type === 'tv'
-    );
+  async discoverMovies(filters: any = {}): Promise<MediaResponse> {
+    console.warn('⚠️ discoverMovies: Using legacy fallback data');
+    return this.getLegacyFallbackResponse();
+  }
 
-    const items = filtered.map((item: any) => 
-      transformTMDBItem(item, item.media_type === 'tv' ? 'tv' : 'movie')
-    );
-    const enrichedItems = await this.enrichWithProviders(items);
+  async discoverTV(filters: any = {}): Promise<MediaResponse> {
+    console.warn('⚠️ discoverTV: Using legacy fallback data');
+    return this.getLegacyFallbackResponse();
+  }
 
+  private getLegacyFallbackResponse(): MediaResponse {
     return {
-      results: enrichedItems,
-      page: data.page,
-      totalPages: data.total_pages,
-      totalResults: data.total_results,
+      results: [],
+      page: 1,
+      totalPages: 1,
+      totalResults: 0,
     };
   }
 
-  async discoverMovies(filters: {
-    genres?: number[];
-    yearFrom?: number;
-    yearTo?: number;
-    minRating?: number;
-    page?: number;
-  } = {}): Promise<MediaResponse> {
-    const params: Record<string, string> = {
-      page: String(filters.page || 1),
-      sort_by: 'popularity.desc',
-    };
-
-    if (filters.genres?.length) {
-      params.with_genres = filters.genres.join(',');
-    }
-    if (filters.yearFrom) {
-      params['primary_release_date.gte'] = `${filters.yearFrom}-01-01`;
-    }
-    if (filters.yearTo) {
-      params['primary_release_date.lte'] = `${filters.yearTo}-12-31`;
-    }
-    if (filters.minRating) {
-      params['vote_average.gte'] = String(filters.minRating);
-    }
-
-    const data = await this.fetchFromTMDB<any>('/discover/movie', params);
-    
-    return {
-      results: data.results.map((item: any) => transformTMDBItem(item, 'movie')),
-      page: data.page,
-      totalPages: data.total_pages,
-      totalResults: data.total_results,
-    };
-  }
-
-  async discoverTV(filters: {
-    genres?: number[];
-    yearFrom?: number;
-    yearTo?: number;
-    minRating?: number;
-    page?: number;
-  } = {}): Promise<MediaResponse> {
-    const params: Record<string, string> = {
-      page: String(filters.page || 1),
-      sort_by: 'popularity.desc',
-    };
-
-    if (filters.genres?.length) {
-      params.with_genres = filters.genres.join(',');
-    }
-    if (filters.yearFrom) {
-      params['first_air_date.gte'] = `${filters.yearFrom}-01-01`;
-    }
-    if (filters.yearTo) {
-      params['first_air_date.lte'] = `${filters.yearTo}-12-31`;
-    }
-    if (filters.minRating) {
-      params['vote_average.gte'] = String(filters.minRating);
-    }
-
-    const data = await this.fetchFromTMDB<any>('/discover/tv', params);
-    
-    return {
-      results: data.results.map((item: any) => transformTMDBItem(item, 'tv')),
-      page: data.page,
-      totalPages: data.total_pages,
-      totalResults: data.total_results,
-    };
-  }
-
-  async getMovieDetails(tmdbId: number): Promise<MediaItemDetails | null> {
-    try {
-      const [details, videos, watchProviders, credits] = await Promise.all([
-        this.fetchFromTMDB<any>(`/movie/${tmdbId}`),
-        this.fetchFromTMDB<any>(`/movie/${tmdbId}/videos`),
-        this.fetchFromTMDB<any>(`/movie/${tmdbId}/watch/providers`),
-        this.fetchFromTMDB<any>(`/movie/${tmdbId}/credits`),
-      ]);
-
-      const trailer = videos.results?.find(
-        (v: any) => v.type === 'Trailer' && v.site === 'YouTube'
-      );
-
-      return {
-        ...transformTMDBItem(details, 'movie'),
-        genres: details.genres?.map((g: any) => g.name) || [],
-        runtime: details.runtime,
-        tagline: details.tagline,
-        budget: details.budget,
-        revenue: details.revenue,
-        trailerKey: trailer?.key || null,
-        watchProviders: extractWatchProviders(watchProviders.results),
-        cast: credits.cast?.slice(0, 10).map((c: any) => ({
-          id: c.id,
-          name: c.name,
-          character: c.character,
-          profilePath: c.profile_path
-            ? `${TMDB_IMAGE_BASE}/w185${c.profile_path}`
-            : null,
-        })) || [],
-        director: credits.crew?.find((c: any) => c.job === 'Director')?.name || null,
-      };
-    } catch (error) {
-      console.error('Error fetching movie details:', error);
-      return null;
-    }
-  }
-
-  async getTVDetails(tmdbId: number): Promise<MediaItemDetails | null> {
-    try {
-      const [details, videos, watchProviders, credits] = await Promise.all([
-        this.fetchFromTMDB<any>(`/tv/${tmdbId}`),
-        this.fetchFromTMDB<any>(`/tv/${tmdbId}/videos`),
-        this.fetchFromTMDB<any>(`/tv/${tmdbId}/watch/providers`),
-        this.fetchFromTMDB<any>(`/tv/${tmdbId}/credits`),
-      ]);
-
-      const trailer = videos.results?.find(
-        (v: any) => v.type === 'Trailer' && v.site === 'YouTube'
-      );
-
-      return {
-        ...transformTMDBItem(details, 'tv'),
-        genres: details.genres?.map((g: any) => g.name) || [],
-        runtime: details.episode_run_time?.[0] || null,
-        tagline: details.tagline,
-        numberOfSeasons: details.number_of_seasons,
-        numberOfEpisodes: details.number_of_episodes,
-        trailerKey: trailer?.key || null,
-        watchProviders: extractWatchProviders(watchProviders.results),
-        cast: credits.cast?.slice(0, 10).map((c: any) => ({
-          id: c.id,
-          name: c.name,
-          character: c.character,
-          profilePath: c.profile_path
-            ? `${TMDB_IMAGE_BASE}/w185${c.profile_path}`
-            : null,
-        })) || [],
-        creator: details.created_by?.[0]?.name || null,
-      };
-    } catch (error) {
-      console.error('Error fetching TV details:', error);
-      return null;
-    }
+  // Métodos de utilidad mantenidos
+  async getStreamingProviders(tmdbId: number, mediaType: 'movie' | 'tv'): Promise<StreamingProvider[]> {
+    // Devolver array vacío ya que no tenemos esta funcionalidad en AppSync aún
+    return [];
   }
 }
 

@@ -19,7 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, fontSize, borderRadius, shadows } from '../utils/theme';
-import { roomService, Room } from '../services/roomService';
+import { useAppSync } from '../services/apiClient';
 
 const { width, height } = Dimensions.get('window');
 
@@ -39,7 +39,7 @@ interface CreateRoomModalProps {
   visible: boolean;
   onClose: () => void;
   onGoToRooms: () => void;
-  onRoomCreated?: (room: Room) => void;
+  onRoomCreated?: (room: any) => void; // Using any for GraphQL response
 }
 
 const GENRES = [
@@ -58,6 +58,7 @@ const GENRES = [
 ];
 
 export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomCreated }: CreateRoomModalProps) {
+  const appSync = useAppSync();
   const [step, setStep] = useState<Step>('initial');
   const [aiPrompt, setAiPrompt] = useState('');
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
@@ -112,17 +113,18 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
 
   const createRoom = async () => {
     setIsCreating(true);
-    setCreatingStatus('Verificando sesión...');
+    setCreatingStatus('Verificando autenticación...');
     
-    const token = await AsyncStorage.getItem('authToken');
-    if (!token) {
+    // Check Cognito authentication instead of legacy token
+    const storedTokens = await AsyncStorage.getItem('cognitoTokens');
+    if (!storedTokens) {
       Alert.alert('Sesión expirada', 'Por favor, inicia sesión de nuevo.');
       setIsCreating(false);
       setCreatingStatus('');
       return;
     }
     
-    setCreatingStatus('Buscando películas...');
+    setCreatingStatus('Preparando sala...');
     
     const name = aiPrompt 
       ? aiPrompt.substring(0, 30) 
@@ -136,26 +138,40 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
     };
 
     try {
-      setCreatingStatus('Generando lista personalizada...');
-      const room = await roomService.createRoom({ name, filters });
+      setCreatingStatus('Creando sala con GraphQL...');
       
-      // Obtener cantidad de películas de la masterList
-      const masterListCount = room.masterList?.length || 0;
-      setMovieCount(masterListCount);
+      // Use AppSync GraphQL instead of REST API
+      const response = await appSync.createRoom({ name, filters });
       
-      setCreatingStatus('¡Listo!');
+      console.log('✅ Room created via AppSync:', response);
+      
+      // Extract room data from GraphQL response
+      const room = response.createRoom;
+      
+      setCreatingStatus('¡Sala creada exitosamente!');
       setRoomCode(room.inviteCode);
       setRoomName(room.name);
+      setMovieCount(0); // GraphQL response doesn't include masterList count yet
       setStep('share');
+      
       if (onRoomCreated) onRoomCreated(room);
+      
     } catch (error: any) {
+      console.error('❌ Error creating room via AppSync:', error);
+      
       let errorMessage = 'No se pudo crear la sala. Inténtalo de nuevo.';
-      if (error.response?.status === 401) {
-        errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión de nuevo.';
-      } else if (error.response?.data?.message) {
-        const msg = error.response.data.message;
-        errorMessage = Array.isArray(msg) ? msg.join('. ') : msg;
+      
+      // Handle GraphQL errors
+      if (error.message) {
+        if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+          errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión de nuevo.';
+        } else if (error.message.includes('ValidationException')) {
+          errorMessage = 'Datos de entrada inválidos. Verifica la información.';
+        } else {
+          errorMessage = error.message;
+        }
       }
+      
       Alert.alert('Error', errorMessage);
     } finally {
       setIsCreating(false);

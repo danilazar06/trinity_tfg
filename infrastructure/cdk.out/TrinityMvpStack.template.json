@@ -135,6 +135,38 @@
     "aws:cdk:path": "TrinityMvpStack/VotesTable/Resource"
    }
   },
+  "UserVotesTable592E0AEF": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "userId",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "roomMovieId",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "KeySchema": [
+     {
+      "AttributeName": "userId",
+      "KeyType": "HASH"
+     },
+     {
+      "AttributeName": "roomMovieId",
+      "KeyType": "RANGE"
+     }
+    ],
+    "TableName": "trinity-user-votes-dev"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/UserVotesTable/Resource"
+   }
+  },
   "MoviesCacheTableE1998D48": {
    "Type": "AWS::DynamoDB::Table",
    "Properties": {
@@ -177,9 +209,7 @@
     "AdminCreateUserConfig": {
      "AllowAdminCreateUserOnly": false
     },
-    "AutoVerifiedAttributes": [
-     "email"
-    ],
+    "AutoVerifiedAttributes": [],
     "EmailVerificationMessage": "The verification code to your new account is {####}",
     "EmailVerificationSubject": "Verify your new account",
     "LambdaConfig": {
@@ -354,7 +384,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-847850007406-eu-west-1",
-     "S3Key": "964017b3b030d94967c7ae939986665d6ff7a2d37b06f2d6fce7e40d0eb71899.zip"
+     "S3Key": "792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389.zip"
     },
     "Environment": {
      "Variables": {
@@ -370,15 +400,18 @@
       "VOTES_TABLE": {
        "Ref": "VotesTable39A917AC"
       },
+      "USER_VOTES_TABLE": {
+       "Ref": "UserVotesTable592E0AEF"
+      },
       "MOVIES_CACHE_TABLE": {
        "Ref": "MoviesCacheTableE1998D48"
       },
       "STAGE": "dev",
-      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+      "RESERVED_CONCURRENCY": "10"
      }
     },
     "FunctionName": "trinity-auth-dev",
-    "Handler": "index.handler",
+    "Handler": "auth.handler",
     "MemorySize": 256,
     "Role": {
      "Fn::GetAtt": [
@@ -395,8 +428,8 @@
    ],
    "Metadata": {
     "aws:cdk:path": "TrinityMvpStack/AuthHandler/Resource",
-    "aws:asset:path": "asset.964017b3b030d94967c7ae939986665d6ff7a2d37b06f2d6fce7e40d0eb71899",
-    "aws:asset:is-bundled": true,
+    "aws:asset:path": "asset.792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389",
+    "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
   },
@@ -506,7 +539,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-847850007406-eu-west-1",
-     "S3Key": "4bdc65205f2afbfcc6ec217eb0ee468eed50629e0aa309db403c3db62fc7da63.zip"
+     "S3Key": "792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389.zip"
     },
     "Environment": {
      "Variables": {
@@ -522,15 +555,18 @@
       "VOTES_TABLE": {
        "Ref": "VotesTable39A917AC"
       },
+      "USER_VOTES_TABLE": {
+       "Ref": "UserVotesTable592E0AEF"
+      },
       "MOVIES_CACHE_TABLE": {
        "Ref": "MoviesCacheTableE1998D48"
       },
       "STAGE": "dev",
-      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+      "RESERVED_CONCURRENCY": "10"
      }
     },
     "FunctionName": "trinity-room-dev",
-    "Handler": "index.handler",
+    "Handler": "room.handler",
     "MemorySize": 512,
     "Role": {
      "Fn::GetAtt": [
@@ -547,8 +583,8 @@
    ],
    "Metadata": {
     "aws:cdk:path": "TrinityMvpStack/RoomHandler/Resource",
-    "aws:asset:path": "asset.4bdc65205f2afbfcc6ec217eb0ee468eed50629e0aa309db403c3db62fc7da63",
-    "aws:asset:is-bundled": true,
+    "aws:asset:path": "asset.792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389",
+    "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
   },
@@ -638,7 +674,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-847850007406-eu-west-1",
-     "S3Key": "fb02e0857777037f8e936878d16750c667ed5ca7b3e02d2beee9e34ca832fcd4.zip"
+     "S3Key": "792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389.zip"
     },
     "Environment": {
      "Variables": {
@@ -654,16 +690,19 @@
       "VOTES_TABLE": {
        "Ref": "VotesTable39A917AC"
       },
+      "USER_VOTES_TABLE": {
+       "Ref": "UserVotesTable592E0AEF"
+      },
       "MOVIES_CACHE_TABLE": {
        "Ref": "MoviesCacheTableE1998D48"
       },
       "STAGE": "dev",
       "TMDB_API_KEY": "dc4dbcd2404c1ca852f8eb964add267d",
-      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+      "RESERVED_CONCURRENCY": "10"
      }
     },
     "FunctionName": "trinity-movie-dev",
-    "Handler": "index.handler",
+    "Handler": "movie.handler",
     "MemorySize": 512,
     "Role": {
      "Fn::GetAtt": [
@@ -680,8 +719,8 @@
    ],
    "Metadata": {
     "aws:cdk:path": "TrinityMvpStack/MovieHandler/Resource",
-    "aws:asset:path": "asset.fb02e0857777037f8e936878d16750c667ed5ca7b3e02d2beee9e34ca832fcd4",
-    "aws:asset:is-bundled": true,
+    "aws:asset:path": "asset.792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389",
+    "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
   },
@@ -744,6 +783,12 @@
         {
          "Fn::GetAtt": [
           "RoomsTableA5C1D45B",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::GetAtt": [
+          "UserVotesTable592E0AEF",
           "Arn"
          ]
         },
@@ -812,7 +857,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-847850007406-eu-west-1",
-     "S3Key": "48248cfe555d333df25a013817374b99c39f07dae5617fbec3a9377afe275424.zip"
+     "S3Key": "792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389.zip"
     },
     "Environment": {
      "Variables": {
@@ -828,15 +873,18 @@
       "VOTES_TABLE": {
        "Ref": "VotesTable39A917AC"
       },
+      "USER_VOTES_TABLE": {
+       "Ref": "UserVotesTable592E0AEF"
+      },
       "MOVIES_CACHE_TABLE": {
        "Ref": "MoviesCacheTableE1998D48"
       },
       "STAGE": "dev",
-      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+      "RESERVED_CONCURRENCY": "10"
      }
     },
     "FunctionName": "trinity-vote-dev",
-    "Handler": "index.handler",
+    "Handler": "vote.handler",
     "MemorySize": 512,
     "Role": {
      "Fn::GetAtt": [
@@ -853,8 +901,8 @@
    ],
    "Metadata": {
     "aws:cdk:path": "TrinityMvpStack/VoteHandler/Resource",
-    "aws:asset:path": "asset.48248cfe555d333df25a013817374b99c39f07dae5617fbec3a9377afe275424",
-    "aws:asset:is-bundled": true,
+    "aws:asset:path": "asset.792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389",
+    "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
   },
@@ -897,7 +945,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-847850007406-eu-west-1",
-     "S3Key": "99c3d45bdf88c835436fb32aa68d46f819ac7294ebb427814b26c7386a909b7a.zip"
+     "S3Key": "792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389.zip"
     },
     "Environment": {
      "Variables": {
@@ -913,16 +961,19 @@
       "VOTES_TABLE": {
        "Ref": "VotesTable39A917AC"
       },
+      "USER_VOTES_TABLE": {
+       "Ref": "UserVotesTable592E0AEF"
+      },
       "MOVIES_CACHE_TABLE": {
        "Ref": "MoviesCacheTableE1998D48"
       },
       "STAGE": "dev",
       "HF_API_TOKEN": "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",
-      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+      "RESERVED_CONCURRENCY": "10"
      }
     },
     "FunctionName": "trinity-ai-dev",
-    "Handler": "index.handler",
+    "Handler": "ai.handler",
     "MemorySize": 512,
     "Role": {
      "Fn::GetAtt": [
@@ -938,8 +989,149 @@
    ],
    "Metadata": {
     "aws:cdk:path": "TrinityMvpStack/AIHandler/Resource",
-    "aws:asset:path": "asset.99c3d45bdf88c835436fb32aa68d46f819ac7294ebb427814b26c7386a909b7a",
-    "aws:asset:is-bundled": true,
+    "aws:asset:path": "asset.792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "RealtimeHandlerServiceRoleCFE7FFEB": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/RealtimeHandler/ServiceRole/Resource"
+   }
+  },
+  "RealtimeHandlerServiceRoleDefaultPolicy11BB9995": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:DescribeTable",
+        "dynamodb:GetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:Scan"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "RoomMembersTable66DCF076",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "RoomMembersTable66DCF076",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "RealtimeHandlerServiceRoleDefaultPolicy11BB9995",
+    "Roles": [
+     {
+      "Ref": "RealtimeHandlerServiceRoleCFE7FFEB"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/RealtimeHandler/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "RealtimeHandlerE448CE62": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-847850007406-eu-west-1",
+     "S3Key": "792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "USERS_TABLE": {
+       "Ref": "UsersTable9725E9C8"
+      },
+      "ROOMS_TABLE": {
+       "Ref": "RoomsTableA5C1D45B"
+      },
+      "ROOM_MEMBERS_TABLE": {
+       "Ref": "RoomMembersTable66DCF076"
+      },
+      "VOTES_TABLE": {
+       "Ref": "VotesTable39A917AC"
+      },
+      "USER_VOTES_TABLE": {
+       "Ref": "UserVotesTable592E0AEF"
+      },
+      "MOVIES_CACHE_TABLE": {
+       "Ref": "MoviesCacheTableE1998D48"
+      },
+      "STAGE": "dev"
+     }
+    },
+    "FunctionName": "trinity-realtime-dev",
+    "Handler": "realtime.handler",
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "RealtimeHandlerServiceRoleCFE7FFEB",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs18.x",
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "RealtimeHandlerServiceRoleDefaultPolicy11BB9995",
+    "RealtimeHandlerServiceRoleCFE7FFEB"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/RealtimeHandler/Resource",
+    "aws:asset:path": "asset.792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389",
+    "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
   },
@@ -1018,7 +1210,7 @@
       "ApiId"
      ]
     },
-    "Definition": "# Trinity MVP - GraphQL Schema simplificado según mega prompt\r\n\r\ntype Room {\r\n  id: ID!\r\n  status: String\r\n  resultMovieId: String\r\n  hostId: String\r\n}\r\n\r\ntype Movie {\r\n  id: ID!\r\n  title: String\r\n  poster: String\r\n  overview: String\r\n}\r\n\r\ntype Query {\r\n  getMovies(genre: String): [Movie]           # DataSource: MovieHandler\r\n  getChatRecommendations(text: String!): [String] # DataSource: AIHandler\r\n  getMyHistory: [Room]                        # DataSource: RoomHandler\r\n}\r\n\r\ntype Mutation {\r\n  createRoom: Room                            # DataSource: RoomHandler\r\n  joinRoom(roomId: ID!): Room                 # DataSource: RoomHandler\r\n  vote(roomId: ID!, movieId: ID!): Room       # DataSource: VoteHandler\r\n}\r\n\r\ntype Subscription {\r\n  onRoomUpdated(roomId: ID!): Room\r\n  @aws_subscribe(mutations: [\"vote\", \"joinRoom\"])\r\n}\r\n\r\nschema {\r\n  query: Query\r\n  mutation: Mutation\r\n  subscription: Subscription\r\n}"
+    "Definition": "# Trinity MVP - GraphQL Schema with AppSync Real-time Subscriptions\r\n\r\ntype Room {\r\n  id: ID!\r\n  status: String\r\n  resultMovieId: String\r\n  hostId: String\r\n}\r\n\r\ntype Movie {\r\n  id: ID!\r\n  title: String\r\n  poster: String\r\n  overview: String\r\n}\r\n\r\n# Real-time Event Types\r\ninterface BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n}\r\n\r\ntype RoomEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  data: AWSJSON!\r\n}\r\n\r\ntype VoteEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  userId: ID!\r\n  mediaId: ID!\r\n  voteType: VoteType!\r\n  progress: VoteProgress!\r\n}\r\n\r\ntype MatchEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  matchId: ID!\r\n  mediaId: ID!\r\n  mediaTitle: String!\r\n  participants: [ID!]!\r\n  consensusType: ConsensusType!\r\n}\r\n\r\ntype MemberEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  userId: ID!\r\n  action: MemberAction!\r\n  memberCount: Int!\r\n  memberData: MemberData\r\n}\r\n\r\ntype RoleEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  targetUserId: ID!\r\n  roleId: ID!\r\n  roleName: String!\r\n  assignedBy: ID!\r\n  action: RoleAction!\r\n}\r\n\r\ntype ModerationEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  targetUserId: ID!\r\n  moderatorId: ID!\r\n  actionType: String!\r\n  reason: String!\r\n  duration: Int\r\n  expiresAt: AWSDateTime\r\n}\r\n\r\ntype ScheduleEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  scheduleId: ID!\r\n  title: String!\r\n  action: ScheduleAction!\r\n  startTime: AWSDateTime!\r\n  endTime: AWSDateTime!\r\n  message: String\r\n}\r\n\r\ntype ThemeEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  themeId: ID\r\n  themeName: String\r\n  action: ThemeAction!\r\n  appliedBy: ID!\r\n  customizations: AWSJSON\r\n}\r\n\r\ntype SettingsEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  settingKey: String!\r\n  oldValue: AWSJSON\r\n  newValue: AWSJSON!\r\n  changedBy: ID!\r\n  category: SettingsCategory!\r\n}\r\n\r\ntype ChatEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  messageId: ID!\r\n  userId: ID!\r\n  username: String!\r\n  content: String\r\n  messageType: ChatMessageType!\r\n  action: ChatAction!\r\n  metadata: AWSJSON\r\n}\r\n\r\ntype SuggestionEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  suggestionId: ID!\r\n  userId: ID!\r\n  username: String!\r\n  action: SuggestionAction!\r\n  suggestion: AWSJSON\r\n  vote: AWSJSON\r\n  comment: AWSJSON\r\n}\r\n\r\ntype UserNotification {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  userId: ID!\r\n  type: NotificationType!\r\n  title: String!\r\n  message: String!\r\n  data: AWSJSON\r\n  read: Boolean!\r\n}\r\n\r\n# Supporting Types\r\ntype VoteProgress {\r\n  totalVotes: Int!\r\n  likesCount: Int!\r\n  dislikesCount: Int!\r\n  skipsCount: Int!\r\n  remainingUsers: Int!\r\n  percentage: Float!\r\n}\r\n\r\ntype MemberData {\r\n  role: String\r\n  status: String\r\n  permissions: [String!]\r\n  lastActivity: AWSDateTime\r\n}\r\n\r\n# Enums\r\nenum VoteType {\r\n  LIKE\r\n  DISLIKE\r\n  SKIP\r\n}\r\n\r\nenum ConsensusType {\r\n  UNANIMOUS\r\n  MAJORITY\r\n}\r\n\r\nenum MemberAction {\r\n  JOINED\r\n  LEFT\r\n  STATUS_CHANGED\r\n  ROLE_CHANGED\r\n}\r\n\r\nenum RoleAction {\r\n  ASSIGNED\r\n  REMOVED\r\n}\r\n\r\nenum ScheduleAction {\r\n  CREATED\r\n  UPDATED\r\n  CANCELLED\r\n  REMINDER\r\n}\r\n\r\nenum ThemeAction {\r\n  APPLIED\r\n  REMOVED\r\n  UPDATED\r\n}\r\n\r\nenum SettingsCategory {\r\n  PRIVACY\r\n  CONSENSUS\r\n  CAPACITY\r\n  TIMEOUT\r\n  OTHER\r\n}\r\n\r\nenum ChatMessageType {\r\n  TEXT\r\n  SYSTEM\r\n  REACTION\r\n}\r\n\r\nenum ChatAction {\r\n  CREATED\r\n  EDITED\r\n  DELETED\r\n  REACTION_ADDED\r\n  REACTION_REMOVED\r\n}\r\n\r\nenum SuggestionAction {\r\n  CREATED\r\n  VOTED\r\n  COMMENTED\r\n  APPROVED\r\n  REJECTED\r\n  IMPLEMENTED\r\n}\r\n\r\nenum NotificationType {\r\n  ROOM_INVITE\r\n  MATCH_FOUND\r\n  ROLE_ASSIGNED\r\n  MODERATION_ACTION\r\n  SCHEDULE_REMINDER\r\n  SYSTEM_MESSAGE\r\n}\r\n\r\n# Trini AI Response Type\r\ntype TriniResponse {\r\n  chatResponse: String!\r\n  recommendedGenres: [String!]!\r\n}\r\n\r\ntype Query {\r\n  getMovies(genre: String): [Movie]           # DataSource: MovieHandler\r\n  getChatRecommendations(text: String!): TriniResponse # DataSource: AIHandler (Trini)\r\n  getMyHistory: [Room]                        # DataSource: RoomHandler\r\n}\r\n\r\ntype Mutation {\r\n  createRoom: Room                            # DataSource: RoomHandler\r\n  joinRoom(roomId: ID!): Room                 # DataSource: RoomHandler\r\n  vote(roomId: ID!, movieId: ID!): Room       # DataSource: VoteHandler\r\n  \r\n  # Real-time event publishing mutations\r\n  publishRoomEvent(roomId: ID!, eventType: String!, data: AWSJSON!): RoomEvent\r\n  publishVoteEvent(roomId: ID!, voteData: AWSJSON!): VoteEvent\r\n  publishMatchEvent(roomId: ID!, matchData: AWSJSON!): MatchEvent\r\n  publishMemberEvent(roomId: ID!, memberData: AWSJSON!): MemberEvent\r\n  publishRoleEvent(roomId: ID!, roleData: AWSJSON!): RoleEvent\r\n  publishModerationEvent(roomId: ID!, moderationData: AWSJSON!): ModerationEvent\r\n  publishScheduleEvent(roomId: ID!, scheduleData: AWSJSON!): ScheduleEvent\r\n  publishThemeEvent(roomId: ID!, themeData: AWSJSON!): ThemeEvent\r\n  publishSettingsEvent(roomId: ID!, settingsData: AWSJSON!): SettingsEvent\r\n  publishChatEvent(roomId: ID!, chatData: AWSJSON!): ChatEvent\r\n  publishSuggestionEvent(roomId: ID!, suggestionData: AWSJSON!): SuggestionEvent\r\n}\r\n\r\ntype Subscription {\r\n  # Room-level subscriptions\r\n  onRoomEvent(roomId: ID!): RoomEvent\r\n    @aws_subscribe(mutations: [\"publishRoomEvent\"])\r\n  \r\n  onVoteUpdate(roomId: ID!): VoteEvent\r\n    @aws_subscribe(mutations: [\"publishVoteEvent\"])\r\n  \r\n  onMatchFound(roomId: ID!): MatchEvent\r\n    @aws_subscribe(mutations: [\"publishMatchEvent\"])\r\n  \r\n  onMemberUpdate(roomId: ID!): MemberEvent\r\n    @aws_subscribe(mutations: [\"publishMemberEvent\"])\r\n  \r\n  # Advanced features subscriptions\r\n  onRoleAssignment(roomId: ID!): RoleEvent\r\n    @aws_subscribe(mutations: [\"publishRoleEvent\"])\r\n  \r\n  onModerationAction(roomId: ID!): ModerationEvent\r\n    @aws_subscribe(mutations: [\"publishModerationEvent\"])\r\n  \r\n  onScheduleEvent(roomId: ID!): ScheduleEvent\r\n    @aws_subscribe(mutations: [\"publishScheduleEvent\"])\r\n  \r\n  onThemeChange(roomId: ID!): ThemeEvent\r\n    @aws_subscribe(mutations: [\"publishThemeEvent\"])\r\n  \r\n  onSettingsChange(roomId: ID!): SettingsEvent\r\n    @aws_subscribe(mutations: [\"publishSettingsEvent\"])\r\n  \r\n  # Collaboration subscriptions\r\n  onChatMessage(roomId: ID!): ChatEvent\r\n    @aws_subscribe(mutations: [\"publishChatEvent\"])\r\n  \r\n  onContentSuggestion(roomId: ID!): SuggestionEvent\r\n    @aws_subscribe(mutations: [\"publishSuggestionEvent\"])\r\n  \r\n  # User-specific subscriptions - REMOVED: publishUserNotification mutation doesn't exist\r\n  # onUserNotification(userId: ID!): UserNotification\r\n  #   @aws_subscribe(mutations: [\"publishUserNotification\"])\r\n  \r\n  # Legacy subscription for backward compatibility\r\n  onRoomUpdated(roomId: ID!): Room\r\n    @aws_subscribe(mutations: [\"vote\", \"joinRoom\"])\r\n}\r\n\r\nschema {\r\n  query: Query\r\n  mutation: Mutation\r\n  subscription: Subscription\r\n}"
    },
    "Metadata": {
     "aws:cdk:path": "TrinityMvpStack/TrinityGraphQLApi/Schema"
@@ -1033,7 +1225,7 @@
       "ApiId"
      ]
     },
-    "Expires": 1798071868
+    "Expires": 1798590528
    },
    "DependsOn": [
     "TrinityGraphQLApiSchema6986E358"
@@ -1517,6 +1709,101 @@
     "aws:cdk:path": "TrinityMvpStack/TrinityGraphQLApi/AIDataSource/Resource"
    }
   },
+  "TrinityGraphQLApiRealtimeDataSourceServiceRole8BC6F6A4": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "appsync.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/TrinityGraphQLApi/RealtimeDataSource/ServiceRole/Resource"
+   }
+  },
+  "TrinityGraphQLApiRealtimeDataSourceServiceRoleDefaultPolicy1745A7F9": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "RealtimeHandlerE448CE62",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "RealtimeHandlerE448CE62",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "TrinityGraphQLApiRealtimeDataSourceServiceRoleDefaultPolicy1745A7F9",
+    "Roles": [
+     {
+      "Ref": "TrinityGraphQLApiRealtimeDataSourceServiceRole8BC6F6A4"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/TrinityGraphQLApi/RealtimeDataSource/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "TrinityGraphQLApiRealtimeDataSource97A87834": {
+   "Type": "AWS::AppSync::DataSource",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "TrinityGraphQLApi1D4CC11E",
+      "ApiId"
+     ]
+    },
+    "LambdaConfig": {
+     "LambdaFunctionArn": {
+      "Fn::GetAtt": [
+       "RealtimeHandlerE448CE62",
+       "Arn"
+      ]
+     }
+    },
+    "Name": "RealtimeDataSource",
+    "ServiceRoleArn": {
+     "Fn::GetAtt": [
+      "TrinityGraphQLApiRealtimeDataSourceServiceRole8BC6F6A4",
+      "Arn"
+     ]
+    },
+    "Type": "AWS_LAMBDA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/TrinityGraphQLApi/RealtimeDataSource/Resource"
+   }
+  },
   "TrinityGraphQLApiGetMoviesResolver9125698F": {
    "Type": "AWS::AppSync::Resolver",
    "Properties": {
@@ -1649,10 +1936,252 @@
     "aws:cdk:path": "TrinityMvpStack/TrinityGraphQLApi/VoteResolver/Resource"
    }
   },
+  "TrinityGraphQLApiPublishRoomEventResolver7E7E69F5": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "TrinityGraphQLApi1D4CC11E",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "RealtimeDataSource",
+    "FieldName": "publishRoomEvent",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "TrinityGraphQLApiRealtimeDataSource97A87834",
+    "TrinityGraphQLApiSchema6986E358"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/TrinityGraphQLApi/PublishRoomEventResolver/Resource"
+   }
+  },
+  "TrinityGraphQLApiPublishVoteEventResolverD347FB07": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "TrinityGraphQLApi1D4CC11E",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "RealtimeDataSource",
+    "FieldName": "publishVoteEvent",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "TrinityGraphQLApiRealtimeDataSource97A87834",
+    "TrinityGraphQLApiSchema6986E358"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/TrinityGraphQLApi/PublishVoteEventResolver/Resource"
+   }
+  },
+  "TrinityGraphQLApiPublishMatchEventResolver27978895": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "TrinityGraphQLApi1D4CC11E",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "RealtimeDataSource",
+    "FieldName": "publishMatchEvent",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "TrinityGraphQLApiRealtimeDataSource97A87834",
+    "TrinityGraphQLApiSchema6986E358"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/TrinityGraphQLApi/PublishMatchEventResolver/Resource"
+   }
+  },
+  "TrinityGraphQLApiPublishMemberEventResolverB89DB5EC": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "TrinityGraphQLApi1D4CC11E",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "RealtimeDataSource",
+    "FieldName": "publishMemberEvent",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "TrinityGraphQLApiRealtimeDataSource97A87834",
+    "TrinityGraphQLApiSchema6986E358"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/TrinityGraphQLApi/PublishMemberEventResolver/Resource"
+   }
+  },
+  "TrinityGraphQLApiPublishRoleEventResolver72F757C5": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "TrinityGraphQLApi1D4CC11E",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "RealtimeDataSource",
+    "FieldName": "publishRoleEvent",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "TrinityGraphQLApiRealtimeDataSource97A87834",
+    "TrinityGraphQLApiSchema6986E358"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/TrinityGraphQLApi/PublishRoleEventResolver/Resource"
+   }
+  },
+  "TrinityGraphQLApiPublishModerationEventResolverB059DFF6": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "TrinityGraphQLApi1D4CC11E",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "RealtimeDataSource",
+    "FieldName": "publishModerationEvent",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "TrinityGraphQLApiRealtimeDataSource97A87834",
+    "TrinityGraphQLApiSchema6986E358"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/TrinityGraphQLApi/PublishModerationEventResolver/Resource"
+   }
+  },
+  "TrinityGraphQLApiPublishScheduleEventResolver27FFF260": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "TrinityGraphQLApi1D4CC11E",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "RealtimeDataSource",
+    "FieldName": "publishScheduleEvent",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "TrinityGraphQLApiRealtimeDataSource97A87834",
+    "TrinityGraphQLApiSchema6986E358"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/TrinityGraphQLApi/PublishScheduleEventResolver/Resource"
+   }
+  },
+  "TrinityGraphQLApiPublishThemeEventResolver5497A6D6": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "TrinityGraphQLApi1D4CC11E",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "RealtimeDataSource",
+    "FieldName": "publishThemeEvent",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "TrinityGraphQLApiRealtimeDataSource97A87834",
+    "TrinityGraphQLApiSchema6986E358"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/TrinityGraphQLApi/PublishThemeEventResolver/Resource"
+   }
+  },
+  "TrinityGraphQLApiPublishSettingsEventResolver9C3519AB": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "TrinityGraphQLApi1D4CC11E",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "RealtimeDataSource",
+    "FieldName": "publishSettingsEvent",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "TrinityGraphQLApiRealtimeDataSource97A87834",
+    "TrinityGraphQLApiSchema6986E358"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/TrinityGraphQLApi/PublishSettingsEventResolver/Resource"
+   }
+  },
+  "TrinityGraphQLApiPublishChatEventResolver26267A43": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "TrinityGraphQLApi1D4CC11E",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "RealtimeDataSource",
+    "FieldName": "publishChatEvent",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "TrinityGraphQLApiRealtimeDataSource97A87834",
+    "TrinityGraphQLApiSchema6986E358"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/TrinityGraphQLApi/PublishChatEventResolver/Resource"
+   }
+  },
+  "TrinityGraphQLApiPublishSuggestionEventResolver2B4EE956": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "TrinityGraphQLApi1D4CC11E",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "RealtimeDataSource",
+    "FieldName": "publishSuggestionEvent",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "TrinityGraphQLApiRealtimeDataSource97A87834",
+    "TrinityGraphQLApiSchema6986E358"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "TrinityMvpStack/TrinityGraphQLApi/PublishSuggestionEventResolver/Resource"
+   }
+  },
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1VPTU/CQBD9LdyXsYIXj4DRg0SR6plMtwMMbHdrZwtpNv3vZrfW4Ol9TvJmBvdZBtkErzLV5XlquICQe9RnhVfZhbKzWLmygPCJhSG12ttEeqXdwbJ3EL6Emo1zJmZ/fCQrw2T9bTQ4vTJYFSVCWO3thpqKRdjZWHxurfbs7FjZWVfSSeAtwZgqxgrC1g2bEm6cYd1FObBeyXyHIuQFFhGUzGHZ6jP5JQoprGvprIbw0mB9/DaLmuNxUh/r/yrXR6owGouaX6lT67TtCT3mrm10WnGjtiTOXKhJ43553yc75WlP7vHA9hA7762vWz+2Y6VX8W84yd1l9gCPkE1OwjxtWuu5ItgO+AOJ/skvwAEAAA=="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1WOy27CMBBFv4W9mabQTZchFV0UqTRp12jiGBhw7DTjgCLL/17ZKRVdzbkPy3cBj1kG2QyvPJfNea6pBl85lGeBV975ZjTY2qYG/4m1VqLYmwRBSHsw5Cz4L1b91lodsz++QaFJGXcfTU4QGtu6QfDF3mxV3xIzWSPWg5EuQrE3Nw6CsAVf2un/dLdWkxyjnCgIXu6QWTmGPB7BS1gN8qzcClkJ7DoejQT/2mN3/NZ5R/FxUh+b/6qSR9ViNPKO3tQoNmnqCzqs7NDLtOJOlYqtvqg+jfvlEJKd8rSncnggc4id98F1g7u1YyUIYxsFJ364LJ7gGbLZiYnm/WActQrK6f4AgBAct6wBAAA="
    },
    "Metadata": {
     "aws:cdk:path": "TrinityMvpStack/CDKMetadata/Default"
@@ -1684,6 +2213,12 @@
     "Ref": "TrinityUserPool2A37BF21"
    }
   },
+  "UserPoolClientId": {
+   "Description": "ID del User Pool Client para la app móvil",
+   "Value": {
+    "Ref": "TrinityUserPoolTrinityMobileClientE4889438"
+   }
+  },
   "Region": {
    "Description": "Región de AWS",
    "Value": "eu-west-1"
@@ -1711,6 +2246,91 @@
   "AIHandlerName": {
    "Value": {
     "Ref": "AIHandler5D68B6F1"
+   }
+  },
+  "RealtimeHandlerName": {
+   "Value": {
+    "Ref": "RealtimeHandlerE448CE62"
+   }
+  },
+  "ExportsOutputRefAuthHandler9DC767B711DCB76A": {
+   "Value": {
+    "Ref": "AuthHandler9DC767B7"
+   },
+   "Export": {
+    "Name": "TrinityMvpStack:ExportsOutputRefAuthHandler9DC767B711DCB76A"
+   }
+  },
+  "ExportsOutputRefRoomHandlerCF7B6EB08F83255F": {
+   "Value": {
+    "Ref": "RoomHandlerCF7B6EB0"
+   },
+   "Export": {
+    "Name": "TrinityMvpStack:ExportsOutputRefRoomHandlerCF7B6EB08F83255F"
+   }
+  },
+  "ExportsOutputRefMovieHandler51BC04A76EBE3534": {
+   "Value": {
+    "Ref": "MovieHandler51BC04A7"
+   },
+   "Export": {
+    "Name": "TrinityMvpStack:ExportsOutputRefMovieHandler51BC04A76EBE3534"
+   }
+  },
+  "ExportsOutputRefVoteHandler897F0396D465FCE8": {
+   "Value": {
+    "Ref": "VoteHandler897F0396"
+   },
+   "Export": {
+    "Name": "TrinityMvpStack:ExportsOutputRefVoteHandler897F0396D465FCE8"
+   }
+  },
+  "ExportsOutputRefAIHandler5D68B6F1A53B1EB9": {
+   "Value": {
+    "Ref": "AIHandler5D68B6F1"
+   },
+   "Export": {
+    "Name": "TrinityMvpStack:ExportsOutputRefAIHandler5D68B6F1A53B1EB9"
+   }
+  },
+  "ExportsOutputRefUsersTable9725E9C857961836": {
+   "Value": {
+    "Ref": "UsersTable9725E9C8"
+   },
+   "Export": {
+    "Name": "TrinityMvpStack:ExportsOutputRefUsersTable9725E9C857961836"
+   }
+  },
+  "ExportsOutputRefRoomsTableA5C1D45BCB51EC57": {
+   "Value": {
+    "Ref": "RoomsTableA5C1D45B"
+   },
+   "Export": {
+    "Name": "TrinityMvpStack:ExportsOutputRefRoomsTableA5C1D45BCB51EC57"
+   }
+  },
+  "ExportsOutputRefRoomMembersTable66DCF076A160DBBD": {
+   "Value": {
+    "Ref": "RoomMembersTable66DCF076"
+   },
+   "Export": {
+    "Name": "TrinityMvpStack:ExportsOutputRefRoomMembersTable66DCF076A160DBBD"
+   }
+  },
+  "ExportsOutputRefVotesTable39A917ACAB0439C7": {
+   "Value": {
+    "Ref": "VotesTable39A917AC"
+   },
+   "Export": {
+    "Name": "TrinityMvpStack:ExportsOutputRefVotesTable39A917ACAB0439C7"
+   }
+  },
+  "ExportsOutputRefMoviesCacheTableE1998D4813880915": {
+   "Value": {
+    "Ref": "MoviesCacheTableE1998D48"
+   },
+   "Export": {
+    "Name": "TrinityMvpStack:ExportsOutputRefMoviesCacheTableE1998D4813880915"
    }
   }
  },

@@ -2,6 +2,7 @@ import { AppSyncResolverEvent, AppSyncResolverHandler } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, GetCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
+import { logBusinessMetric, logError, PerformanceTimer } from '../utils/metrics';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -57,117 +58,148 @@ export const handler: AppSyncResolverHandler<any, any> = async (event: AppSyncRe
  * Crear nueva sala
  */
 async function createRoom(hostId: string): Promise<Room> {
+  const timer = new PerformanceTimer('CreateRoom');
   const roomId = uuidv4();
   const now = new Date().toISOString();
 
-  // Crear sala en RoomsTable
-  const room: Room = {
-    id: roomId,
-    status: 'WAITING',
-    hostId,
-    createdAt: now,
-    updatedAt: now,
-  };
+  try {
+    // Crear sala en RoomsTable
+    const room: Room = {
+      id: roomId,
+      status: 'WAITING',
+      hostId,
+      createdAt: now,
+      updatedAt: now,
+    };
 
-  await docClient.send(new PutCommand({
-    TableName: process.env.ROOMS_TABLE!,
-    Item: {
+    await docClient.send(new PutCommand({
+      TableName: process.env.ROOMS_TABLE!,
+      Item: {
+        roomId,
+        ...room,
+      },
+    }));
+
+    // Añadir host como miembro
+    const hostMember: RoomMember = {
       roomId,
-      ...room,
-    },
-  }));
+      userId: hostId,
+      role: 'HOST',
+      joinedAt: now,
+      isActive: true,
+    };
 
-  // Añadir host como miembro
-  const hostMember: RoomMember = {
-    roomId,
-    userId: hostId,
-    role: 'HOST',
-    joinedAt: now,
-    isActive: true,
-  };
+    await docClient.send(new PutCommand({
+      TableName: process.env.ROOM_MEMBERS_TABLE!,
+      Item: hostMember,
+    }));
 
-  await docClient.send(new PutCommand({
-    TableName: process.env.ROOM_MEMBERS_TABLE!,
-    Item: hostMember,
-  }));
+    // Log business metric
+    logBusinessMetric('ROOM_CREATED', roomId, hostId, {
+      roomStatus: 'WAITING'
+    });
 
-  console.log(`✅ Sala creada: ${roomId} por ${hostId}`);
-  return room;
+    console.log(`✅ Sala creada: ${roomId} por ${hostId}`);
+    timer.finish(true, undefined, { roomId, hostId });
+    return room;
+    
+  } catch (error) {
+    logError('CreateRoom', error as Error, { hostId, roomId });
+    timer.finish(false, (error as Error).name);
+    throw error;
+  }
 }
 
 /**
  * Unirse a una sala existente
  */
 async function joinRoom(userId: string, roomId: string): Promise<Room> {
-  // Verificar que la sala existe y está disponible
-  const roomResponse = await docClient.send(new GetCommand({
-    TableName: process.env.ROOMS_TABLE!,
-    Key: { roomId },
-  }));
-
-  if (!roomResponse.Item) {
-    throw new Error('Sala no encontrada');
-  }
-
-  const room = roomResponse.Item as any;
+  const timer = new PerformanceTimer('JoinRoom');
   
-  if (room.status !== 'WAITING') {
-    throw new Error('La sala no está disponible para nuevos miembros');
-  }
+  try {
+    // Verificar que la sala existe y está disponible
+    const roomResponse = await docClient.send(new GetCommand({
+      TableName: process.env.ROOMS_TABLE!,
+      Key: { roomId },
+    }));
 
-  // Verificar si el usuario ya está en la sala
-  const existingMember = await docClient.send(new GetCommand({
-    TableName: process.env.ROOM_MEMBERS_TABLE!,
-    Key: { roomId, userId },
-  }));
+    if (!roomResponse.Item) {
+      throw new Error('Sala no encontrada');
+    }
 
-  if (existingMember.Item) {
-    // Usuario ya está en la sala, solo actualizar como activo
-    await docClient.send(new UpdateCommand({
+    const room = roomResponse.Item as any;
+    
+    if (room.status !== 'WAITING') {
+      throw new Error('La sala no está disponible para nuevos miembros');
+    }
+
+    // Verificar si el usuario ya está en la sala
+    const existingMember = await docClient.send(new GetCommand({
       TableName: process.env.ROOM_MEMBERS_TABLE!,
       Key: { roomId, userId },
-      UpdateExpression: 'SET isActive = :active, joinedAt = :joinedAt',
+    }));
+
+    if (existingMember.Item) {
+      // Usuario ya está en la sala, solo actualizar como activo
+      await docClient.send(new UpdateCommand({
+        TableName: process.env.ROOM_MEMBERS_TABLE!,
+        Key: { roomId, userId },
+        UpdateExpression: 'SET isActive = :active, joinedAt = :joinedAt',
+        ExpressionAttributeValues: {
+          ':active': true,
+          ':joinedAt': new Date().toISOString(),
+        },
+      }));
+    } else {
+      // Añadir nuevo miembro
+      const newMember: RoomMember = {
+        roomId,
+        userId,
+        role: 'MEMBER',
+        joinedAt: new Date().toISOString(),
+        isActive: true,
+      };
+
+      await docClient.send(new PutCommand({
+        TableName: process.env.ROOM_MEMBERS_TABLE!,
+        Item: newMember,
+      }));
+    }
+
+    // Actualizar timestamp de la sala
+    await docClient.send(new UpdateCommand({
+      TableName: process.env.ROOMS_TABLE!,
+      Key: { roomId },
+      UpdateExpression: 'SET updatedAt = :updatedAt',
       ExpressionAttributeValues: {
-        ':active': true,
-        ':joinedAt': new Date().toISOString(),
+        ':updatedAt': new Date().toISOString(),
       },
     }));
-  } else {
-    // Añadir nuevo miembro
-    const newMember: RoomMember = {
-      roomId,
-      userId,
-      role: 'MEMBER',
-      joinedAt: new Date().toISOString(),
-      isActive: true,
+
+    // Log business metric
+    logBusinessMetric('ROOM_JOINED', roomId, userId, {
+      roomStatus: room.status,
+      wasExistingMember: !!existingMember.Item
+    });
+
+    console.log(`✅ Usuario ${userId} se unió a sala ${roomId}`);
+    
+    timer.finish(true, undefined, { roomId, userId, wasExisting: !!existingMember.Item });
+    
+    return {
+      id: roomId,
+      status: room.status,
+      resultMovieId: room.resultMovieId,
+      hostId: room.hostId,
+      createdAt: room.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
-
-    await docClient.send(new PutCommand({
-      TableName: process.env.ROOM_MEMBERS_TABLE!,
-      Item: newMember,
-    }));
+    
+  } catch (error) {
+    logError('JoinRoom', error as Error, { userId, roomId });
+    timer.finish(false, (error as Error).name);
+    throw error;
   }
-
-  // Actualizar timestamp de la sala
-  await docClient.send(new UpdateCommand({
-    TableName: process.env.ROOMS_TABLE!,
-    Key: { roomId },
-    UpdateExpression: 'SET updatedAt = :updatedAt',
-    ExpressionAttributeValues: {
-      ':updatedAt': new Date().toISOString(),
-    },
-  }));
-
-  console.log(`✅ Usuario ${userId} se unió a sala ${roomId}`);
-  
-  return {
-    id: roomId,
-    status: room.status,
-    resultMovieId: room.resultMovieId,
-    hostId: room.hostId,
-    createdAt: room.createdAt || new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
 }
 
 /**

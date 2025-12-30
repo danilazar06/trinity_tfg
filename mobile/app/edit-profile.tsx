@@ -13,17 +13,31 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../src/context/AuthContext';
-import { authService } from '../src/services/authService';
+import { useCognitoAuth } from '../src/context/CognitoAuthContext';
 import { Button, Input } from '../src/components';
 import { colors, spacing, fontSize, borderRadius } from '../src/utils/theme';
 
 export default function EditProfileScreen() {
-  const { user, logout, updateUser } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
-  const [displayName, setDisplayName] = useState(user?.name || user?.displayName || '');
-  const [avatarUrl, setAvatarUrl] = useState(user?.avatar || user?.avatarUrl || '');
+  const { user, logout, updateProfile, isLoading, error, clearError } = useCognitoAuth();
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [displayName, setDisplayName] = useState(user?.name || user?.preferred_username || '');
+  const [avatarUrl, setAvatarUrl] = useState(user?.picture || '');
   const [errors, setErrors] = useState<{ displayName?: string }>({});
+
+  // Update local state when user data changes
+  useEffect(() => {
+    if (user) {
+      setDisplayName(user.name || user.preferred_username || '');
+      setAvatarUrl(user.picture || '');
+    }
+  }, [user]);
+
+  // Handle errors from context
+  useEffect(() => {
+    if (error) {
+      Alert.alert('Error', error, [{ text: 'OK', onPress: clearError }]);
+    }
+  }, [error, clearError]);
 
   const validate = (): boolean => {
     const newErrors: typeof errors = {};
@@ -53,29 +67,22 @@ export default function EditProfileScreen() {
   const handleSave = async () => {
     if (!validate()) return;
 
-    setIsLoading(true);
+    setIsUpdating(true);
     try {
-      // Actualizar el usuario localmente
-      const updatedUser = {
-        ...user!,
+      // Update profile using Cognito updateProfile method
+      await updateProfile({
         name: displayName.trim(),
-        displayName: displayName.trim(),
-        avatar: avatarUrl || user?.avatar,
-        avatarUrl: avatarUrl || user?.avatarUrl,
-      };
-      
-      await updateUser(updatedUser);
+        picture: avatarUrl || undefined,
+      });
 
       Alert.alert('Éxito', 'Perfil actualizado correctamente', [
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (error) {
       console.error('Error updating profile:', error);
-      Alert.alert('Error', 'No se pudo actualizar el perfil', [
-        { text: 'OK' }
-      ]);
+      // Error is handled by the context and displayed via useEffect
     } finally {
-      setIsLoading(false);
+      setIsUpdating(false);
     }
   };
 
@@ -141,8 +148,8 @@ export default function EditProfileScreen() {
           <Button
             title="Guardar cambios"
             onPress={handleSave}
-            loading={isLoading}
-            disabled={isLoading}
+            loading={isUpdating || isLoading}
+            disabled={isUpdating || isLoading}
             style={styles.saveButton}
           />
 
