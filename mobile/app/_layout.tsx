@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { AuthProvider } from '../src/context/AuthContext';
+import { CognitoAuthProvider } from '../src/context/CognitoAuthContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -8,7 +8,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AuthProvider>
+        <CognitoAuthProvider>
           <StatusBar style="light" backgroundColor="#0D0D0F" />
           <Stack
             screenOptions={{
@@ -17,7 +17,7 @@ export default function RootLayout() {
               animation: 'slide_from_right',
             }}
           />
-        </AuthProvider>
+        </CognitoAuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

@@ -1,437 +1,224 @@
-import { AppSyncResolverEvent, Context } from 'aws-lambda';
+import { AppSyncResolverEvent, AppSyncResolverHandler } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 
-const dynamoClient = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-
-interface AppSyncIdentity {
-  sub: string;
-  username?: string;
-  claims?: Record<string, any>;
-}
-
-interface RealtimeResolverEvent extends AppSyncResolverEvent<any> {
-  identity: AppSyncIdentity;
-}
+const dynamoClient = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(dynamoClient);
 
 /**
- * Generate unique event ID
+ * RealtimeHandler: AppSync Subscriptions
+ * Maneja la publicación de eventos en tiempo real para subscriptions
  */
-function generateEventId(): string {
-  return `event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-}
+export const handler: AppSyncResolverHandler<any, any> = async (event: AppSyncResolverEvent<any>) => {
+  console.log('📡 Realtime Handler:', JSON.stringify(event, null, 2));
+
+  const fieldName = event.info?.fieldName;
+  const args = event.arguments;
+  const { sub: userId } = event.identity as any; // Usuario autenticado
+
+  try {
+    switch (fieldName) {
+      case 'publishRoomEvent':
+        return await publishRoomEvent(userId, args.roomId, args.eventType, args.data);
+      
+      case 'publishVoteEvent':
+        return await publishVoteEvent(userId, args.roomId, args.voteData);
+      
+      case 'publishMatchEvent':
+        return await publishMatchEvent(userId, args.roomId, args.matchData);
+      
+      case 'publishMemberEvent':
+        return await publishMemberEvent(userId, args.roomId, args.memberData);
+      
+      case 'publishRoleEvent':
+        return await publishRoleEvent(userId, args.roomId, args.roleData);
+      
+      case 'publishModerationEvent':
+        return await publishModerationEvent(userId, args.roomId, args.moderationData);
+      
+      case 'publishScheduleEvent':
+        return await publishScheduleEvent(userId, args.roomId, args.scheduleData);
+      
+      case 'publishThemeEvent':
+        return await publishThemeEvent(userId, args.roomId, args.themeData);
+      
+      case 'publishSettingsEvent':
+        return await publishSettingsEvent(userId, args.roomId, args.settingsData);
+      
+      case 'publishChatEvent':
+        return await publishChatEvent(userId, args.roomId, args.chatData);
+      
+      case 'publishSuggestionEvent':
+        return await publishSuggestionEvent(userId, args.roomId, args.suggestionData);
+      
+      default:
+        throw new Error(`Operación no soportada: ${fieldName}`);
+    }
+  } catch (error) {
+    console.error(`❌ Error en ${fieldName}:`, error);
+    throw error;
+  }
+};
 
 /**
- * Validate user has access to room
+ * Validar que el usuario tiene acceso a la sala
  */
 async function validateRoomAccess(userId: string, roomId: string): Promise<boolean> {
   try {
-    const result = await dynamoClient.send(new GetCommand({
+    const response = await docClient.send(new GetCommand({
       TableName: process.env.ROOM_MEMBERS_TABLE!,
-      Key: {
-        roomId,
-        userId
-      }
+      Key: { roomId, userId },
     }));
-    
-    return !!result.Item;
+
+    return response.Item?.isActive === true;
   } catch (error) {
-    console.error('Error validating room access:', error);
+    console.warn('⚠️ Error validando acceso a sala:', error);
     return false;
   }
 }
 
 /**
- * Get user permissions for filtering
+ * Publicar evento general de sala
  */
-async function getUserPermissions(userId: string, roomId: string): Promise<string[]> {
-  try {
-    const result = await dynamoClient.send(new GetCommand({
-      TableName: process.env.ROOM_MEMBERS_TABLE!,
-      Key: {
-        roomId,
-        userId
-      }
-    }));
-    
-    return result.Item?.permissions || ['member'];
-  } catch (error) {
-    console.error('Error getting user permissions:', error);
-    return ['member'];
-  }
-}
-
-/**
- * Publish Room Event
- */
-export const publishRoomEvent = async (event: RealtimeResolverEvent, context: Context) => {
-  console.log('📡 Publishing room event:', JSON.stringify(event, null, 2));
-  
-  const { roomId, eventType, data } = event.arguments;
-  const userId = event.identity.sub;
-  
-  // Validate user has access to room
+async function publishRoomEvent(userId: string, roomId: string, eventType: string, data: any): Promise<any> {
+  // Validar acceso
   const hasAccess = await validateRoomAccess(userId, roomId);
   if (!hasAccess) {
-    throw new Error('Unauthorized: User does not have access to this room');
+    throw new Error('Usuario no tiene acceso a esta sala');
   }
-  
-  const eventData = {
-    id: generateEventId(),
+
+  const event = {
+    id: `room_${roomId}_${Date.now()}`,
     timestamp: new Date().toISOString(),
     roomId,
     eventType,
-    data: JSON.stringify(data)
+    data: typeof data === 'string' ? data : JSON.stringify(data),
   };
-  
-  console.log('✅ Room event published:', eventData);
-  return eventData;
-};
+
+  console.log(`📡 Publishing room event: ${eventType} for room ${roomId}`);
+  return event;
+}
 
 /**
- * Publish Vote Event
+ * Publicar evento de voto
  */
-export const publishVoteEvent = async (event: RealtimeResolverEvent, context: Context) => {
-  console.log('🗳️ Publishing vote event:', JSON.stringify(event, null, 2));
-  
-  const { roomId, voteData } = event.arguments;
-  const userId = event.identity.sub;
-  
-  // Validate user has access to room
+async function publishVoteEvent(userId: string, roomId: string, voteData: any): Promise<any> {
   const hasAccess = await validateRoomAccess(userId, roomId);
   if (!hasAccess) {
-    throw new Error('Unauthorized: User does not have access to this room');
+    throw new Error('Usuario no tiene acceso a esta sala');
   }
+
+  const parsedData = typeof voteData === 'string' ? JSON.parse(voteData) : voteData;
   
-  const eventData = {
-    id: generateEventId(),
+  const event = {
+    id: `vote_${roomId}_${userId}_${Date.now()}`,
     timestamp: new Date().toISOString(),
     roomId,
     eventType: 'VOTE_UPDATE',
-    userId: voteData.userId,
-    mediaId: voteData.mediaId,
-    voteType: voteData.voteType,
-    progress: voteData.progress
+    userId,
+    mediaId: parsedData.mediaId,
+    voteType: parsedData.voteType || 'LIKE',
+    progress: parsedData.progress || {
+      totalVotes: 0,
+      likesCount: 0,
+      dislikesCount: 0,
+      skipsCount: 0,
+      remainingUsers: 0,
+      percentage: 0
+    }
   };
-  
-  console.log('✅ Vote event published:', eventData);
-  return eventData;
-};
+
+  console.log(`🗳️ Publishing vote event for room ${roomId}, user ${userId}`);
+  return event;
+}
 
 /**
- * Publish Match Event
+ * Publicar evento de match encontrado
  */
-export const publishMatchEvent = async (event: RealtimeResolverEvent, context: Context) => {
-  console.log('🎯 Publishing match event:', JSON.stringify(event, null, 2));
-  
-  const { roomId, matchData } = event.arguments;
-  const userId = event.identity.sub;
-  
-  // Validate user has access to room
+async function publishMatchEvent(userId: string, roomId: string, matchData: any): Promise<any> {
   const hasAccess = await validateRoomAccess(userId, roomId);
   if (!hasAccess) {
-    throw new Error('Unauthorized: User does not have access to this room');
+    throw new Error('Usuario no tiene acceso a esta sala');
   }
+
+  const parsedData = typeof matchData === 'string' ? JSON.parse(matchData) : matchData;
   
-  const eventData = {
-    id: generateEventId(),
+  const event = {
+    id: `match_${roomId}_${Date.now()}`,
     timestamp: new Date().toISOString(),
     roomId,
     eventType: 'MATCH_FOUND',
-    matchId: matchData.matchId,
-    mediaId: matchData.mediaId,
-    mediaTitle: matchData.mediaTitle,
-    participants: matchData.participants,
-    consensusType: matchData.consensusType || 'UNANIMOUS'
+    matchId: parsedData.matchId || `match_${roomId}_${parsedData.mediaId}`,
+    mediaId: parsedData.mediaId,
+    mediaTitle: parsedData.mediaTitle || 'Unknown Movie',
+    participants: parsedData.participants || [],
+    consensusType: parsedData.consensusType || 'UNANIMOUS'
   };
-  
-  console.log('✅ Match event published:', eventData);
-  return eventData;
-};
+
+  console.log(`🎉 Publishing match event for room ${roomId}: ${parsedData.mediaTitle}`);
+  return event;
+}
 
 /**
- * Publish Member Event
+ * Publicar evento de miembro
  */
-export const publishMemberEvent = async (event: RealtimeResolverEvent, context: Context) => {
-  console.log('👤 Publishing member event:', JSON.stringify(event, null, 2));
-  
-  const { roomId, memberData } = event.arguments;
-  const userId = event.identity.sub;
-  
-  // Validate user has access to room
+async function publishMemberEvent(userId: string, roomId: string, memberData: any): Promise<any> {
   const hasAccess = await validateRoomAccess(userId, roomId);
   if (!hasAccess) {
-    throw new Error('Unauthorized: User does not have access to this room');
+    throw new Error('Usuario no tiene acceso a esta sala');
   }
+
+  const parsedData = typeof memberData === 'string' ? JSON.parse(memberData) : memberData;
   
-  const eventData = {
-    id: generateEventId(),
+  const event = {
+    id: `member_${roomId}_${userId}_${Date.now()}`,
     timestamp: new Date().toISOString(),
     roomId,
     eventType: 'MEMBER_UPDATE',
-    userId: memberData.userId,
-    action: memberData.action,
-    memberCount: memberData.memberCount,
-    memberData: memberData.memberData
+    userId: parsedData.userId || userId,
+    action: parsedData.action || 'JOINED',
+    memberCount: parsedData.memberCount || 1,
+    memberData: parsedData.memberData || null
   };
-  
-  console.log('✅ Member event published:', eventData);
-  return eventData;
-};
+
+  console.log(`👥 Publishing member event for room ${roomId}: ${parsedData.action}`);
+  return event;
+}
 
 /**
- * Publish Role Event
+ * Publicar eventos de características avanzadas (stubs para futuro)
  */
-export const publishRoleEvent = async (event: RealtimeResolverEvent, context: Context) => {
-  console.log('👑 Publishing role event:', JSON.stringify(event, null, 2));
-  
-  const { roomId, roleData } = event.arguments;
-  const userId = event.identity.sub;
-  
-  // Validate user has access to room and appropriate permissions
-  const hasAccess = await validateRoomAccess(userId, roomId);
-  if (!hasAccess) {
-    throw new Error('Unauthorized: User does not have access to this room');
-  }
-  
-  const permissions = await getUserPermissions(userId, roomId);
-  if (!permissions.includes('admin') && !permissions.includes('moderator')) {
-    throw new Error('Unauthorized: Insufficient permissions for role management');
-  }
-  
-  const eventData = {
-    id: generateEventId(),
-    timestamp: new Date().toISOString(),
-    roomId,
-    eventType: 'ROLE_ASSIGNMENT',
-    targetUserId: roleData.targetUserId,
-    roleId: roleData.roleId,
-    roleName: roleData.roleName,
-    assignedBy: userId,
-    action: roleData.action
-  };
-  
-  console.log('✅ Role event published:', eventData);
-  return eventData;
-};
+async function publishRoleEvent(userId: string, roomId: string, roleData: any): Promise<any> {
+  console.log(`👑 Role event (future feature): ${roomId}`);
+  return { id: `role_${Date.now()}`, timestamp: new Date().toISOString(), roomId, eventType: 'ROLE_UPDATE' };
+}
 
-/**
- * Publish Moderation Event
- */
-export const publishModerationEvent = async (event: RealtimeResolverEvent, context: Context) => {
-  console.log('🛡️ Publishing moderation event:', JSON.stringify(event, null, 2));
-  
-  const { roomId, moderationData } = event.arguments;
-  const userId = event.identity.sub;
-  
-  // Validate user has access to room and moderation permissions
-  const hasAccess = await validateRoomAccess(userId, roomId);
-  if (!hasAccess) {
-    throw new Error('Unauthorized: User does not have access to this room');
-  }
-  
-  const permissions = await getUserPermissions(userId, roomId);
-  if (!permissions.includes('admin') && !permissions.includes('moderator')) {
-    throw new Error('Unauthorized: Insufficient permissions for moderation');
-  }
-  
-  const eventData = {
-    id: generateEventId(),
-    timestamp: new Date().toISOString(),
-    roomId,
-    eventType: 'MODERATION_ACTION',
-    targetUserId: moderationData.targetUserId,
-    moderatorId: userId,
-    actionType: moderationData.actionType,
-    reason: moderationData.reason,
-    duration: moderationData.duration,
-    expiresAt: moderationData.expiresAt
-  };
-  
-  console.log('✅ Moderation event published:', eventData);
-  return eventData;
-};
+async function publishModerationEvent(userId: string, roomId: string, moderationData: any): Promise<any> {
+  console.log(`🛡️ Moderation event (future feature): ${roomId}`);
+  return { id: `mod_${Date.now()}`, timestamp: new Date().toISOString(), roomId, eventType: 'MODERATION_ACTION' };
+}
 
-/**
- * Publish Schedule Event
- */
-export const publishScheduleEvent = async (event: RealtimeResolverEvent, context: Context) => {
-  console.log('📅 Publishing schedule event:', JSON.stringify(event, null, 2));
-  
-  const { roomId, scheduleData } = event.arguments;
-  const userId = event.identity.sub;
-  
-  // Validate user has access to room
-  const hasAccess = await validateRoomAccess(userId, roomId);
-  if (!hasAccess) {
-    throw new Error('Unauthorized: User does not have access to this room');
-  }
-  
-  const eventData = {
-    id: generateEventId(),
-    timestamp: new Date().toISOString(),
-    roomId,
-    eventType: 'SCHEDULE_EVENT',
-    scheduleId: scheduleData.scheduleId,
-    title: scheduleData.title,
-    action: scheduleData.action,
-    startTime: scheduleData.startTime,
-    endTime: scheduleData.endTime,
-    message: scheduleData.message
-  };
-  
-  console.log('✅ Schedule event published:', eventData);
-  return eventData;
-};
+async function publishScheduleEvent(userId: string, roomId: string, scheduleData: any): Promise<any> {
+  console.log(`📅 Schedule event (future feature): ${roomId}`);
+  return { id: `schedule_${Date.now()}`, timestamp: new Date().toISOString(), roomId, eventType: 'SCHEDULE_UPDATE' };
+}
 
-/**
- * Publish Theme Event
- */
-export const publishThemeEvent = async (event: RealtimeResolverEvent, context: Context) => {
-  console.log('🎨 Publishing theme event:', JSON.stringify(event, null, 2));
-  
-  const { roomId, themeData } = event.arguments;
-  const userId = event.identity.sub;
-  
-  // Validate user has access to room
-  const hasAccess = await validateRoomAccess(userId, roomId);
-  if (!hasAccess) {
-    throw new Error('Unauthorized: User does not have access to this room');
-  }
-  
-  const eventData = {
-    id: generateEventId(),
-    timestamp: new Date().toISOString(),
-    roomId,
-    eventType: 'THEME_CHANGE',
-    themeId: themeData.themeId,
-    themeName: themeData.themeName,
-    action: themeData.action,
-    appliedBy: userId,
-    customizations: themeData.customizations
-  };
-  
-  console.log('✅ Theme event published:', eventData);
-  return eventData;
-};
+async function publishThemeEvent(userId: string, roomId: string, themeData: any): Promise<any> {
+  console.log(`🎨 Theme event (future feature): ${roomId}`);
+  return { id: `theme_${Date.now()}`, timestamp: new Date().toISOString(), roomId, eventType: 'THEME_CHANGE' };
+}
 
-/**
- * Publish Settings Event
- */
-export const publishSettingsEvent = async (event: RealtimeResolverEvent, context: Context) => {
-  console.log('⚙️ Publishing settings event:', JSON.stringify(event, null, 2));
-  
-  const { roomId, settingsData } = event.arguments;
-  const userId = event.identity.sub;
-  
-  // Validate user has access to room and admin permissions
-  const hasAccess = await validateRoomAccess(userId, roomId);
-  if (!hasAccess) {
-    throw new Error('Unauthorized: User does not have access to this room');
-  }
-  
-  const permissions = await getUserPermissions(userId, roomId);
-  if (!permissions.includes('admin')) {
-    throw new Error('Unauthorized: Only room admins can change settings');
-  }
-  
-  const eventData = {
-    id: generateEventId(),
-    timestamp: new Date().toISOString(),
-    roomId,
-    eventType: 'SETTINGS_CHANGE',
-    settingKey: settingsData.settingKey,
-    oldValue: settingsData.oldValue,
-    newValue: settingsData.newValue,
-    changedBy: userId,
-    category: settingsData.category
-  };
-  
-  console.log('✅ Settings event published:', eventData);
-  return eventData;
-};
+async function publishSettingsEvent(userId: string, roomId: string, settingsData: any): Promise<any> {
+  console.log(`⚙️ Settings event (future feature): ${roomId}`);
+  return { id: `settings_${Date.now()}`, timestamp: new Date().toISOString(), roomId, eventType: 'SETTINGS_CHANGE' };
+}
 
-/**
- * Publish Chat Event
- */
-export const publishChatEvent = async (event: RealtimeResolverEvent, context: Context) => {
-  console.log('💬 Publishing chat event:', JSON.stringify(event, null, 2));
-  
-  const { roomId, chatData } = event.arguments;
-  const userId = event.identity.sub;
-  
-  // Validate user has access to room
-  const hasAccess = await validateRoomAccess(userId, roomId);
-  if (!hasAccess) {
-    throw new Error('Unauthorized: User does not have access to this room');
-  }
-  
-  const eventData = {
-    id: generateEventId(),
-    timestamp: new Date().toISOString(),
-    roomId,
-    eventType: 'CHAT_MESSAGE',
-    messageId: chatData.messageId,
-    userId: chatData.userId,
-    username: chatData.username,
-    content: chatData.content,
-    messageType: chatData.messageType || 'TEXT',
-    action: chatData.action,
-    metadata: chatData.metadata
-  };
-  
-  console.log('✅ Chat event published:', eventData);
-  return eventData;
-};
+async function publishChatEvent(userId: string, roomId: string, chatData: any): Promise<any> {
+  console.log(`💬 Chat event (future feature): ${roomId}`);
+  return { id: `chat_${Date.now()}`, timestamp: new Date().toISOString(), roomId, eventType: 'CHAT_MESSAGE' };
+}
 
-/**
- * Publish Suggestion Event
- */
-export const publishSuggestionEvent = async (event: RealtimeResolverEvent, context: Context) => {
-  console.log('💡 Publishing suggestion event:', JSON.stringify(event, null, 2));
-  
-  const { roomId, suggestionData } = event.arguments;
-  const userId = event.identity.sub;
-  
-  // Validate user has access to room
-  const hasAccess = await validateRoomAccess(userId, roomId);
-  if (!hasAccess) {
-    throw new Error('Unauthorized: User does not have access to this room');
-  }
-  
-  const eventData = {
-    id: generateEventId(),
-    timestamp: new Date().toISOString(),
-    roomId,
-    eventType: 'CONTENT_SUGGESTION',
-    suggestionId: suggestionData.suggestionId,
-    userId: suggestionData.userId,
-    username: suggestionData.username,
-    action: suggestionData.action,
-    suggestion: suggestionData.suggestion,
-    vote: suggestionData.vote,
-    comment: suggestionData.comment
-  };
-  
-  console.log('✅ Suggestion event published:', eventData);
-  return eventData;
-};
-
-/**
- * Subscription filter for room events
- */
-export const roomEventFilter = async (event: RealtimeResolverEvent, context: Context) => {
-  const { roomId } = event.arguments;
-  const userId = event.identity.sub;
-  
-  // Verify user has access to room events
-  const hasAccess = await validateRoomAccess(userId, roomId);
-  
-  if (!hasAccess) {
-    return null; // Filter out this subscription
-  }
-  
-  return {
-    roomId: { eq: roomId }
-  };
-};
+async function publishSuggestionEvent(userId: string, roomId: string, suggestionData: any): Promise<any> {
+  console.log(`💡 Suggestion event (future feature): ${roomId}`);
+  return { id: `suggestion_${Date.now()}`, timestamp: new Date().toISOString(), roomId, eventType: 'CONTENT_SUGGESTION' };
+}

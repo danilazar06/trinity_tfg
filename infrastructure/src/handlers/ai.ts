@@ -1,5 +1,6 @@
 import { AppSyncResolverEvent, AppSyncResolverHandler } from 'aws-lambda';
 import fetch from 'node-fetch';
+import { logBusinessMetric, logError, PerformanceTimer } from '../utils/metrics';
 
 interface SalamandraRequest {
   inputs: string;
@@ -70,6 +71,7 @@ export const handler: AppSyncResolverHandler<any, any> = async (event: AppSyncRe
  * Obtener recomendaciones de Trini basadas en texto del usuario
  */
 async function getTriniRecommendations(userText: string): Promise<TriniResponse> {
+  const timer = new PerformanceTimer('TriniRecommendations');
   console.log(`🧠 Trini analizando: "${userText}"`);
 
   try {
@@ -82,12 +84,40 @@ async function getTriniRecommendations(userText: string): Promise<TriniResponse>
     // 3. Procesar respuesta y extraer JSON de Trini
     const triniResponse = parseTriniResponse(aiResponse, userText);
     
+    // Log business metric
+    logBusinessMetric('AI_RECOMMENDATION', undefined, undefined, {
+      userTextLength: userText.length,
+      responseSource: 'salamandra',
+      recommendedGenres: triniResponse.recommendedGenres,
+      emotionalState: detectEmotionalState(userText.toLowerCase())
+    });
+    
     console.log(`✅ Trini responde: "${triniResponse.chatResponse.substring(0, 50)}..."`);
+    timer.finish(true, undefined, { 
+      source: 'salamandra',
+      genreCount: triniResponse.recommendedGenres.length 
+    });
     return triniResponse;
 
   } catch (error) {
     console.warn('⚠️ Error en Salamandra, usando fallback de Trini:', error);
-    return getTriniFallbackResponse(userText);
+    
+    const fallbackResponse = getTriniFallbackResponse(userText);
+    
+    // Log business metric for fallback
+    logBusinessMetric('AI_RECOMMENDATION', undefined, undefined, {
+      userTextLength: userText.length,
+      responseSource: 'fallback',
+      recommendedGenres: fallbackResponse.recommendedGenres,
+      emotionalState: detectEmotionalState(userText.toLowerCase()),
+      errorType: (error as Error).name
+    });
+    
+    timer.finish(true, 'SalamandraFallback', { 
+      source: 'fallback',
+      genreCount: fallbackResponse.recommendedGenres.length 
+    });
+    return fallbackResponse;
   }
 }
 

@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, spacing, fontSize, borderRadius } from '../../src/utils/theme';
-import { roomService, RoomSummary } from '../../src/services/roomService';
+import { useAppSync } from '../../src/services/apiClient';
 import CreateRoomModal from '../../src/components/CreateRoomModal';
 import JoinRoomModal from '../../src/components/JoinRoomModal';
 import Logo from '../../src/components/Logo';
@@ -38,6 +38,7 @@ interface RoomDisplay {
 }
 
 export default function RoomsScreen() {
+  const appSync = useAppSync();
   const [rooms, setRooms] = useState<RoomDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -47,31 +48,46 @@ export default function RoomsScreen() {
 
   const loadRooms = async () => {
     try {
-      const userRooms = await roomService.getUserRooms();
+      console.log('🔄 Loading user rooms via AppSync...');
       
-      // Transformar a formato de display
-      const displayRooms: RoomDisplay[] = userRooms.map((room) => {
+      // Use AppSync GraphQL instead of REST API
+      const response = await appSync.getUserRooms();
+      const userRooms = response.getUserRooms || [];
+      
+      console.log('✅ Loaded rooms via AppSync:', userRooms);
+      
+      // Transform GraphQL response to display format
+      const displayRooms: RoomDisplay[] = userRooms.map((room: any) => {
         const date = new Date(room.createdAt);
         return {
           id: room.id,
           name: room.name,
           date: date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
           time: date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-          members: Array(room.memberCount).fill(null).map((_, i) => ({
+          members: Array(room.memberCount || 1).fill(null).map((_, i) => ({
             id: `member-${i}`,
             avatar: `https://i.pravatar.cc/100?img=${i + 1}`,
             isReady: Math.random() > 0.3,
           })),
-          totalMembers: room.memberCount,
-          readyCount: Math.floor(room.memberCount * 0.7),
-          isAllReady: room.memberCount > 0 && Math.random() > 0.5,
-          matchCount: room.matchCount,
+          totalMembers: room.memberCount || 1,
+          readyCount: Math.floor((room.memberCount || 1) * 0.7),
+          isAllReady: (room.memberCount || 1) > 0 && Math.random() > 0.5,
+          matchCount: 0, // GraphQL response doesn't include match count yet
         };
       });
       
       setRooms(displayRooms);
     } catch (error) {
-      console.error('Error loading rooms:', error);
+      console.error('❌ Error loading rooms via AppSync:', error);
+      
+      // Handle authentication errors gracefully
+      if (error instanceof Error && error.message.includes('Unauthorized')) {
+        console.warn('⚠️ User not authenticated, showing empty rooms list');
+        setRooms([]);
+      } else {
+        // For other errors, show empty state but don't crash
+        setRooms([]);
+      }
     } finally {
       setLoading(false);
     }

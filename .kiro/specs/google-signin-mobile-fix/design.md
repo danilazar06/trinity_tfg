@@ -1,43 +1,12 @@
 # Design Document - Google Sign-In Mobile Fix
 
-## Overview
+## Resumen Ejecutivo
 
-Este documento describe la solución para configurar correctamente Google Sign-In en la aplicación móvil Trinity, abordando los problemas de archivos de configuración faltantes y limitaciones de Expo Go.
+Este documento describe el diseño técnico para implementar Google Sign-In completo en la aplicación móvil Trinity, manejando las limitaciones de Expo Go y proporcionando fallbacks apropiados para diferentes entornos de ejecución.
 
-## Architecture
+## Arquitectura de Solución
 
-### Current Issues Analysis
-
-1. **Missing Google Services Files**: Los archivos `google-services.json` y `GoogleService-Info.plist` no existen
-2. **Expo Go Limitations**: Google Sign-In SDK nativo no funciona en Expo Go
-3. **Configuration Errors**: app.json referencia archivos que no existen
-4. **Environment Detection**: La app no detecta correctamente el entorno de ejecución
-
-### Solution Architecture
-
-```
-Trinity Mobile App
-├── Environment Detection Layer
-│   ├── Expo Go Detection
-│   ├── Development Build Detection
-│   └── Web Environment Detection
-├── Google Sign-In Service Layer
-│   ├── Native Google Sign-In (Development/Production)
-│   ├── Web Google Sign-In (Browser/Expo Go)
-│   └── Fallback Authentication (Email/Password)
-├── Configuration Layer
-│   ├── Google Services Files
-│   ├── Environment-specific Config
-│   └── Fallback Configuration
-└── UI Layer
-    ├── Conditional Google Button
-    ├── Error Handling
-    └── User Feedback
-```
-
-## Components and Interfaces
-
-### 1. Environment Detection Service
+### 1. Detección de Entorno
 
 ```typescript
 interface EnvironmentInfo {
@@ -46,336 +15,351 @@ interface EnvironmentInfo {
   googleSignInAvailable: boolean;
   hasGoogleServicesFile: boolean;
 }
-
-class EnvironmentDetectionService {
-  detectEnvironment(): EnvironmentInfo;
-  isExpoGo(): boolean;
-  isDevelopmentBuild(): boolean;
-  isWebEnvironment(): boolean;
-  canUseNativeGoogleSignIn(): boolean;
-}
 ```
 
-### 2. Enhanced Google Sign-In Service
+**Componentes:**
+- `EnvironmentDetector`: Servicio para detectar el entorno actual
+- `GoogleSignInCapabilityChecker`: Validador de capacidades de Google Sign-In
+- `ConfigurationValidator`: Validador de archivos de configuración
 
+### 2. Gestión de Configuración
+
+**Archivos de Configuración:**
+- `google-services.json` (Android) - Ubicación: `android/app/`
+- `GoogleService-Info.plist` (iOS) - Ubicación: `ios/`
+- `app.json` - Configuración de plugins de Expo
+
+**Estructura de Configuración:**
 ```typescript
 interface GoogleSignInConfig {
   webClientId: string;
   iosClientId?: string;
   androidClientId?: string;
-  useWebFallback: boolean;
-}
-
-class EnhancedGoogleSignInService {
-  private environment: EnvironmentInfo;
-  
-  async configure(config: GoogleSignInConfig): Promise<void>;
-  async isAvailable(): Promise<boolean>;
-  async signIn(): Promise<GoogleUser>;
-  async signInWithWebFallback(): Promise<GoogleUser>;
-  getAvailabilityStatus(): GoogleSignInStatus;
-}
-
-enum GoogleSignInStatus {
-  NATIVE_AVAILABLE = 'native_available',
-  WEB_FALLBACK = 'web_fallback',
-  NOT_AVAILABLE = 'not_available'
+  scopes: string[];
+  offlineAccess: boolean;
 }
 ```
 
-### 3. Configuration Manager
+### 3. Servicio de Autenticación Adaptativo
 
 ```typescript
-interface AppConfiguration {
-  googleSignIn: GoogleSignInConfig;
-  environment: EnvironmentInfo;
-  fallbackEnabled: boolean;
-}
-
-class ConfigurationManager {
-  loadConfiguration(): AppConfiguration;
-  validateGoogleServicesFiles(): boolean;
-  getEnvironmentSpecificConfig(): Partial<GoogleSignInConfig>;
+interface AuthenticationStrategy {
+  isAvailable(): Promise<boolean>;
+  signIn(): Promise<AuthResult>;
+  signOut(): Promise<void>;
+  getCurrentUser(): Promise<User | null>;
 }
 ```
 
-## Data Models
+**Estrategias de Implementación:**
+1. **NativeGoogleSignIn**: Para Development Builds y Production
+2. **WebGoogleSignIn**: Para entorno web
+3. **FallbackEmailAuth**: Para Expo Go y casos de error
 
-### Google Services File Structure
+### 4. Sistema de Fallback Inteligente
+
+**Cascada de Autenticación:**
+1. Detectar entorno y capacidades
+2. Intentar Google Sign-In nativo (si disponible)
+3. Fallback a Google Sign-In web (si en navegador)
+4. Fallback a autenticación email/password (siempre disponible)
+
+## Componentes Técnicos
+
+### 1. Environment Detection Service
+
+**Archivo:** `mobile/src/services/environmentService.ts`
+
+```typescript
+class EnvironmentService {
+  async detectEnvironment(): Promise<EnvironmentInfo>
+  isExpoGo(): boolean
+  isDevelopmentBuild(): boolean
+  isProduction(): boolean
+  isWeb(): boolean
+  validateGoogleServicesConfiguration(): Promise<ValidationResult>
+}
+```
+
+**Responsabilidades:**
+- Detectar el entorno de ejecución actual
+- Validar la presencia de archivos de configuración
+- Determinar capacidades disponibles de Google Sign-In
+
+### 2. Google Sign-In Manager
+
+**Archivo:** `mobile/src/services/googleSignInManager.ts`
+
+```typescript
+class GoogleSignInManager {
+  async initialize(): Promise<void>
+  async signIn(): Promise<AuthResult>
+  async signOut(): Promise<void>
+  isAvailable(): boolean
+  getStrategy(): AuthenticationStrategy
+}
+```
+
+**Responsabilidades:**
+- Gestionar diferentes estrategias de autenticación
+- Proporcionar interfaz unificada para Google Sign-In
+- Manejar errores y fallbacks automáticamente
+
+### 3. Configuration Validator
+
+**Archivo:** `mobile/src/services/configurationValidator.ts`
+
+```typescript
+class ConfigurationValidator {
+  validateGoogleServicesJson(): ValidationResult
+  validateGoogleServicesPlist(): ValidationResult
+  validateAppJsonConfiguration(): ValidationResult
+  generateConfigurationReport(): ConfigurationReport
+}
+```
+
+**Responsabilidades:**
+- Validar archivos de configuración de Google Services
+- Proporcionar diagnósticos detallados
+- Generar reportes de configuración
+
+### 4. Enhanced Auth Context
+
+**Archivo:** `mobile/src/context/EnhancedAuthContext.tsx`
+
+Extensión del contexto existente para incluir:
+- Detección automática de capacidades
+- Gestión de múltiples proveedores de autenticación
+- Estado de configuración y diagnósticos
+
+## Flujos de Usuario
+
+### 1. Flujo de Inicialización
+
+```mermaid
+graph TD
+    A[App Start] --> B[Detect Environment]
+    B --> C{Environment Type?}
+    C -->|Expo Go| D[Show Expo Go Warning]
+    C -->|Development Build| E[Initialize Native Google Sign-In]
+    C -->|Production| F[Initialize Native Google Sign-In]
+    C -->|Web| G[Initialize Web Google Sign-In]
+    D --> H[Enable Email/Password Only]
+    E --> I{Google Services Available?}
+    F --> I
+    G --> J[Enable Web Google Sign-In]
+    I -->|Yes| K[Enable Google Sign-In]
+    I -->|No| L[Show Configuration Error]
+    K --> M[Ready for Authentication]
+    L --> H
+    J --> M
+    H --> M
+```
+
+### 2. Flujo de Autenticación
+
+```mermaid
+graph TD
+    A[User Clicks Sign In] --> B{Google Sign-In Available?}
+    B -->|Yes| C[Attempt Google Sign-In]
+    B -->|No| D[Show Email/Password Form]
+    C --> E{Success?}
+    E -->|Yes| F[Process Google Auth Result]
+    E -->|No| G[Show Error Message]
+    G --> H{Show Fallback?}
+    H -->|Yes| D
+    H -->|No| I[End]
+    F --> J[Integrate with Cognito]
+    D --> K[Process Email/Password Auth]
+    K --> J
+    J --> L[Complete Authentication]
+```
+
+## Configuración de Build
+
+### 1. EAS Build Configuration
+
+**Archivo:** `eas.json`
 
 ```json
-// google-services.json (Android)
 {
-  "project_info": {
-    "project_number": "320120465080",
-    "project_id": "trinity-voting-app"
-  },
-  "client": [
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:320120465080:android:...",
-        "android_client_info": {
-          "package_name": "com.trinity.app"
-        }
-      },
-      "oauth_client": [
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "aab"
+      }
+    }
+  }
+}
+```
+
+### 2. App Configuration
+
+**Archivo:** `app.json` (actualizaciones)
+
+```json
+{
+  "expo": {
+    "plugins": [
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-build-properties",
         {
-          "client_id": "320120465080-4lf6l426q4ct2jn4mpgte9m5mbmlss7j.apps.googleusercontent.com",
-          "client_type": 3
+          "android": {
+            "googleServicesFile": "./google-services.json"
+          },
+          "ios": {
+            "googleServicesFile": "./GoogleService-Info.plist"
+          }
         }
       ]
-    }
-  ]
-}
-```
-
-### Environment-Specific Configuration
-
-```typescript
-interface EnvironmentConfig {
-  development: {
-    useWebFallback: true;
-    showDebugInfo: true;
-    allowExpoGo: true;
-  };
-  production: {
-    useWebFallback: false;
-    showDebugInfo: false;
-    requireNativeSignIn: true;
-  };
-}
-```
-
-## Implementation Strategy
-
-### Phase 1: Environment Detection and Fallback
-
-1. **Create Environment Detection Service**
-   - Detect Expo Go vs Development Build vs Production
-   - Check for Google Services files existence
-   - Determine available authentication methods
-
-2. **Implement Graceful Fallback**
-   - Hide Google Sign-In button when not available
-   - Show appropriate error messages
-   - Always provide email/password fallback
-
-3. **Update UI Components**
-   - Conditional rendering of Google Sign-In button
-   - Environment-specific messaging
-   - Debug information display
-
-### Phase 2: Google Services Configuration
-
-1. **Create Placeholder Google Services Files**
-   - Generate template files with correct structure
-   - Add instructions for obtaining real credentials
-   - Configure app.json to handle missing files gracefully
-
-2. **Update App Configuration**
-   - Modify app.json to handle missing files
-   - Add environment-specific configuration
-   - Configure EAS Build for development builds
-
-3. **Documentation Updates**
-   - Step-by-step Firebase Console setup
-   - Troubleshooting guide
-   - Environment-specific instructions
-
-### Phase 3: Development Build Support
-
-1. **EAS Build Configuration**
-   - Create eas.json configuration file
-   - Configure development and production profiles
-   - Set up platform-specific builds
-
-2. **Build Scripts and Automation**
-   - Scripts for creating development builds
-   - Automated testing for different environments
-   - CI/CD integration preparation
-
-## Error Handling
-
-### Error Categories
-
-1. **Configuration Errors**
-   - Missing Google Services files
-   - Invalid credentials
-   - Incorrect app.json configuration
-
-2. **Runtime Errors**
-   - Google Play Services not available
-   - Network connectivity issues
-   - User cancellation
-
-3. **Environment Errors**
-   - Expo Go limitations
-   - Platform incompatibilities
-   - SDK version mismatches
-
-### Error Handling Strategy
-
-```typescript
-class GoogleSignInErrorHandler {
-  handleConfigurationError(error: ConfigurationError): void;
-  handleRuntimeError(error: RuntimeError): void;
-  handleEnvironmentError(error: EnvironmentError): void;
-  showUserFriendlyMessage(error: Error): void;
+    ]
+  }
 }
 ```
 
 ## Testing Strategy
 
-### Testing Environments
+### 1. Environment Testing Matrix
 
-1. **Web Browser** (Expo Dev Tools)
-   - Web-based Google authentication
-   - Full functionality testing
-   - Cross-browser compatibility
+| Entorno | Google Sign-In | Email/Password | Notas |
+|---------|----------------|----------------|-------|
+| Expo Go | ❌ | ✅ | Mostrar warning |
+| Development Build | ✅ | ✅ | Testing completo |
+| Production Build | ✅ | ✅ | Funcionalidad completa |
+| Web Browser | ✅ (Web) | ✅ | Google Sign-In web |
 
-2. **Expo Go** (Mobile devices)
-   - Fallback authentication testing
-   - UI/UX validation
-   - Error handling verification
+### 2. Test Cases
 
-3. **Development Build** (Mobile devices)
-   - Native Google Sign-In testing
-   - Full feature validation
-   - Performance testing
-
-4. **Production Build** (App stores)
-   - End-to-end testing
-   - Security validation
-   - User acceptance testing
-
-### Test Cases
-
-1. **Environment Detection Tests**
-   - Correct environment identification
-   - Feature availability detection
-   - Configuration loading
-
-2. **Authentication Flow Tests**
-   - Native Google Sign-In (when available)
-   - Web fallback authentication
-   - Email/password fallback
-   - Error scenarios
-
-3. **UI/UX Tests**
-   - Conditional button rendering
-   - Error message display
-   - Loading states
-   - User feedback
-
-## Security Considerations
-
-### Google Services Files Security
-
-1. **Development vs Production**
-   - Separate credentials for each environment
-   - Secure storage of production credentials
-   - Version control exclusion of sensitive files
-
-2. **Client ID Configuration**
-   - Web client ID for fallback authentication
-   - Native client IDs for production builds
-   - Proper OAuth scope configuration
-
-### Authentication Security
-
-1. **Token Handling**
-   - Secure storage of authentication tokens
-   - Proper token validation
-   - Automatic token refresh
-
-2. **Fallback Security**
-   - Secure web-based authentication
-   - HTTPS enforcement
-   - CSRF protection
-
-## Deployment Strategy
-
-### Development Deployment
-
-1. **Expo Go Testing**
-   - Web fallback authentication
-   - UI/UX validation
-   - Basic functionality testing
-
-2. **Development Build Testing**
-   - Native Google Sign-In validation
-   - Full feature testing
-   - Device-specific testing
-
-### Production Deployment
-
-1. **App Store Preparation**
-   - Production Google Services files
-   - Native build configuration
-   - Security validation
-
-2. **Rollout Strategy**
-   - Staged rollout with monitoring
-   - Fallback mechanisms
-   - User support preparation
-
-## Monitoring and Analytics
-
-### Key Metrics
-
-1. **Authentication Success Rates**
-   - Google Sign-In success rate
-   - Fallback authentication usage
-   - Error rates by environment
-
-2. **Environment Distribution**
-   - Usage by platform (iOS/Android/Web)
-   - Runtime environment distribution
-   - Feature availability impact
-
-3. **User Experience Metrics**
-   - Authentication completion time
-   - Error recovery success
-   - User satisfaction scores
-
-### Logging Strategy
+**Archivo:** `mobile/src/tests/googleSignInIntegration.test.ts`
 
 ```typescript
-interface AuthenticationEvent {
-  eventType: 'google_signin_attempt' | 'fallback_used' | 'error_occurred';
-  environment: EnvironmentInfo;
-  success: boolean;
-  errorCode?: string;
-  timestamp: Date;
+describe('Google Sign-In Integration', () => {
+  test('should detect Expo Go environment correctly')
+  test('should fallback to email auth in Expo Go')
+  test('should initialize native Google Sign-In in development build')
+  test('should handle missing configuration files gracefully')
+  test('should provide clear error messages for configuration issues')
+  test('should integrate Google auth with Cognito correctly')
+})
+```
+
+## Documentation Structure
+
+### 1. Setup Guide
+
+**Archivo:** `mobile/GOOGLE_SIGNIN_SETUP.md`
+
+Contenido:
+- Configuración de Firebase Console
+- Obtención de archivos de configuración
+- Configuración de EAS Build
+- Instrucciones específicas por plataforma
+
+### 2. Troubleshooting Guide
+
+**Archivo:** `mobile/GOOGLE_SIGNIN_TROUBLESHOOTING.md`
+
+Contenido:
+- Problemas comunes y soluciones
+- Diagnóstico de configuración
+- Diferencias entre entornos
+- Logs de debugging
+
+### 3. Testing Guide
+
+**Archivo:** `mobile/GOOGLE_SIGNIN_TESTING.md`
+
+Contenido:
+- Estrategias de testing por entorno
+- Creación de Development Builds
+- Validación de configuración
+- Test de integración
+
+## Métricas y Monitoreo
+
+### 1. Analytics Events
+
+```typescript
+interface GoogleSignInAnalytics {
+  google_signin_attempt: {
+    environment: string;
+    strategy: string;
+    success: boolean;
+  };
+  google_signin_fallback: {
+    reason: string;
+    fallback_method: string;
+  };
+  configuration_error: {
+    error_type: string;
+    environment: string;
+  };
 }
 ```
 
-## Future Enhancements
+### 2. Error Tracking
 
-### Short-term (Next Sprint)
+- Errores de configuración
+- Fallos de autenticación
+- Problemas de entorno
+- Métricas de fallback
 
-1. **Enhanced Error Messages**
-   - Context-aware error messages
-   - Recovery suggestions
-   - Support contact information
+## Security Considerations
 
-2. **Improved Testing Tools**
-   - Environment simulation
-   - Authentication flow testing
-   - Automated validation
+### 1. Configuration Security
 
-### Long-term (Future Releases)
+- Archivos de configuración no deben contener secretos
+- Validación de certificados en production
+- Rotación de claves de API
 
-1. **Additional OAuth Providers**
-   - Apple Sign-In implementation
-   - Microsoft Azure AD
-   - Enterprise SSO integration
+### 2. Authentication Security
 
-2. **Advanced Configuration**
-   - Dynamic configuration loading
-   - A/B testing for authentication flows
-   - Advanced analytics integration
+- Validación de tokens de Google
+- Integración segura con Cognito
+- Manejo seguro de credenciales temporales
 
-## Conclusion
+## Implementation Phases
 
-Esta solución proporciona una implementación robusta de Google Sign-In que funciona correctamente en todos los entornos de desarrollo y producción, con fallbacks apropiados y manejo de errores comprehensivo. La arquitectura modular permite fácil mantenimiento y extensión futura.
+### Phase 1: Environment Detection and Configuration
+- Implementar detección de entorno
+- Crear validador de configuración
+- Configurar archivos de Google Services
+
+### Phase 2: Authentication Strategies
+- Implementar estrategias de autenticación
+- Crear sistema de fallback
+- Integrar con contexto de autenticación existente
+
+### Phase 3: Build Configuration and Testing
+- Configurar EAS Build
+- Crear Development Builds
+- Implementar tests de integración
+
+### Phase 4: Documentation and Validation
+- Crear guías de configuración
+- Documentar troubleshooting
+- Validar en todos los entornos
+
+## Success Criteria
+
+1. ✅ Google Sign-In funciona en Development Builds y Production
+2. ✅ Fallback apropiado en Expo Go con mensajes claros
+3. ✅ Configuración automática detecta problemas y proporciona soluciones
+4. ✅ Documentación completa para setup y troubleshooting
+5. ✅ Tests cubren todos los entornos y casos de error
+6. ✅ Integración perfecta con sistema de autenticación Cognito existente
+7. ✅ Experiencia de usuario consistente en todos los entornos

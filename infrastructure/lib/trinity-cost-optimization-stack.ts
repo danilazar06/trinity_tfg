@@ -336,7 +336,7 @@ export class TrinityOptimizationStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'BudgetName', {
-      value: this._budgetAlarm.budget.budgetName!,
+      value: `trinity-monthly-budget-${this.node.tryGetContext('stage') || 'dev'}`,
       description: 'Nombre del presupuesto configurado',
     });
   }

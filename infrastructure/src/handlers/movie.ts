@@ -2,6 +2,8 @@ import { AppSyncResolverEvent, AppSyncResolverHandler } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import fetch from 'node-fetch';
+import { tmdbCircuitBreaker } from '../utils/circuit-breaker';
+import { logCacheMetric, logBusinessMetric, logError, PerformanceTimer } from '../utils/metrics';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -47,39 +49,48 @@ export const handler: AppSyncResolverHandler<any, any> = async (event: AppSyncRe
  * Obtener películas con Circuit Breaker
  */
 async function getMovies(genre?: string): Promise<Movie[]> {
+  const timer = new PerformanceTimer('GetMovies');
   const cacheKey = `movies_${genre || 'popular'}`;
   
   try {
     // 1. Intentar obtener desde cache
     const cachedMovies = await getCachedMovies(cacheKey);
     if (cachedMovies && cachedMovies.length > 0) {
+      logCacheMetric('MOVIES', true, cacheKey);
       console.log(`💾 Películas obtenidas desde cache: ${cachedMovies.length}`);
+      timer.finish(true, undefined, { source: 'cache', count: cachedMovies.length });
       return cachedMovies;
     }
 
-    // 2. Si no hay cache, intentar API TMDB
-    console.log('🌐 Obteniendo películas desde TMDB API...');
-    const moviesFromAPI = await fetchMoviesFromTMDB(genre);
+    logCacheMetric('MOVIES', false, cacheKey);
+
+    // 2. Si no hay cache, intentar API TMDB con Circuit Breaker
+    console.log('🌐 Obteniendo películas desde TMDB API con Circuit Breaker...');
+    const moviesFromAPI = await tmdbCircuitBreaker.execute(() => fetchMoviesFromTMDB(genre));
     
     // 3. Cachear resultado exitoso
     await cacheMovies(cacheKey, moviesFromAPI);
     
     console.log(`✅ Películas obtenidas desde API: ${moviesFromAPI.length}`);
+    timer.finish(true, undefined, { source: 'api', count: moviesFromAPI.length });
     return moviesFromAPI;
 
   } catch (apiError) {
-    console.warn('⚠️ Error en API TMDB, intentando fallback desde cache:', apiError);
+    console.warn('⚠️ Error en API TMDB (Circuit Breaker activo), intentando fallback desde cache:', apiError);
     
     // 4. Fallback: intentar cache expirado como último recurso
     const fallbackMovies = await getCachedMovies(cacheKey, true);
     if (fallbackMovies && fallbackMovies.length > 0) {
       console.log(`🔄 Usando cache expirado como fallback: ${fallbackMovies.length}`);
+      timer.finish(true, undefined, { source: 'expired_cache', count: fallbackMovies.length });
       return fallbackMovies;
     }
 
     // 5. Si todo falla, retornar películas por defecto
-    console.log('🎭 Usando películas por defecto');
-    return getDefaultMovies();
+    console.log('🎭 Usando películas por defecto - Circuit Breaker protegió el sistema');
+    const defaultMovies = getDefaultMovies();
+    timer.finish(true, undefined, { source: 'default', count: defaultMovies.length });
+    return defaultMovies;
   }
 }
 

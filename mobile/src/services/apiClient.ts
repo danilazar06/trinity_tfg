@@ -1,10 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { getAWSConfig } from '../config/aws-config';
+import { appSyncService } from './appSyncService';
 
 // Detectar si estamos en desarrollo o producción
 const getApiUrl = () => {
-  // En desarrollo, usar la IP local del servidor
-  // Cambiar esta IP por la de tu máquina si es diferente
+  // DEPRECATED: Migrating to AWS AppSync GraphQL
+  // Keeping for backward compatibility during transition
   const DEV_API_URL = 'http://192.168.0.27:3002/api';
   const PROD_API_URL = 'https://api.trinity.app/api'; // URL de producción
   
@@ -12,6 +14,9 @@ const getApiUrl = () => {
 };
 
 const API_BASE_URL = getApiUrl();
+
+// AWS Configuration
+const AWS_CONFIG = getAWSConfig();
 
 interface RequestConfig {
   method: string;
@@ -97,3 +102,34 @@ class ApiClient {
 }
 
 export const apiClient = new ApiClient(API_BASE_URL);
+
+// AWS AppSync Integration
+export const useAppSync = () => {
+  console.log('🔗 Using AWS AppSync for GraphQL operations');
+  console.log('📍 Region:', AWS_CONFIG.region);
+  console.log('🔗 GraphQL Endpoint:', AWS_CONFIG.graphqlEndpoint);
+  
+  return {
+    // Room operations via AppSync
+    createRoom: appSyncService.createRoom.bind(appSyncService),
+    joinRoom: appSyncService.joinRoom.bind(appSyncService),
+    getRoom: appSyncService.getRoom.bind(appSyncService),
+    getUserRooms: appSyncService.getUserRooms.bind(appSyncService),
+    
+    // Voting operations via AppSync
+    vote: appSyncService.vote.bind(appSyncService),
+    
+    // Movie operations via AppSync
+    getMovieDetails: appSyncService.getMovieDetails.bind(appSyncService),
+    
+    // AI operations via AppSync
+    getAIRecommendations: appSyncService.getAIRecommendations.bind(appSyncService),
+    
+    // Real-time subscriptions
+    subscribeToVoteUpdates: appSyncService.subscribeToVoteUpdates.bind(appSyncService),
+    subscribeToMatchFound: appSyncService.subscribeToMatchFound.bind(appSyncService),
+    
+    // Health check
+    healthCheck: appSyncService.healthCheck.bind(appSyncService),
+  };
+};

@@ -226,6 +226,59 @@
               "version": "2.100.0"
             }
           },
+          "UserVotesTable": {
+            "id": "UserVotesTable",
+            "path": "TrinityMvpStack/UserVotesTable",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityMvpStack/UserVotesTable/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::DynamoDB::Table",
+                  "aws:cdk:cloudformation:props": {
+                    "attributeDefinitions": [
+                      {
+                        "attributeName": "userId",
+                        "attributeType": "S"
+                      },
+                      {
+                        "attributeName": "roomMovieId",
+                        "attributeType": "S"
+                      }
+                    ],
+                    "billingMode": "PAY_PER_REQUEST",
+                    "keySchema": [
+                      {
+                        "attributeName": "userId",
+                        "keyType": "HASH"
+                      },
+                      {
+                        "attributeName": "roomMovieId",
+                        "keyType": "RANGE"
+                      }
+                    ],
+                    "tableName": "trinity-user-votes-dev"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_dynamodb.CfnTable",
+                  "version": "2.100.0"
+                }
+              },
+              "ScalingRole": {
+                "id": "ScalingRole",
+                "path": "TrinityMvpStack/UserVotesTable/ScalingRole",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.Resource",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_dynamodb.Table",
+              "version": "2.100.0"
+            }
+          },
           "MoviesCacheTable": {
             "id": "MoviesCacheTable",
             "path": "TrinityMvpStack/MoviesCacheTable",
@@ -296,9 +349,7 @@
                     "adminCreateUserConfig": {
                       "allowAdminCreateUserOnly": false
                     },
-                    "autoVerifiedAttributes": [
-                      "email"
-                    ],
+                    "autoVerifiedAttributes": [],
                     "emailVerificationMessage": "The verification code to your new account is {####}",
                     "emailVerificationSubject": "Verify your new account",
                     "lambdaConfig": {
@@ -570,7 +621,7 @@
                   "aws:cdk:cloudformation:props": {
                     "code": {
                       "s3Bucket": "cdk-hnb659fds-assets-847850007406-eu-west-1",
-                      "s3Key": "964017b3b030d94967c7ae939986665d6ff7a2d37b06f2d6fce7e40d0eb71899.zip"
+                      "s3Key": "792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389.zip"
                     },
                     "environment": {
                       "variables": {
@@ -586,15 +637,18 @@
                         "VOTES_TABLE": {
                           "Ref": "VotesTable39A917AC"
                         },
+                        "USER_VOTES_TABLE": {
+                          "Ref": "UserVotesTable592E0AEF"
+                        },
                         "MOVIES_CACHE_TABLE": {
                           "Ref": "MoviesCacheTableE1998D48"
                         },
                         "STAGE": "dev",
-                        "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+                        "RESERVED_CONCURRENCY": "10"
                       }
                     },
                     "functionName": "trinity-auth-dev",
-                    "handler": "index.handler",
+                    "handler": "auth.handler",
                     "memorySize": 256,
                     "role": {
                       "Fn::GetAtt": [
@@ -613,7 +667,7 @@
               }
             },
             "constructInfo": {
-              "fqn": "aws-cdk-lib.aws_lambda_nodejs.NodejsFunction",
+              "fqn": "aws-cdk-lib.aws_lambda.Function",
               "version": "2.100.0"
             }
           },
@@ -794,7 +848,7 @@
                   "aws:cdk:cloudformation:props": {
                     "code": {
                       "s3Bucket": "cdk-hnb659fds-assets-847850007406-eu-west-1",
-                      "s3Key": "4bdc65205f2afbfcc6ec217eb0ee468eed50629e0aa309db403c3db62fc7da63.zip"
+                      "s3Key": "792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389.zip"
                     },
                     "environment": {
                       "variables": {
@@ -810,15 +864,18 @@
                         "VOTES_TABLE": {
                           "Ref": "VotesTable39A917AC"
                         },
+                        "USER_VOTES_TABLE": {
+                          "Ref": "UserVotesTable592E0AEF"
+                        },
                         "MOVIES_CACHE_TABLE": {
                           "Ref": "MoviesCacheTableE1998D48"
                         },
                         "STAGE": "dev",
-                        "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+                        "RESERVED_CONCURRENCY": "10"
                       }
                     },
                     "functionName": "trinity-room-dev",
-                    "handler": "index.handler",
+                    "handler": "room.handler",
                     "memorySize": 512,
                     "role": {
                       "Fn::GetAtt": [
@@ -837,7 +894,7 @@
               }
             },
             "constructInfo": {
-              "fqn": "aws-cdk-lib.aws_lambda_nodejs.NodejsFunction",
+              "fqn": "aws-cdk-lib.aws_lambda.Function",
               "version": "2.100.0"
             }
           },
@@ -998,7 +1055,7 @@
                   "aws:cdk:cloudformation:props": {
                     "code": {
                       "s3Bucket": "cdk-hnb659fds-assets-847850007406-eu-west-1",
-                      "s3Key": "fb02e0857777037f8e936878d16750c667ed5ca7b3e02d2beee9e34ca832fcd4.zip"
+                      "s3Key": "792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389.zip"
                     },
                     "environment": {
                       "variables": {
@@ -1014,16 +1071,19 @@
                         "VOTES_TABLE": {
                           "Ref": "VotesTable39A917AC"
                         },
+                        "USER_VOTES_TABLE": {
+                          "Ref": "UserVotesTable592E0AEF"
+                        },
                         "MOVIES_CACHE_TABLE": {
                           "Ref": "MoviesCacheTableE1998D48"
                         },
                         "STAGE": "dev",
                         "TMDB_API_KEY": "dc4dbcd2404c1ca852f8eb964add267d",
-                        "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+                        "RESERVED_CONCURRENCY": "10"
                       }
                     },
                     "functionName": "trinity-movie-dev",
-                    "handler": "index.handler",
+                    "handler": "movie.handler",
                     "memorySize": 512,
                     "role": {
                       "Fn::GetAtt": [
@@ -1042,7 +1102,7 @@
               }
             },
             "constructInfo": {
-              "fqn": "aws-cdk-lib.aws_lambda_nodejs.NodejsFunction",
+              "fqn": "aws-cdk-lib.aws_lambda.Function",
               "version": "2.100.0"
             }
           },
@@ -1133,6 +1193,12 @@
                                     {
                                       "Fn::GetAtt": [
                                         "RoomsTableA5C1D45B",
+                                        "Arn"
+                                      ]
+                                    },
+                                    {
+                                      "Fn::GetAtt": [
+                                        "UserVotesTable592E0AEF",
                                         "Arn"
                                       ]
                                     },
@@ -1244,7 +1310,7 @@
                   "aws:cdk:cloudformation:props": {
                     "code": {
                       "s3Bucket": "cdk-hnb659fds-assets-847850007406-eu-west-1",
-                      "s3Key": "48248cfe555d333df25a013817374b99c39f07dae5617fbec3a9377afe275424.zip"
+                      "s3Key": "792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389.zip"
                     },
                     "environment": {
                       "variables": {
@@ -1260,15 +1326,18 @@
                         "VOTES_TABLE": {
                           "Ref": "VotesTable39A917AC"
                         },
+                        "USER_VOTES_TABLE": {
+                          "Ref": "UserVotesTable592E0AEF"
+                        },
                         "MOVIES_CACHE_TABLE": {
                           "Ref": "MoviesCacheTableE1998D48"
                         },
                         "STAGE": "dev",
-                        "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+                        "RESERVED_CONCURRENCY": "10"
                       }
                     },
                     "functionName": "trinity-vote-dev",
-                    "handler": "index.handler",
+                    "handler": "vote.handler",
                     "memorySize": 512,
                     "role": {
                       "Fn::GetAtt": [
@@ -1287,7 +1356,7 @@
               }
             },
             "constructInfo": {
-              "fqn": "aws-cdk-lib.aws_lambda_nodejs.NodejsFunction",
+              "fqn": "aws-cdk-lib.aws_lambda.Function",
               "version": "2.100.0"
             }
           },
@@ -1386,7 +1455,7 @@
                   "aws:cdk:cloudformation:props": {
                     "code": {
                       "s3Bucket": "cdk-hnb659fds-assets-847850007406-eu-west-1",
-                      "s3Key": "99c3d45bdf88c835436fb32aa68d46f819ac7294ebb427814b26c7386a909b7a.zip"
+                      "s3Key": "792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389.zip"
                     },
                     "environment": {
                       "variables": {
@@ -1402,16 +1471,19 @@
                         "VOTES_TABLE": {
                           "Ref": "VotesTable39A917AC"
                         },
+                        "USER_VOTES_TABLE": {
+                          "Ref": "UserVotesTable592E0AEF"
+                        },
                         "MOVIES_CACHE_TABLE": {
                           "Ref": "MoviesCacheTableE1998D48"
                         },
                         "STAGE": "dev",
                         "HF_API_TOKEN": "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",
-                        "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+                        "RESERVED_CONCURRENCY": "10"
                       }
                     },
                     "functionName": "trinity-ai-dev",
-                    "handler": "index.handler",
+                    "handler": "ai.handler",
                     "memorySize": 512,
                     "role": {
                       "Fn::GetAtt": [
@@ -1430,7 +1502,220 @@
               }
             },
             "constructInfo": {
-              "fqn": "aws-cdk-lib.aws_lambda_nodejs.NodejsFunction",
+              "fqn": "aws-cdk-lib.aws_lambda.Function",
+              "version": "2.100.0"
+            }
+          },
+          "RealtimeHandler": {
+            "id": "RealtimeHandler",
+            "path": "TrinityMvpStack/RealtimeHandler",
+            "children": {
+              "ServiceRole": {
+                "id": "ServiceRole",
+                "path": "TrinityMvpStack/RealtimeHandler/ServiceRole",
+                "children": {
+                  "ImportServiceRole": {
+                    "id": "ImportServiceRole",
+                    "path": "TrinityMvpStack/RealtimeHandler/ServiceRole/ImportServiceRole",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.Resource",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/RealtimeHandler/ServiceRole/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                      "aws:cdk:cloudformation:props": {
+                        "assumeRolePolicyDocument": {
+                          "Statement": [
+                            {
+                              "Action": "sts:AssumeRole",
+                              "Effect": "Allow",
+                              "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                              }
+                            }
+                          ],
+                          "Version": "2012-10-17"
+                        },
+                        "managedPolicyArns": [
+                          {
+                            "Fn::Join": [
+                              "",
+                              [
+                                "arn:",
+                                {
+                                  "Ref": "AWS::Partition"
+                                },
+                                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                              ]
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "DefaultPolicy": {
+                    "id": "DefaultPolicy",
+                    "path": "TrinityMvpStack/RealtimeHandler/ServiceRole/DefaultPolicy",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "TrinityMvpStack/RealtimeHandler/ServiceRole/DefaultPolicy/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                          "aws:cdk:cloudformation:props": {
+                            "policyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": [
+                                    "dynamodb:BatchGetItem",
+                                    "dynamodb:ConditionCheckItem",
+                                    "dynamodb:DescribeTable",
+                                    "dynamodb:GetItem",
+                                    "dynamodb:GetRecords",
+                                    "dynamodb:GetShardIterator",
+                                    "dynamodb:Query",
+                                    "dynamodb:Scan"
+                                  ],
+                                  "Effect": "Allow",
+                                  "Resource": [
+                                    {
+                                      "Fn::GetAtt": [
+                                        "RoomMembersTable66DCF076",
+                                        "Arn"
+                                      ]
+                                    },
+                                    {
+                                      "Fn::Join": [
+                                        "",
+                                        [
+                                          {
+                                            "Fn::GetAtt": [
+                                              "RoomMembersTable66DCF076",
+                                              "Arn"
+                                            ]
+                                          },
+                                          "/index/*"
+                                        ]
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            },
+                            "policyName": "RealtimeHandlerServiceRoleDefaultPolicy11BB9995",
+                            "roles": [
+                              {
+                                "Ref": "RealtimeHandlerServiceRoleCFE7FFEB"
+                              }
+                            ]
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                          "version": "2.100.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Policy",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_iam.Role",
+                  "version": "2.100.0"
+                }
+              },
+              "Code": {
+                "id": "Code",
+                "path": "TrinityMvpStack/RealtimeHandler/Code",
+                "children": {
+                  "Stage": {
+                    "id": "Stage",
+                    "path": "TrinityMvpStack/RealtimeHandler/Code/Stage",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.AssetStaging",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "AssetBucket": {
+                    "id": "AssetBucket",
+                    "path": "TrinityMvpStack/RealtimeHandler/Code/AssetBucket",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                  "version": "2.100.0"
+                }
+              },
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityMvpStack/RealtimeHandler/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
+                  "aws:cdk:cloudformation:props": {
+                    "code": {
+                      "s3Bucket": "cdk-hnb659fds-assets-847850007406-eu-west-1",
+                      "s3Key": "792efb21210d30bb519cacaf101776d6368f2605ee46d5bb5dd0806a865d5389.zip"
+                    },
+                    "environment": {
+                      "variables": {
+                        "USERS_TABLE": {
+                          "Ref": "UsersTable9725E9C8"
+                        },
+                        "ROOMS_TABLE": {
+                          "Ref": "RoomsTableA5C1D45B"
+                        },
+                        "ROOM_MEMBERS_TABLE": {
+                          "Ref": "RoomMembersTable66DCF076"
+                        },
+                        "VOTES_TABLE": {
+                          "Ref": "VotesTable39A917AC"
+                        },
+                        "USER_VOTES_TABLE": {
+                          "Ref": "UserVotesTable592E0AEF"
+                        },
+                        "MOVIES_CACHE_TABLE": {
+                          "Ref": "MoviesCacheTableE1998D48"
+                        },
+                        "STAGE": "dev"
+                      }
+                    },
+                    "functionName": "trinity-realtime-dev",
+                    "handler": "realtime.handler",
+                    "memorySize": 512,
+                    "role": {
+                      "Fn::GetAtt": [
+                        "RealtimeHandlerServiceRoleCFE7FFEB",
+                        "Arn"
+                      ]
+                    },
+                    "runtime": "nodejs18.x",
+                    "timeout": 30
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.CfnFunction",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_lambda.Function",
               "version": "2.100.0"
             }
           },
@@ -1544,7 +1829,7 @@
                         "ApiId"
                       ]
                     },
-                    "definition": "# Trinity MVP - GraphQL Schema simplificado según mega prompt\r\n\r\ntype Room {\r\n  id: ID!\r\n  status: String\r\n  resultMovieId: String\r\n  hostId: String\r\n}\r\n\r\ntype Movie {\r\n  id: ID!\r\n  title: String\r\n  poster: String\r\n  overview: String\r\n}\r\n\r\ntype Query {\r\n  getMovies(genre: String): [Movie]           # DataSource: MovieHandler\r\n  getChatRecommendations(text: String!): [String] # DataSource: AIHandler\r\n  getMyHistory: [Room]                        # DataSource: RoomHandler\r\n}\r\n\r\ntype Mutation {\r\n  createRoom: Room                            # DataSource: RoomHandler\r\n  joinRoom(roomId: ID!): Room                 # DataSource: RoomHandler\r\n  vote(roomId: ID!, movieId: ID!): Room       # DataSource: VoteHandler\r\n}\r\n\r\ntype Subscription {\r\n  onRoomUpdated(roomId: ID!): Room\r\n  @aws_subscribe(mutations: [\"vote\", \"joinRoom\"])\r\n}\r\n\r\nschema {\r\n  query: Query\r\n  mutation: Mutation\r\n  subscription: Subscription\r\n}"
+                    "definition": "# Trinity MVP - GraphQL Schema with AppSync Real-time Subscriptions\r\n\r\ntype Room {\r\n  id: ID!\r\n  status: String\r\n  resultMovieId: String\r\n  hostId: String\r\n}\r\n\r\ntype Movie {\r\n  id: ID!\r\n  title: String\r\n  poster: String\r\n  overview: String\r\n}\r\n\r\n# Real-time Event Types\r\ninterface BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n}\r\n\r\ntype RoomEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  data: AWSJSON!\r\n}\r\n\r\ntype VoteEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  userId: ID!\r\n  mediaId: ID!\r\n  voteType: VoteType!\r\n  progress: VoteProgress!\r\n}\r\n\r\ntype MatchEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  matchId: ID!\r\n  mediaId: ID!\r\n  mediaTitle: String!\r\n  participants: [ID!]!\r\n  consensusType: ConsensusType!\r\n}\r\n\r\ntype MemberEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  userId: ID!\r\n  action: MemberAction!\r\n  memberCount: Int!\r\n  memberData: MemberData\r\n}\r\n\r\ntype RoleEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  targetUserId: ID!\r\n  roleId: ID!\r\n  roleName: String!\r\n  assignedBy: ID!\r\n  action: RoleAction!\r\n}\r\n\r\ntype ModerationEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  targetUserId: ID!\r\n  moderatorId: ID!\r\n  actionType: String!\r\n  reason: String!\r\n  duration: Int\r\n  expiresAt: AWSDateTime\r\n}\r\n\r\ntype ScheduleEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  scheduleId: ID!\r\n  title: String!\r\n  action: ScheduleAction!\r\n  startTime: AWSDateTime!\r\n  endTime: AWSDateTime!\r\n  message: String\r\n}\r\n\r\ntype ThemeEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  themeId: ID\r\n  themeName: String\r\n  action: ThemeAction!\r\n  appliedBy: ID!\r\n  customizations: AWSJSON\r\n}\r\n\r\ntype SettingsEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  settingKey: String!\r\n  oldValue: AWSJSON\r\n  newValue: AWSJSON!\r\n  changedBy: ID!\r\n  category: SettingsCategory!\r\n}\r\n\r\ntype ChatEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  messageId: ID!\r\n  userId: ID!\r\n  username: String!\r\n  content: String\r\n  messageType: ChatMessageType!\r\n  action: ChatAction!\r\n  metadata: AWSJSON\r\n}\r\n\r\ntype SuggestionEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  suggestionId: ID!\r\n  userId: ID!\r\n  username: String!\r\n  action: SuggestionAction!\r\n  suggestion: AWSJSON\r\n  vote: AWSJSON\r\n  comment: AWSJSON\r\n}\r\n\r\ntype UserNotification {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  userId: ID!\r\n  type: NotificationType!\r\n  title: String!\r\n  message: String!\r\n  data: AWSJSON\r\n  read: Boolean!\r\n}\r\n\r\n# Supporting Types\r\ntype VoteProgress {\r\n  totalVotes: Int!\r\n  likesCount: Int!\r\n  dislikesCount: Int!\r\n  skipsCount: Int!\r\n  remainingUsers: Int!\r\n  percentage: Float!\r\n}\r\n\r\ntype MemberData {\r\n  role: String\r\n  status: String\r\n  permissions: [String!]\r\n  lastActivity: AWSDateTime\r\n}\r\n\r\n# Enums\r\nenum VoteType {\r\n  LIKE\r\n  DISLIKE\r\n  SKIP\r\n}\r\n\r\nenum ConsensusType {\r\n  UNANIMOUS\r\n  MAJORITY\r\n}\r\n\r\nenum MemberAction {\r\n  JOINED\r\n  LEFT\r\n  STATUS_CHANGED\r\n  ROLE_CHANGED\r\n}\r\n\r\nenum RoleAction {\r\n  ASSIGNED\r\n  REMOVED\r\n}\r\n\r\nenum ScheduleAction {\r\n  CREATED\r\n  UPDATED\r\n  CANCELLED\r\n  REMINDER\r\n}\r\n\r\nenum ThemeAction {\r\n  APPLIED\r\n  REMOVED\r\n  UPDATED\r\n}\r\n\r\nenum SettingsCategory {\r\n  PRIVACY\r\n  CONSENSUS\r\n  CAPACITY\r\n  TIMEOUT\r\n  OTHER\r\n}\r\n\r\nenum ChatMessageType {\r\n  TEXT\r\n  SYSTEM\r\n  REACTION\r\n}\r\n\r\nenum ChatAction {\r\n  CREATED\r\n  EDITED\r\n  DELETED\r\n  REACTION_ADDED\r\n  REACTION_REMOVED\r\n}\r\n\r\nenum SuggestionAction {\r\n  CREATED\r\n  VOTED\r\n  COMMENTED\r\n  APPROVED\r\n  REJECTED\r\n  IMPLEMENTED\r\n}\r\n\r\nenum NotificationType {\r\n  ROOM_INVITE\r\n  MATCH_FOUND\r\n  ROLE_ASSIGNED\r\n  MODERATION_ACTION\r\n  SCHEDULE_REMINDER\r\n  SYSTEM_MESSAGE\r\n}\r\n\r\n# Trini AI Response Type\r\ntype TriniResponse {\r\n  chatResponse: String!\r\n  recommendedGenres: [String!]!\r\n}\r\n\r\ntype Query {\r\n  getMovies(genre: String): [Movie]           # DataSource: MovieHandler\r\n  getChatRecommendations(text: String!): TriniResponse # DataSource: AIHandler (Trini)\r\n  getMyHistory: [Room]                        # DataSource: RoomHandler\r\n}\r\n\r\ntype Mutation {\r\n  createRoom: Room                            # DataSource: RoomHandler\r\n  joinRoom(roomId: ID!): Room                 # DataSource: RoomHandler\r\n  vote(roomId: ID!, movieId: ID!): Room       # DataSource: VoteHandler\r\n  \r\n  # Real-time event publishing mutations\r\n  publishRoomEvent(roomId: ID!, eventType: String!, data: AWSJSON!): RoomEvent\r\n  publishVoteEvent(roomId: ID!, voteData: AWSJSON!): VoteEvent\r\n  publishMatchEvent(roomId: ID!, matchData: AWSJSON!): MatchEvent\r\n  publishMemberEvent(roomId: ID!, memberData: AWSJSON!): MemberEvent\r\n  publishRoleEvent(roomId: ID!, roleData: AWSJSON!): RoleEvent\r\n  publishModerationEvent(roomId: ID!, moderationData: AWSJSON!): ModerationEvent\r\n  publishScheduleEvent(roomId: ID!, scheduleData: AWSJSON!): ScheduleEvent\r\n  publishThemeEvent(roomId: ID!, themeData: AWSJSON!): ThemeEvent\r\n  publishSettingsEvent(roomId: ID!, settingsData: AWSJSON!): SettingsEvent\r\n  publishChatEvent(roomId: ID!, chatData: AWSJSON!): ChatEvent\r\n  publishSuggestionEvent(roomId: ID!, suggestionData: AWSJSON!): SuggestionEvent\r\n}\r\n\r\ntype Subscription {\r\n  # Room-level subscriptions\r\n  onRoomEvent(roomId: ID!): RoomEvent\r\n    @aws_subscribe(mutations: [\"publishRoomEvent\"])\r\n  \r\n  onVoteUpdate(roomId: ID!): VoteEvent\r\n    @aws_subscribe(mutations: [\"publishVoteEvent\"])\r\n  \r\n  onMatchFound(roomId: ID!): MatchEvent\r\n    @aws_subscribe(mutations: [\"publishMatchEvent\"])\r\n  \r\n  onMemberUpdate(roomId: ID!): MemberEvent\r\n    @aws_subscribe(mutations: [\"publishMemberEvent\"])\r\n  \r\n  # Advanced features subscriptions\r\n  onRoleAssignment(roomId: ID!): RoleEvent\r\n    @aws_subscribe(mutations: [\"publishRoleEvent\"])\r\n  \r\n  onModerationAction(roomId: ID!): ModerationEvent\r\n    @aws_subscribe(mutations: [\"publishModerationEvent\"])\r\n  \r\n  onScheduleEvent(roomId: ID!): ScheduleEvent\r\n    @aws_subscribe(mutations: [\"publishScheduleEvent\"])\r\n  \r\n  onThemeChange(roomId: ID!): ThemeEvent\r\n    @aws_subscribe(mutations: [\"publishThemeEvent\"])\r\n  \r\n  onSettingsChange(roomId: ID!): SettingsEvent\r\n    @aws_subscribe(mutations: [\"publishSettingsEvent\"])\r\n  \r\n  # Collaboration subscriptions\r\n  onChatMessage(roomId: ID!): ChatEvent\r\n    @aws_subscribe(mutations: [\"publishChatEvent\"])\r\n  \r\n  onContentSuggestion(roomId: ID!): SuggestionEvent\r\n    @aws_subscribe(mutations: [\"publishSuggestionEvent\"])\r\n  \r\n  # User-specific subscriptions - REMOVED: publishUserNotification mutation doesn't exist\r\n  # onUserNotification(userId: ID!): UserNotification\r\n  #   @aws_subscribe(mutations: [\"publishUserNotification\"])\r\n  \r\n  # Legacy subscription for backward compatibility\r\n  onRoomUpdated(roomId: ID!): Room\r\n    @aws_subscribe(mutations: [\"vote\", \"joinRoom\"])\r\n}\r\n\r\nschema {\r\n  query: Query\r\n  mutation: Mutation\r\n  subscription: Subscription\r\n}"
                   }
                 },
                 "constructInfo": {
@@ -1564,7 +1849,7 @@
                         "ApiId"
                       ]
                     },
-                    "expires": 1798071868
+                    "expires": 1798590528
                   }
                 },
                 "constructInfo": {
@@ -2320,6 +2605,154 @@
                   "version": "2.100.0"
                 }
               },
+              "RealtimeDataSource": {
+                "id": "RealtimeDataSource",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/RealtimeDataSource",
+                "children": {
+                  "ServiceRole": {
+                    "id": "ServiceRole",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/RealtimeDataSource/ServiceRole",
+                    "children": {
+                      "ImportServiceRole": {
+                        "id": "ImportServiceRole",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/RealtimeDataSource/ServiceRole/ImportServiceRole",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.Resource",
+                          "version": "2.100.0"
+                        }
+                      },
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/RealtimeDataSource/ServiceRole/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                          "aws:cdk:cloudformation:props": {
+                            "assumeRolePolicyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "sts:AssumeRole",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "Service": "appsync.amazonaws.com"
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                          "version": "2.100.0"
+                        }
+                      },
+                      "DefaultPolicy": {
+                        "id": "DefaultPolicy",
+                        "path": "TrinityMvpStack/TrinityGraphQLApi/RealtimeDataSource/ServiceRole/DefaultPolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "TrinityMvpStack/TrinityGraphQLApi/RealtimeDataSource/ServiceRole/DefaultPolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": "lambda:InvokeFunction",
+                                      "Effect": "Allow",
+                                      "Resource": [
+                                        {
+                                          "Fn::GetAtt": [
+                                            "RealtimeHandlerE448CE62",
+                                            "Arn"
+                                          ]
+                                        },
+                                        {
+                                          "Fn::Join": [
+                                            "",
+                                            [
+                                              {
+                                                "Fn::GetAtt": [
+                                                  "RealtimeHandlerE448CE62",
+                                                  "Arn"
+                                                ]
+                                              },
+                                              ":*"
+                                            ]
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "TrinityGraphQLApiRealtimeDataSourceServiceRoleDefaultPolicy1745A7F9",
+                                "roles": [
+                                  {
+                                    "Ref": "TrinityGraphQLApiRealtimeDataSourceServiceRole8BC6F6A4"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.100.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.100.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Role",
+                      "version": "2.100.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/RealtimeDataSource/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::DataSource",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "lambdaConfig": {
+                          "lambdaFunctionArn": {
+                            "Fn::GetAtt": [
+                              "RealtimeHandlerE448CE62",
+                              "Arn"
+                            ]
+                          }
+                        },
+                        "name": "RealtimeDataSource",
+                        "serviceRoleArn": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApiRealtimeDataSourceServiceRole8BC6F6A4",
+                            "Arn"
+                          ]
+                        },
+                        "type": "AWS_LAMBDA"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnDataSource",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.LambdaDataSource",
+                  "version": "2.100.0"
+                }
+              },
               "GetMoviesResolver": {
                 "id": "GetMoviesResolver",
                 "path": "TrinityMvpStack/TrinityGraphQLApi/GetMoviesResolver",
@@ -2517,6 +2950,369 @@
                   "fqn": "aws-cdk-lib.aws_appsync.Resolver",
                   "version": "2.100.0"
                 }
+              },
+              "PublishRoomEventResolver": {
+                "id": "PublishRoomEventResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/PublishRoomEventResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/PublishRoomEventResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "RealtimeDataSource",
+                        "fieldName": "publishRoomEvent",
+                        "kind": "UNIT",
+                        "typeName": "Mutation"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "PublishVoteEventResolver": {
+                "id": "PublishVoteEventResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/PublishVoteEventResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/PublishVoteEventResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "RealtimeDataSource",
+                        "fieldName": "publishVoteEvent",
+                        "kind": "UNIT",
+                        "typeName": "Mutation"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "PublishMatchEventResolver": {
+                "id": "PublishMatchEventResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/PublishMatchEventResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/PublishMatchEventResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "RealtimeDataSource",
+                        "fieldName": "publishMatchEvent",
+                        "kind": "UNIT",
+                        "typeName": "Mutation"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "PublishMemberEventResolver": {
+                "id": "PublishMemberEventResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/PublishMemberEventResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/PublishMemberEventResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "RealtimeDataSource",
+                        "fieldName": "publishMemberEvent",
+                        "kind": "UNIT",
+                        "typeName": "Mutation"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "PublishRoleEventResolver": {
+                "id": "PublishRoleEventResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/PublishRoleEventResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/PublishRoleEventResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "RealtimeDataSource",
+                        "fieldName": "publishRoleEvent",
+                        "kind": "UNIT",
+                        "typeName": "Mutation"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "PublishModerationEventResolver": {
+                "id": "PublishModerationEventResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/PublishModerationEventResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/PublishModerationEventResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "RealtimeDataSource",
+                        "fieldName": "publishModerationEvent",
+                        "kind": "UNIT",
+                        "typeName": "Mutation"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "PublishScheduleEventResolver": {
+                "id": "PublishScheduleEventResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/PublishScheduleEventResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/PublishScheduleEventResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "RealtimeDataSource",
+                        "fieldName": "publishScheduleEvent",
+                        "kind": "UNIT",
+                        "typeName": "Mutation"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "PublishThemeEventResolver": {
+                "id": "PublishThemeEventResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/PublishThemeEventResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/PublishThemeEventResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "RealtimeDataSource",
+                        "fieldName": "publishThemeEvent",
+                        "kind": "UNIT",
+                        "typeName": "Mutation"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "PublishSettingsEventResolver": {
+                "id": "PublishSettingsEventResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/PublishSettingsEventResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/PublishSettingsEventResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "RealtimeDataSource",
+                        "fieldName": "publishSettingsEvent",
+                        "kind": "UNIT",
+                        "typeName": "Mutation"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "PublishChatEventResolver": {
+                "id": "PublishChatEventResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/PublishChatEventResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/PublishChatEventResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "RealtimeDataSource",
+                        "fieldName": "publishChatEvent",
+                        "kind": "UNIT",
+                        "typeName": "Mutation"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "PublishSuggestionEventResolver": {
+                "id": "PublishSuggestionEventResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/PublishSuggestionEventResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/PublishSuggestionEventResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "RealtimeDataSource",
+                        "fieldName": "publishSuggestionEvent",
+                        "kind": "UNIT",
+                        "typeName": "Mutation"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
               }
             },
             "constructInfo": {
@@ -2543,6 +3339,14 @@
           "UserPoolId": {
             "id": "UserPoolId",
             "path": "TrinityMvpStack/UserPoolId",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "UserPoolClientId": {
+            "id": "UserPoolClientId",
+            "path": "TrinityMvpStack/UserPoolClientId",
             "constructInfo": {
               "fqn": "aws-cdk-lib.CfnOutput",
               "version": "2.100.0"
@@ -2596,6 +3400,14 @@
               "version": "2.100.0"
             }
           },
+          "RealtimeHandlerName": {
+            "id": "RealtimeHandlerName",
+            "path": "TrinityMvpStack/RealtimeHandlerName",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
           "CDKMetadata": {
             "id": "CDKMetadata",
             "path": "TrinityMvpStack/CDKMetadata",
@@ -2605,6 +3417,96 @@
                 "path": "TrinityMvpStack/CDKMetadata/Default",
                 "constructInfo": {
                   "fqn": "aws-cdk-lib.CfnResource",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "constructs.Construct",
+              "version": "10.4.4"
+            }
+          },
+          "Exports": {
+            "id": "Exports",
+            "path": "TrinityMvpStack/Exports",
+            "children": {
+              "Output{\"Ref\":\"AuthHandler9DC767B7\"}": {
+                "id": "Output{\"Ref\":\"AuthHandler9DC767B7\"}",
+                "path": "TrinityMvpStack/Exports/Output{\"Ref\":\"AuthHandler9DC767B7\"}",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.100.0"
+                }
+              },
+              "Output{\"Ref\":\"RoomHandlerCF7B6EB0\"}": {
+                "id": "Output{\"Ref\":\"RoomHandlerCF7B6EB0\"}",
+                "path": "TrinityMvpStack/Exports/Output{\"Ref\":\"RoomHandlerCF7B6EB0\"}",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.100.0"
+                }
+              },
+              "Output{\"Ref\":\"MovieHandler51BC04A7\"}": {
+                "id": "Output{\"Ref\":\"MovieHandler51BC04A7\"}",
+                "path": "TrinityMvpStack/Exports/Output{\"Ref\":\"MovieHandler51BC04A7\"}",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.100.0"
+                }
+              },
+              "Output{\"Ref\":\"VoteHandler897F0396\"}": {
+                "id": "Output{\"Ref\":\"VoteHandler897F0396\"}",
+                "path": "TrinityMvpStack/Exports/Output{\"Ref\":\"VoteHandler897F0396\"}",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.100.0"
+                }
+              },
+              "Output{\"Ref\":\"AIHandler5D68B6F1\"}": {
+                "id": "Output{\"Ref\":\"AIHandler5D68B6F1\"}",
+                "path": "TrinityMvpStack/Exports/Output{\"Ref\":\"AIHandler5D68B6F1\"}",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.100.0"
+                }
+              },
+              "Output{\"Ref\":\"UsersTable9725E9C8\"}": {
+                "id": "Output{\"Ref\":\"UsersTable9725E9C8\"}",
+                "path": "TrinityMvpStack/Exports/Output{\"Ref\":\"UsersTable9725E9C8\"}",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.100.0"
+                }
+              },
+              "Output{\"Ref\":\"RoomsTableA5C1D45B\"}": {
+                "id": "Output{\"Ref\":\"RoomsTableA5C1D45B\"}",
+                "path": "TrinityMvpStack/Exports/Output{\"Ref\":\"RoomsTableA5C1D45B\"}",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.100.0"
+                }
+              },
+              "Output{\"Ref\":\"RoomMembersTable66DCF076\"}": {
+                "id": "Output{\"Ref\":\"RoomMembersTable66DCF076\"}",
+                "path": "TrinityMvpStack/Exports/Output{\"Ref\":\"RoomMembersTable66DCF076\"}",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.100.0"
+                }
+              },
+              "Output{\"Ref\":\"VotesTable39A917AC\"}": {
+                "id": "Output{\"Ref\":\"VotesTable39A917AC\"}",
+                "path": "TrinityMvpStack/Exports/Output{\"Ref\":\"VotesTable39A917AC\"}",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.100.0"
+                }
+              },
+              "Output{\"Ref\":\"MoviesCacheTableE1998D48\"}": {
+                "id": "Output{\"Ref\":\"MoviesCacheTableE1998D48\"}",
+                "path": "TrinityMvpStack/Exports/Output{\"Ref\":\"MoviesCacheTableE1998D48\"}",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
                   "version": "2.100.0"
                 }
               }
@@ -2625,6 +3527,2165 @@
           "CheckBootstrapVersion": {
             "id": "CheckBootstrapVersion",
             "path": "TrinityMvpStack/CheckBootstrapVersion",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnRule",
+              "version": "2.100.0"
+            }
+          }
+        },
+        "constructInfo": {
+          "fqn": "aws-cdk-lib.Stack",
+          "version": "2.100.0"
+        }
+      },
+      "TrinityOptimizationStack": {
+        "id": "TrinityOptimizationStack",
+        "path": "TrinityOptimizationStack",
+        "children": {
+          "CostAlarmTopic": {
+            "id": "CostAlarmTopic",
+            "path": "TrinityOptimizationStack/CostAlarmTopic",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/CostAlarmTopic/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::SNS::Topic",
+                  "aws:cdk:cloudformation:props": {
+                    "displayName": "Trinity Cost Alerts - dev",
+                    "topicName": "trinity-cost-alerts-dev"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_sns.CfnTopic",
+                  "version": "2.100.0"
+                }
+              },
+              "admin@trinity.com": {
+                "id": "admin@trinity.com",
+                "path": "TrinityOptimizationStack/CostAlarmTopic/admin@trinity.com",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityOptimizationStack/CostAlarmTopic/admin@trinity.com/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::SNS::Subscription",
+                      "aws:cdk:cloudformation:props": {
+                        "endpoint": "admin@trinity.com",
+                        "protocol": "email",
+                        "topicArn": {
+                          "Ref": "CostAlarmTopicFF27CABA"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_sns.CfnSubscription",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_sns.Subscription",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_sns.Topic",
+              "version": "2.100.0"
+            }
+          },
+          "TrinityBudget": {
+            "id": "TrinityBudget",
+            "path": "TrinityOptimizationStack/TrinityBudget",
+            "attributes": {
+              "aws:cdk:cloudformation:type": "AWS::Budgets::Budget",
+              "aws:cdk:cloudformation:props": {
+                "budget": {
+                  "budgetName": "trinity-monthly-budget-dev",
+                  "budgetLimit": {
+                    "amount": 50,
+                    "unit": "USD"
+                  },
+                  "timeUnit": "MONTHLY",
+                  "budgetType": "COST",
+                  "costFilters": {
+                    "TagKey": [
+                      "Project"
+                    ],
+                    "TagValue": [
+                      "Trinity"
+                    ]
+                  }
+                },
+                "notificationsWithSubscribers": [
+                  {
+                    "notification": {
+                      "notificationType": "ACTUAL",
+                      "comparisonOperator": "GREATER_THAN",
+                      "threshold": 80,
+                      "thresholdType": "PERCENTAGE"
+                    },
+                    "subscribers": [
+                      {
+                        "subscriptionType": "EMAIL",
+                        "address": "admin@trinity.com"
+                      }
+                    ]
+                  },
+                  {
+                    "notification": {
+                      "notificationType": "FORECASTED",
+                      "comparisonOperator": "GREATER_THAN",
+                      "threshold": 100,
+                      "thresholdType": "PERCENTAGE"
+                    },
+                    "subscribers": [
+                      {
+                        "subscriptionType": "EMAIL",
+                        "address": "admin@trinity.com"
+                      }
+                    ]
+                  },
+                  {
+                    "notification": {
+                      "notificationType": "ACTUAL",
+                      "comparisonOperator": "GREATER_THAN",
+                      "threshold": 50,
+                      "thresholdType": "PERCENTAGE"
+                    },
+                    "subscribers": [
+                      {
+                        "subscriptionType": "EMAIL",
+                        "address": "admin@trinity.com"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_budgets.CfnBudget",
+              "version": "2.100.0"
+            }
+          },
+          "LambdaDurationAlarm0": {
+            "id": "LambdaDurationAlarm0",
+            "path": "TrinityOptimizationStack/LambdaDurationAlarm0",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/LambdaDurationAlarm0/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-lambda-duration-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefAuthHandler9DC767B711DCB76A"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "FunctionName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefAuthHandler9DC767B711DCB76A"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 2,
+                    "metricName": "Duration",
+                    "namespace": "AWS/Lambda",
+                    "period": 300,
+                    "statistic": "Average",
+                    "threshold": 25000,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "LambdaErrorAlarm0": {
+            "id": "LambdaErrorAlarm0",
+            "path": "TrinityOptimizationStack/LambdaErrorAlarm0",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/LambdaErrorAlarm0/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-lambda-errors-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefAuthHandler9DC767B711DCB76A"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "FunctionName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefAuthHandler9DC767B711DCB76A"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 1,
+                    "metricName": "Errors",
+                    "namespace": "AWS/Lambda",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 10,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "LambdaInvocationAlarm0": {
+            "id": "LambdaInvocationAlarm0",
+            "path": "TrinityOptimizationStack/LambdaInvocationAlarm0",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/LambdaInvocationAlarm0/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-lambda-invocations-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefAuthHandler9DC767B711DCB76A"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "FunctionName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefAuthHandler9DC767B711DCB76A"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 1,
+                    "metricName": "Invocations",
+                    "namespace": "AWS/Lambda",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 1000,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "LambdaDurationAlarm1": {
+            "id": "LambdaDurationAlarm1",
+            "path": "TrinityOptimizationStack/LambdaDurationAlarm1",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/LambdaDurationAlarm1/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-lambda-duration-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomHandlerCF7B6EB08F83255F"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "FunctionName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomHandlerCF7B6EB08F83255F"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 2,
+                    "metricName": "Duration",
+                    "namespace": "AWS/Lambda",
+                    "period": 300,
+                    "statistic": "Average",
+                    "threshold": 25000,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "LambdaErrorAlarm1": {
+            "id": "LambdaErrorAlarm1",
+            "path": "TrinityOptimizationStack/LambdaErrorAlarm1",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/LambdaErrorAlarm1/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-lambda-errors-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomHandlerCF7B6EB08F83255F"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "FunctionName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomHandlerCF7B6EB08F83255F"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 1,
+                    "metricName": "Errors",
+                    "namespace": "AWS/Lambda",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 10,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "LambdaInvocationAlarm1": {
+            "id": "LambdaInvocationAlarm1",
+            "path": "TrinityOptimizationStack/LambdaInvocationAlarm1",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/LambdaInvocationAlarm1/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-lambda-invocations-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomHandlerCF7B6EB08F83255F"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "FunctionName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomHandlerCF7B6EB08F83255F"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 1,
+                    "metricName": "Invocations",
+                    "namespace": "AWS/Lambda",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 1000,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "LambdaDurationAlarm2": {
+            "id": "LambdaDurationAlarm2",
+            "path": "TrinityOptimizationStack/LambdaDurationAlarm2",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/LambdaDurationAlarm2/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-lambda-duration-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefMovieHandler51BC04A76EBE3534"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "FunctionName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefMovieHandler51BC04A76EBE3534"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 2,
+                    "metricName": "Duration",
+                    "namespace": "AWS/Lambda",
+                    "period": 300,
+                    "statistic": "Average",
+                    "threshold": 25000,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "LambdaErrorAlarm2": {
+            "id": "LambdaErrorAlarm2",
+            "path": "TrinityOptimizationStack/LambdaErrorAlarm2",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/LambdaErrorAlarm2/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-lambda-errors-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefMovieHandler51BC04A76EBE3534"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "FunctionName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefMovieHandler51BC04A76EBE3534"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 1,
+                    "metricName": "Errors",
+                    "namespace": "AWS/Lambda",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 10,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "LambdaInvocationAlarm2": {
+            "id": "LambdaInvocationAlarm2",
+            "path": "TrinityOptimizationStack/LambdaInvocationAlarm2",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/LambdaInvocationAlarm2/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-lambda-invocations-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefMovieHandler51BC04A76EBE3534"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "FunctionName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefMovieHandler51BC04A76EBE3534"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 1,
+                    "metricName": "Invocations",
+                    "namespace": "AWS/Lambda",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 1000,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "LambdaDurationAlarm3": {
+            "id": "LambdaDurationAlarm3",
+            "path": "TrinityOptimizationStack/LambdaDurationAlarm3",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/LambdaDurationAlarm3/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-lambda-duration-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefVoteHandler897F0396D465FCE8"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "FunctionName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefVoteHandler897F0396D465FCE8"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 2,
+                    "metricName": "Duration",
+                    "namespace": "AWS/Lambda",
+                    "period": 300,
+                    "statistic": "Average",
+                    "threshold": 25000,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "LambdaErrorAlarm3": {
+            "id": "LambdaErrorAlarm3",
+            "path": "TrinityOptimizationStack/LambdaErrorAlarm3",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/LambdaErrorAlarm3/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-lambda-errors-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefVoteHandler897F0396D465FCE8"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "FunctionName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefVoteHandler897F0396D465FCE8"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 1,
+                    "metricName": "Errors",
+                    "namespace": "AWS/Lambda",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 10,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "LambdaInvocationAlarm3": {
+            "id": "LambdaInvocationAlarm3",
+            "path": "TrinityOptimizationStack/LambdaInvocationAlarm3",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/LambdaInvocationAlarm3/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-lambda-invocations-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefVoteHandler897F0396D465FCE8"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "FunctionName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefVoteHandler897F0396D465FCE8"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 1,
+                    "metricName": "Invocations",
+                    "namespace": "AWS/Lambda",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 1000,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "LambdaDurationAlarm4": {
+            "id": "LambdaDurationAlarm4",
+            "path": "TrinityOptimizationStack/LambdaDurationAlarm4",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/LambdaDurationAlarm4/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-lambda-duration-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefAIHandler5D68B6F1A53B1EB9"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "FunctionName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefAIHandler5D68B6F1A53B1EB9"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 2,
+                    "metricName": "Duration",
+                    "namespace": "AWS/Lambda",
+                    "period": 300,
+                    "statistic": "Average",
+                    "threshold": 25000,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "LambdaErrorAlarm4": {
+            "id": "LambdaErrorAlarm4",
+            "path": "TrinityOptimizationStack/LambdaErrorAlarm4",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/LambdaErrorAlarm4/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-lambda-errors-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefAIHandler5D68B6F1A53B1EB9"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "FunctionName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefAIHandler5D68B6F1A53B1EB9"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 1,
+                    "metricName": "Errors",
+                    "namespace": "AWS/Lambda",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 10,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "LambdaInvocationAlarm4": {
+            "id": "LambdaInvocationAlarm4",
+            "path": "TrinityOptimizationStack/LambdaInvocationAlarm4",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/LambdaInvocationAlarm4/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-lambda-invocations-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefAIHandler5D68B6F1A53B1EB9"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "FunctionName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefAIHandler5D68B6F1A53B1EB9"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 1,
+                    "metricName": "Invocations",
+                    "namespace": "AWS/Lambda",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 1000,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "DynamoReadAlarm0": {
+            "id": "DynamoReadAlarm0",
+            "path": "TrinityOptimizationStack/DynamoReadAlarm0",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/DynamoReadAlarm0/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-dynamo-read-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefUsersTable9725E9C857961836"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "TableName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefUsersTable9725E9C857961836"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 2,
+                    "metricName": "ConsumedReadCapacityUnits",
+                    "namespace": "AWS/DynamoDB",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 100,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "DynamoWriteAlarm0": {
+            "id": "DynamoWriteAlarm0",
+            "path": "TrinityOptimizationStack/DynamoWriteAlarm0",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/DynamoWriteAlarm0/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-dynamo-write-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefUsersTable9725E9C857961836"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "TableName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefUsersTable9725E9C857961836"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 2,
+                    "metricName": "ConsumedWriteCapacityUnits",
+                    "namespace": "AWS/DynamoDB",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 100,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "DynamoThrottleAlarm0": {
+            "id": "DynamoThrottleAlarm0",
+            "path": "TrinityOptimizationStack/DynamoThrottleAlarm0",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/DynamoThrottleAlarm0/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-dynamo-throttle-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefUsersTable9725E9C857961836"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "evaluationPeriods": 1,
+                    "metrics": [
+                      {
+                        "expression": "putitem + getitem",
+                        "id": "expr_1",
+                        "label": "Sum of throttled requests across all operations"
+                      },
+                      {
+                        "metricStat": {
+                          "metric": {
+                            "metricName": "ThrottledRequests",
+                            "namespace": "AWS/DynamoDB",
+                            "dimensions": [
+                              {
+                                "name": "Operation",
+                                "value": "PutItem"
+                              },
+                              {
+                                "name": "TableName",
+                                "value": {
+                                  "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefUsersTable9725E9C857961836"
+                                }
+                              }
+                            ]
+                          },
+                          "period": 300,
+                          "stat": "Sum"
+                        },
+                        "id": "putitem",
+                        "returnData": false
+                      },
+                      {
+                        "metricStat": {
+                          "metric": {
+                            "metricName": "ThrottledRequests",
+                            "namespace": "AWS/DynamoDB",
+                            "dimensions": [
+                              {
+                                "name": "Operation",
+                                "value": "GetItem"
+                              },
+                              {
+                                "name": "TableName",
+                                "value": {
+                                  "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefUsersTable9725E9C857961836"
+                                }
+                              }
+                            ]
+                          },
+                          "period": 300,
+                          "stat": "Sum"
+                        },
+                        "id": "getitem",
+                        "returnData": false
+                      }
+                    ],
+                    "threshold": 5,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "DynamoReadAlarm1": {
+            "id": "DynamoReadAlarm1",
+            "path": "TrinityOptimizationStack/DynamoReadAlarm1",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/DynamoReadAlarm1/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-dynamo-read-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomsTableA5C1D45BCB51EC57"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "TableName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomsTableA5C1D45BCB51EC57"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 2,
+                    "metricName": "ConsumedReadCapacityUnits",
+                    "namespace": "AWS/DynamoDB",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 100,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "DynamoWriteAlarm1": {
+            "id": "DynamoWriteAlarm1",
+            "path": "TrinityOptimizationStack/DynamoWriteAlarm1",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/DynamoWriteAlarm1/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-dynamo-write-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomsTableA5C1D45BCB51EC57"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "TableName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomsTableA5C1D45BCB51EC57"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 2,
+                    "metricName": "ConsumedWriteCapacityUnits",
+                    "namespace": "AWS/DynamoDB",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 100,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "DynamoThrottleAlarm1": {
+            "id": "DynamoThrottleAlarm1",
+            "path": "TrinityOptimizationStack/DynamoThrottleAlarm1",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/DynamoThrottleAlarm1/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-dynamo-throttle-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomsTableA5C1D45BCB51EC57"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "evaluationPeriods": 1,
+                    "metrics": [
+                      {
+                        "expression": "putitem + getitem",
+                        "id": "expr_1",
+                        "label": "Sum of throttled requests across all operations"
+                      },
+                      {
+                        "metricStat": {
+                          "metric": {
+                            "metricName": "ThrottledRequests",
+                            "namespace": "AWS/DynamoDB",
+                            "dimensions": [
+                              {
+                                "name": "Operation",
+                                "value": "PutItem"
+                              },
+                              {
+                                "name": "TableName",
+                                "value": {
+                                  "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomsTableA5C1D45BCB51EC57"
+                                }
+                              }
+                            ]
+                          },
+                          "period": 300,
+                          "stat": "Sum"
+                        },
+                        "id": "putitem",
+                        "returnData": false
+                      },
+                      {
+                        "metricStat": {
+                          "metric": {
+                            "metricName": "ThrottledRequests",
+                            "namespace": "AWS/DynamoDB",
+                            "dimensions": [
+                              {
+                                "name": "Operation",
+                                "value": "GetItem"
+                              },
+                              {
+                                "name": "TableName",
+                                "value": {
+                                  "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomsTableA5C1D45BCB51EC57"
+                                }
+                              }
+                            ]
+                          },
+                          "period": 300,
+                          "stat": "Sum"
+                        },
+                        "id": "getitem",
+                        "returnData": false
+                      }
+                    ],
+                    "threshold": 5,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "DynamoReadAlarm2": {
+            "id": "DynamoReadAlarm2",
+            "path": "TrinityOptimizationStack/DynamoReadAlarm2",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/DynamoReadAlarm2/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-dynamo-read-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomMembersTable66DCF076A160DBBD"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "TableName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomMembersTable66DCF076A160DBBD"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 2,
+                    "metricName": "ConsumedReadCapacityUnits",
+                    "namespace": "AWS/DynamoDB",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 100,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "DynamoWriteAlarm2": {
+            "id": "DynamoWriteAlarm2",
+            "path": "TrinityOptimizationStack/DynamoWriteAlarm2",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/DynamoWriteAlarm2/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-dynamo-write-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomMembersTable66DCF076A160DBBD"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "TableName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomMembersTable66DCF076A160DBBD"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 2,
+                    "metricName": "ConsumedWriteCapacityUnits",
+                    "namespace": "AWS/DynamoDB",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 100,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "DynamoThrottleAlarm2": {
+            "id": "DynamoThrottleAlarm2",
+            "path": "TrinityOptimizationStack/DynamoThrottleAlarm2",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/DynamoThrottleAlarm2/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-dynamo-throttle-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomMembersTable66DCF076A160DBBD"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "evaluationPeriods": 1,
+                    "metrics": [
+                      {
+                        "expression": "putitem + getitem",
+                        "id": "expr_1",
+                        "label": "Sum of throttled requests across all operations"
+                      },
+                      {
+                        "metricStat": {
+                          "metric": {
+                            "metricName": "ThrottledRequests",
+                            "namespace": "AWS/DynamoDB",
+                            "dimensions": [
+                              {
+                                "name": "Operation",
+                                "value": "PutItem"
+                              },
+                              {
+                                "name": "TableName",
+                                "value": {
+                                  "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomMembersTable66DCF076A160DBBD"
+                                }
+                              }
+                            ]
+                          },
+                          "period": 300,
+                          "stat": "Sum"
+                        },
+                        "id": "putitem",
+                        "returnData": false
+                      },
+                      {
+                        "metricStat": {
+                          "metric": {
+                            "metricName": "ThrottledRequests",
+                            "namespace": "AWS/DynamoDB",
+                            "dimensions": [
+                              {
+                                "name": "Operation",
+                                "value": "GetItem"
+                              },
+                              {
+                                "name": "TableName",
+                                "value": {
+                                  "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefRoomMembersTable66DCF076A160DBBD"
+                                }
+                              }
+                            ]
+                          },
+                          "period": 300,
+                          "stat": "Sum"
+                        },
+                        "id": "getitem",
+                        "returnData": false
+                      }
+                    ],
+                    "threshold": 5,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "DynamoReadAlarm3": {
+            "id": "DynamoReadAlarm3",
+            "path": "TrinityOptimizationStack/DynamoReadAlarm3",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/DynamoReadAlarm3/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-dynamo-read-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefVotesTable39A917ACAB0439C7"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "TableName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefVotesTable39A917ACAB0439C7"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 2,
+                    "metricName": "ConsumedReadCapacityUnits",
+                    "namespace": "AWS/DynamoDB",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 100,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "DynamoWriteAlarm3": {
+            "id": "DynamoWriteAlarm3",
+            "path": "TrinityOptimizationStack/DynamoWriteAlarm3",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/DynamoWriteAlarm3/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-dynamo-write-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefVotesTable39A917ACAB0439C7"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "TableName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefVotesTable39A917ACAB0439C7"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 2,
+                    "metricName": "ConsumedWriteCapacityUnits",
+                    "namespace": "AWS/DynamoDB",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 100,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "DynamoThrottleAlarm3": {
+            "id": "DynamoThrottleAlarm3",
+            "path": "TrinityOptimizationStack/DynamoThrottleAlarm3",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/DynamoThrottleAlarm3/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-dynamo-throttle-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefVotesTable39A917ACAB0439C7"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "evaluationPeriods": 1,
+                    "metrics": [
+                      {
+                        "expression": "putitem + getitem",
+                        "id": "expr_1",
+                        "label": "Sum of throttled requests across all operations"
+                      },
+                      {
+                        "metricStat": {
+                          "metric": {
+                            "metricName": "ThrottledRequests",
+                            "namespace": "AWS/DynamoDB",
+                            "dimensions": [
+                              {
+                                "name": "Operation",
+                                "value": "PutItem"
+                              },
+                              {
+                                "name": "TableName",
+                                "value": {
+                                  "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefVotesTable39A917ACAB0439C7"
+                                }
+                              }
+                            ]
+                          },
+                          "period": 300,
+                          "stat": "Sum"
+                        },
+                        "id": "putitem",
+                        "returnData": false
+                      },
+                      {
+                        "metricStat": {
+                          "metric": {
+                            "metricName": "ThrottledRequests",
+                            "namespace": "AWS/DynamoDB",
+                            "dimensions": [
+                              {
+                                "name": "Operation",
+                                "value": "GetItem"
+                              },
+                              {
+                                "name": "TableName",
+                                "value": {
+                                  "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefVotesTable39A917ACAB0439C7"
+                                }
+                              }
+                            ]
+                          },
+                          "period": 300,
+                          "stat": "Sum"
+                        },
+                        "id": "getitem",
+                        "returnData": false
+                      }
+                    ],
+                    "threshold": 5,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "DynamoReadAlarm4": {
+            "id": "DynamoReadAlarm4",
+            "path": "TrinityOptimizationStack/DynamoReadAlarm4",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/DynamoReadAlarm4/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-dynamo-read-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefMoviesCacheTableE1998D4813880915"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "TableName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefMoviesCacheTableE1998D4813880915"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 2,
+                    "metricName": "ConsumedReadCapacityUnits",
+                    "namespace": "AWS/DynamoDB",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 100,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "DynamoWriteAlarm4": {
+            "id": "DynamoWriteAlarm4",
+            "path": "TrinityOptimizationStack/DynamoWriteAlarm4",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/DynamoWriteAlarm4/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-dynamo-write-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefMoviesCacheTableE1998D4813880915"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "dimensions": [
+                      {
+                        "name": "TableName",
+                        "value": {
+                          "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefMoviesCacheTableE1998D4813880915"
+                        }
+                      }
+                    ],
+                    "evaluationPeriods": 2,
+                    "metricName": "ConsumedWriteCapacityUnits",
+                    "namespace": "AWS/DynamoDB",
+                    "period": 300,
+                    "statistic": "Sum",
+                    "threshold": 100,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "DynamoThrottleAlarm4": {
+            "id": "DynamoThrottleAlarm4",
+            "path": "TrinityOptimizationStack/DynamoThrottleAlarm4",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/DynamoThrottleAlarm4/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
+                  "aws:cdk:cloudformation:props": {
+                    "alarmActions": [
+                      {
+                        "Ref": "CostAlarmTopicFF27CABA"
+                      }
+                    ],
+                    "alarmName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "trinity-dynamo-throttle-",
+                          {
+                            "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefMoviesCacheTableE1998D4813880915"
+                          },
+                          "-dev"
+                        ]
+                      ]
+                    },
+                    "comparisonOperator": "GreaterThanOrEqualToThreshold",
+                    "evaluationPeriods": 1,
+                    "metrics": [
+                      {
+                        "expression": "putitem + getitem",
+                        "id": "expr_1",
+                        "label": "Sum of throttled requests across all operations"
+                      },
+                      {
+                        "metricStat": {
+                          "metric": {
+                            "metricName": "ThrottledRequests",
+                            "namespace": "AWS/DynamoDB",
+                            "dimensions": [
+                              {
+                                "name": "Operation",
+                                "value": "PutItem"
+                              },
+                              {
+                                "name": "TableName",
+                                "value": {
+                                  "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefMoviesCacheTableE1998D4813880915"
+                                }
+                              }
+                            ]
+                          },
+                          "period": 300,
+                          "stat": "Sum"
+                        },
+                        "id": "putitem",
+                        "returnData": false
+                      },
+                      {
+                        "metricStat": {
+                          "metric": {
+                            "metricName": "ThrottledRequests",
+                            "namespace": "AWS/DynamoDB",
+                            "dimensions": [
+                              {
+                                "name": "Operation",
+                                "value": "GetItem"
+                              },
+                              {
+                                "name": "TableName",
+                                "value": {
+                                  "Fn::ImportValue": "TrinityMvpStack:ExportsOutputRefMoviesCacheTableE1998D4813880915"
+                                }
+                              }
+                            ]
+                          },
+                          "period": 300,
+                          "stat": "Sum"
+                        },
+                        "id": "getitem",
+                        "returnData": false
+                      }
+                    ],
+                    "threshold": 5,
+                    "treatMissingData": "notBreaching"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Alarm",
+              "version": "2.100.0"
+            }
+          },
+          "TrinityDashboard": {
+            "id": "TrinityDashboard",
+            "path": "TrinityOptimizationStack/TrinityDashboard",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/TrinityDashboard/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudWatch::Dashboard",
+                  "aws:cdk:cloudformation:props": {
+                    "dashboardBody": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "{\"widgets\":[{\"type\":\"metric\",\"width\":12,\"height\":6,\"x\":0,\"y\":0,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Estimated Monthly Costs\",\"region\":\"",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          "\",\"metrics\":[[\"AWS/Billing\",\"EstimatedCharges\",\"Currency\",\"USD\",{\"stat\":\"Maximum\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":12,\"height\":6,\"x\":0,\"y\":6,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Lambda Invocations\",\"region\":\"",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          "\",\"metrics\":[[\"AWS/Lambda\",\"Invocations\",{\"stat\":\"Sum\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":12,\"height\":6,\"x\":0,\"y\":12,\"properties\":{\"view\":\"timeSeries\",\"title\":\"DynamoDB Capacity Units\",\"region\":\"",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          "\",\"metrics\":[[\"AWS/DynamoDB\",\"ConsumedReadCapacityUnits\",{\"stat\":\"Sum\"}],[\"AWS/DynamoDB\",\"ConsumedWriteCapacityUnits\",{\"stat\":\"Sum\",\"yAxis\":\"right\"}]],\"yAxis\":{}}}]}"
+                        ]
+                      ]
+                    },
+                    "dashboardName": "trinity-cost-monitoring-dev"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.CfnDashboard",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudwatch.Dashboard",
+              "version": "2.100.0"
+            }
+          },
+          "DefaultLogRetention": {
+            "id": "DefaultLogRetention",
+            "path": "TrinityOptimizationStack/DefaultLogRetention",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "TrinityOptimizationStack/DefaultLogRetention/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::Logs::LogGroup",
+                  "aws:cdk:cloudformation:props": {
+                    "logGroupName": "/aws/lambda/trinity-default-dev",
+                    "retentionInDays": 7
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_logs.CfnLogGroup",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_logs.LogGroup",
+              "version": "2.100.0"
+            }
+          },
+          "CostAlarmTopicArn": {
+            "id": "CostAlarmTopicArn",
+            "path": "TrinityOptimizationStack/CostAlarmTopicArn",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "DashboardUrl": {
+            "id": "DashboardUrl",
+            "path": "TrinityOptimizationStack/DashboardUrl",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "BudgetName": {
+            "id": "BudgetName",
+            "path": "TrinityOptimizationStack/BudgetName",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "CDKMetadata": {
+            "id": "CDKMetadata",
+            "path": "TrinityOptimizationStack/CDKMetadata",
+            "children": {
+              "Default": {
+                "id": "Default",
+                "path": "TrinityOptimizationStack/CDKMetadata/Default",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnResource",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "constructs.Construct",
+              "version": "10.4.4"
+            }
+          },
+          "BootstrapVersion": {
+            "id": "BootstrapVersion",
+            "path": "TrinityOptimizationStack/BootstrapVersion",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnParameter",
+              "version": "2.100.0"
+            }
+          },
+          "CheckBootstrapVersion": {
+            "id": "CheckBootstrapVersion",
+            "path": "TrinityOptimizationStack/CheckBootstrapVersion",
             "constructInfo": {
               "fqn": "aws-cdk-lib.CfnRule",
               "version": "2.100.0"

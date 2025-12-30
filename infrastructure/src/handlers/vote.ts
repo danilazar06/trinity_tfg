@@ -1,6 +1,8 @@
 import { AppSyncResolverEvent, AppSyncResolverHandler } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { publishMatchFoundEvent, publishVoteUpdateEvent, getMovieTitle } from '../utils/appsync-publisher';
+import { logBusinessMetric, logError, PerformanceTimer } from '../utils/metrics';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -49,44 +51,94 @@ export const handler: AppSyncResolverHandler<any, any> = async (event: AppSyncRe
  * Procesar voto con algoritmo Stop-on-Match
  */
 async function processVote(userId: string, roomId: string, movieId: string): Promise<Room> {
+  const timer = new PerformanceTimer('ProcessVote');
   console.log(`🗳️ Procesando voto: Usuario ${userId}, Sala ${roomId}, Película ${movieId}`);
 
-  // 1. Verificar que la sala existe y está ACTIVE
-  const room = await getRoomAndValidate(roomId);
-  
-  // 2. Verificar que el usuario es miembro de la sala
-  await validateUserMembership(userId, roomId);
-  
-  // 3. Incrementar contador atómico en VotesTable
-  const currentVotes = await incrementVoteCount(roomId, movieId);
-  
-  // 4. Obtener total de miembros activos en la sala
-  const totalMembers = await getTotalActiveMembers(roomId);
-  
-  console.log(`📊 Votos actuales: ${currentVotes}, Miembros totales: ${totalMembers}`);
-  
-  // 5. Verificar si se alcanzó el consenso (Stop-on-Match)
-  if (currentVotes >= totalMembers) {
-    console.log('🎉 ¡Match encontrado! Actualizando sala...');
+  try {
+    // 1. Verificar que la sala existe y está ACTIVE
+    const room = await getRoomAndValidate(roomId);
     
-    // Actualizar sala con resultado
-    await updateRoomWithMatch(roomId, movieId);
+    // 2. Verificar que el usuario es miembro de la sala
+    await validateUserMembership(userId, roomId);
+    
+    // 3. Prevenir votos duplicados del mismo usuario para la misma película
+    await preventDuplicateVote(userId, roomId, movieId);
+    
+    // 4. Incrementar contador atómico en VotesTable
+    const currentVotes = await incrementVoteCount(roomId, movieId);
+    
+    // 5. Obtener total de miembros activos en la sala
+    const totalMembers = await getTotalActiveMembers(roomId);
+    
+    console.log(`📊 Votos actuales: ${currentVotes}, Miembros totales: ${totalMembers}`);
+    
+    // 6. Publicar evento de actualización de voto en tiempo real
+    await publishVoteUpdateEvent(roomId, userId, movieId, 'LIKE', currentVotes, totalMembers);
+    
+    // Log business metric
+    logBusinessMetric('VOTE_CAST', roomId, userId, {
+      movieId,
+      currentVotes,
+      totalMembers,
+      progress: totalMembers > 0 ? (currentVotes / totalMembers) * 100 : 0
+    });
+    
+    // 7. Verificar si se alcanzó el consenso (Stop-on-Match)
+    if (currentVotes >= totalMembers) {
+      console.log('🎉 ¡Match encontrado! Actualizando sala y notificando...');
+      
+      // Actualizar sala con resultado
+      await updateRoomWithMatch(roomId, movieId);
+      
+      // Obtener participantes para la notificación
+      const participants = await getRoomParticipants(roomId);
+      
+      // Obtener título de la película
+      const movieTitle = await getMovieTitle(movieId);
+      
+      // Publicar evento de match encontrado en tiempo real
+      await publishMatchFoundEvent(roomId, movieId, movieTitle, participants);
+      
+      // Log business metric for match
+      logBusinessMetric('MATCH_FOUND', roomId, userId, {
+        movieId,
+        movieTitle,
+        participantCount: participants.length,
+        votesRequired: totalMembers
+      });
+      
+      timer.finish(true, undefined, { 
+        result: 'match_found',
+        movieId,
+        participantCount: participants.length 
+      });
+      
+      return {
+        id: roomId,
+        status: 'MATCHED',
+        resultMovieId: movieId,
+        hostId: room.hostId,
+      };
+    }
+    
+    // 8. Si no hay match, retornar sala actualizada
+    timer.finish(true, undefined, { 
+      result: 'vote_recorded',
+      progress: `${currentVotes}/${totalMembers}` 
+    });
     
     return {
       id: roomId,
-      status: 'MATCHED',
-      resultMovieId: movieId,
+      status: room.status,
+      resultMovieId: room.resultMovieId,
       hostId: room.hostId,
     };
+    
+  } catch (error) {
+    logError('ProcessVote', error as Error, { userId, roomId, movieId });
+    timer.finish(false, (error as Error).name);
+    throw error;
   }
-  
-  // 6. Si no hay match, retornar sala actualizada
-  return {
-    id: roomId,
-    status: room.status,
-    resultMovieId: room.resultMovieId,
-    hostId: room.hostId,
-  };
 }
 
 /**
@@ -201,4 +253,68 @@ async function updateRoomWithMatch(roomId: string, movieId: string): Promise<voi
   }));
 
   console.log(`✅ Sala ${roomId} actualizada con match: película ${movieId}`);
+}
+
+/**
+ * Prevenir votos duplicados del mismo usuario para la misma película
+ */
+async function preventDuplicateVote(userId: string, roomId: string, movieId: string): Promise<void> {
+  const roomMovieId = `${roomId}_${movieId}`;
+  
+  try {
+    // Verificar si el usuario ya votó por esta película en esta sala
+    const existingVote = await docClient.send(new GetCommand({
+      TableName: process.env.USER_VOTES_TABLE!,
+      Key: { userId, roomMovieId },
+    }));
+
+    if (existingVote.Item) {
+      throw new Error(`Usuario ${userId} ya votó por la película ${movieId} en la sala ${roomId}`);
+    }
+
+    // Registrar el voto para prevenir duplicados
+    await docClient.send(new PutCommand({
+      TableName: process.env.USER_VOTES_TABLE!,
+      Item: {
+        userId,
+        roomMovieId,
+        roomId,
+        movieId,
+        votedAt: new Date().toISOString(),
+        voteType: 'LIKE' // Trinity solo tiene votos positivos
+      },
+      ConditionExpression: 'attribute_not_exists(userId) AND attribute_not_exists(roomMovieId)'
+    }));
+
+    console.log(`✅ Voto registrado: Usuario ${userId}, Sala ${roomId}, Película ${movieId}`);
+    
+  } catch (error: any) {
+    if (error.name === 'ConditionalCheckFailedException') {
+      throw new Error(`Usuario ${userId} ya votó por la película ${movieId} en la sala ${roomId}`);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Obtener lista de participantes de la sala
+ */
+async function getRoomParticipants(roomId: string): Promise<string[]> {
+  try {
+    const response = await docClient.send(new QueryCommand({
+      TableName: process.env.ROOM_MEMBERS_TABLE!,
+      KeyConditionExpression: 'roomId = :roomId',
+      FilterExpression: 'isActive = :active',
+      ExpressionAttributeValues: {
+        ':roomId': roomId,
+        ':active': true,
+      },
+      ProjectionExpression: 'userId',
+    }));
+
+    return response.Items?.map(item => item.userId) || [];
+  } catch (error) {
+    console.warn('⚠️ Error obteniendo participantes:', error);
+    return [];
+  }
 }
