@@ -14,6 +14,8 @@ export class TrinityStack extends cdk.Stack {
   private _api!: appsync.GraphqlApi;
   private _userPool!: cognito.UserPool;
   private _userPoolClient!: cognito.UserPoolClient;
+  private _identityPool!: cognito.CfnIdentityPool;
+  private _userPoolDomain!: cognito.UserPoolDomain;
   
   // DynamoDB Tables
   private _usersTable!: dynamodb.Table;
@@ -35,6 +37,8 @@ export class TrinityStack extends cdk.Stack {
   public get api() { return this._api; }
   public get userPool() { return this._userPool; }
   public get userPoolClient() { return this._userPoolClient; }
+  public get identityPool() { return this._identityPool; }
+  public get userPoolDomain() { return this._userPoolDomain; }
   public get usersTable() { return this._usersTable; }
   public get roomsTable() { return this._roomsTable; }
   public get roomMembersTable() { return this._roomMembersTable; }
@@ -153,7 +157,14 @@ export class TrinityStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // User Pool Client para app móvil
+    // User Pool Domain (required for federated authentication)
+    this._userPoolDomain = this._userPool.addDomain('TrinityUserPoolDomain', {
+      cognitoDomain: {
+        domainPrefix: `trinity-auth-${stage}-${Math.random().toString(36).substring(2, 8)}`,
+      },
+    });
+
+    // User Pool Client para app móvil con soporte para federated auth
     this._userPoolClient = this._userPool.addClient('TrinityMobileClient', {
       userPoolClientName: `trinity-mobile-${stage}`,
       authFlows: {
@@ -161,6 +172,49 @@ export class TrinityStack extends cdk.Stack {
         userSrp: true,
       },
       generateSecret: false, // Para aplicaciones móviles
+      oAuth: {
+        flows: {
+          authorizationCodeGrant: true,
+          implicitCodeGrant: true,
+        },
+        scopes: [
+          cognito.OAuthScope.EMAIL,
+          cognito.OAuthScope.OPENID,
+          cognito.OAuthScope.PROFILE,
+        ],
+        callbackUrls: [
+          'trinity://auth/callback',
+          'https://trinity.app/auth/callback', // Fallback for testing
+        ],
+        logoutUrls: [
+          'trinity://auth/logout',
+          'https://trinity.app/auth/logout', // Fallback for testing
+        ],
+      },
+      supportedIdentityProviders: [
+        cognito.UserPoolClientIdentityProvider.COGNITO,
+        cognito.UserPoolClientIdentityProvider.GOOGLE,
+      ],
+    });
+
+    // Google Identity Provider (will be configured manually in AWS Console)
+    // Note: Google client credentials need to be added manually in AWS Console
+    // after setting up Google OAuth application
+
+    // Identity Pool for federated authentication
+    this._identityPool = new cognito.CfnIdentityPool(this, 'TrinityIdentityPool', {
+      identityPoolName: `trinity_identity_pool_${stage}`,
+      allowUnauthenticatedIdentities: false,
+      cognitoIdentityProviders: [
+        {
+          clientId: this._userPoolClient.userPoolClientId,
+          providerName: this._userPool.userPoolProviderName,
+          serverSideTokenCheck: true,
+        },
+      ],
+      supportedLoginProviders: {
+        'accounts.google.com': process.env.GOOGLE_CLIENT_ID || 'GOOGLE_CLIENT_ID_PLACEHOLDER',
+      },
     });
 
     // Post Confirmation Trigger (se configurará después de crear AuthHandler)
@@ -419,6 +473,16 @@ export class TrinityStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'UserPoolClientId', {
       value: this._userPoolClient.userPoolClientId,
       description: 'ID del User Pool Client para la app móvil',
+    });
+
+    new cdk.CfnOutput(this, 'IdentityPoolId', {
+      value: this._identityPool.ref,
+      description: 'ID del Identity Pool de Cognito para federated auth',
+    });
+
+    new cdk.CfnOutput(this, 'UserPoolDomain', {
+      value: this._userPoolDomain.domainName,
+      description: 'Dominio del User Pool para hosted UI',
     });
 
     new cdk.CfnOutput(this, 'Region', {

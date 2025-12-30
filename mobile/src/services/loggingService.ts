@@ -133,8 +133,8 @@ class LoggingService {
    * Initialize logging system
    */
   private initializeLogging(): void {
-    // Set up global error handlers
-    if (typeof window !== 'undefined') {
+    // Set up global error handlers (only in web environments)
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
       window.addEventListener('error', (event) => {
         this.error('Global Error', event.error?.message || 'Unknown error', {
           filename: event.filename,

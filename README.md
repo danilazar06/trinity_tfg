@@ -6,11 +6,11 @@ Trinity es una **aplicación móvil para votar películas en grupo**, construida
 
 ### ✨ Características Principales
 
-- 🔐 **Autenticación Completa**: Email/Password + Google Sign-In con fallback inteligente
-- 🎬 **Votación de Películas**: Sistema de votación intuitivo y rápido
+- 🔐 **Autenticación Completa**: Email/Password + Google Sign-In con AWS Cognito
+- 🎬 **Votación de Películas**: Sistema de votación intuitivo y rápido (próximamente)
 - 📱 **App Móvil Nativa**: React Native con Expo para iOS y Android
 - 🌐 **También Web**: Funciona perfectamente en navegadores
-- ⚡ **Tiempo Real**: Actualizaciones instantáneas de votaciones
+- ⚡ **Tiempo Real**: Actualizaciones instantáneas con AWS AppSync
 - 🛡️ **Seguro**: Backend robusto con AWS y autenticación federada
 - 🎨 **Diseño Moderno**: Interfaz elegante con animaciones fluidas
 - 🔄 **Multi-Entorno**: Funciona en Expo Go, Development Build y Production
@@ -20,28 +20,27 @@ Trinity es una **aplicación móvil para votar películas en grupo**, construida
 ### Stack Tecnológico Completo
 
 #### 📱 Frontend Móvil (100% Completado)
-- **Framework**: React Native + Expo SDK 50+
+- **Framework**: React Native + Expo SDK 52+
 - **Navegación**: Expo Router con navegación nativa
 - **UI/UX**: Componentes custom + Linear Gradients + Animaciones
-- **Autenticación**: Google Sign-In nativo + Email/Password con fallback inteligente
+- **Autenticación**: Google Sign-In + Email/Password con AWS Cognito
 - **Estado**: React Context + Custom Hooks optimizados
-- **Testing**: Jest + Property-based testing + E2E tests
+- **Testing**: Jest + Property-based testing
 - **Build**: EAS Build con Development/Production builds
 
 #### 🚀 Backend (100% Completado)
 - **Framework**: NestJS (Node.js/TypeScript) con arquitectura modular
 - **Base de Datos**: AWS DynamoDB con índices optimizados
-- **Autenticación**: AWS Cognito + Google OAuth federado
+- **Autenticación**: AWS Cognito User Pool + Identity Pool
 - **Real-time**: AWS AppSync + GraphQL con subscriptions
 - **APIs**: REST + GraphQL híbrido
 - **Seguridad**: JWT, Rate Limiting, Validaciones, CORS
 - **Monitoreo**: CloudWatch + métricas empresariales
-- **Testing**: Jest + Supertest + Integration tests
 
 #### ☁️ Infraestructura AWS (100% Completada)
 - **Compute**: AWS Lambda functions serverless
 - **Database**: DynamoDB con GSI y TTL
-- **Authentication**: Cognito User Pool + Identity Pool
+- **Authentication**: Cognito User Pool + Identity Pool + Google OAuth
 - **API**: AppSync GraphQL + API Gateway
 - **Monitoring**: CloudWatch + X-Ray tracing
 - **Deployment**: AWS CDK + automated scripts
@@ -55,36 +54,18 @@ trinity/
 │   ├── app/                   # Pantallas principales (Expo Router)
 │   │   ├── login.tsx         # ✅ Login con Google Sign-In + Email
 │   │   ├── register.tsx      # ✅ Registro multi-método
-│   │   ├── account-settings.tsx # ✅ Configuración de cuenta
-│   │   ├── (tabs)/           # ✅ Navegación principal
-│   │   └── debug/            # ✅ Herramientas de diagnóstico
+│   │   └── (tabs)/           # ✅ Navegación principal
 │   ├── src/
 │   │   ├── components/       # ✅ Componentes reutilizables
-│   │   │   ├── GoogleSignInButton.tsx
-│   │   │   ├── GoogleSignInDiagnostics.tsx
-│   │   │   └── GoogleAccountLinking.tsx
 │   │   ├── context/          # ✅ Contextos de React
-│   │   │   └── EnhancedAuthContext.tsx
+│   │   │   └── CognitoAuthContext.tsx
 │   │   ├── services/         # ✅ Servicios y APIs
-│   │   │   ├── googleSignInManager.ts
-│   │   │   ├── environmentService.ts
-│   │   │   ├── configurationValidator.ts
-│   │   │   ├── cognitoGoogleIntegration.ts
-│   │   │   └── auth-strategies/
-│   │   ├── hooks/            # ✅ Custom hooks
-│   │   │   └── useGoogleSignIn.ts
-│   │   ├── types/            # ✅ Tipos TypeScript
-│   │   │   └── googleSignIn.ts
-│   │   ├── tests/            # ✅ Tests completos (11 suites)
-│   │   │   ├── properties/   # Property-based tests
-│   │   │   ├── automated/    # Tests de entorno
-│   │   │   ├── e2e/         # Tests end-to-end
-│   │   │   └── run-google-signin-tests.ts
+│   │   │   ├── cognitoAuthService.ts
+│   │   │   ├── googleAuthService.ts
+│   │   │   └── federatedAuthService.ts
+│   │   ├── config/           # ✅ Configuración
+│   │   │   └── aws-config.ts
 │   │   └── utils/            # ✅ Utilidades y tema
-│   ├── scripts/              # ✅ Scripts de automatización
-│   │   ├── build-development.sh
-│   │   ├── install-development-build.sh
-│   │   └── diagnose-google-signin.js
 │   ├── app.json             # ✅ Configuración Expo
 │   ├── eas.json             # ✅ Configuración EAS Build
 │   └── package.json         # ✅ Dependencias y scripts
@@ -97,24 +78,17 @@ trinity/
 │   │   ├── infrastructure/  # 🏗️ Servicios AWS
 │   │   ├── security/        # 🛡️ Seguridad empresarial
 │   │   └── monitoring/      # 📈 Monitoreo y métricas
-│   ├── tests/               # 🧪 Tests completos
 │   ├── docker-compose.production.yml
 │   ├── Dockerfile.production
 │   └── ecosystem.config.js  # PM2 configuration
 ├── 🏗️ infrastructure/        # Infraestructura AWS CDK (100% Completa)
 │   ├── lib/                 # ✅ Stacks de CDK
-│   │   ├── trinity-stack.ts
-│   │   ├── database-stack.ts
-│   │   └── monitoring-stack.ts
-│   ├── src/                 # ✅ Lambdas y servicios
-│   │   ├── auth/
-│   │   ├── voting/
-│   │   └── realtime/
+│   │   └── trinity-stack.ts # Con Identity Pool y Google OAuth
 │   ├── scripts/             # ✅ Scripts de deployment
 │   │   ├── deploy-production.ps1
 │   │   ├── deploy-production.sh
-│   │   ├── deploy.ps1
-│   │   └── deploy.sh
+│   │   ├── setup-google-signin.ps1
+│   │   └── setup-google-signin.sh
 │   ├── cdk.json
 │   ├── cdk-outputs.json
 │   └── package.json
@@ -526,6 +500,10 @@ cdk deploy --all --require-approval never
 npm run test:deployment
 ```
 
+**📖 Para guías detalladas de deployment y testing manual, consultar:**
+- `infrastructure/DEPLOYMENT.md` - Guía completa de deployment en producción
+- `infrastructure/MANUAL_TESTING_GUIDE.md` - Guía de testing manual del backend
+
 ### Variables de Entorno de Producción
 
 #### Backend (.env)
@@ -696,9 +674,10 @@ eas secret:list
 ## 📞 Soporte y Recursos
 
 ### 📚 Documentación
-- **README.md**: Documentación principal del proyecto
-- **mobile/README.md**: Documentación específica de la app móvil
-- **arquitectura_proyecto.md**: Arquitectura técnica detallada
+- **README.md**: Documentación principal del proyecto (este archivo)
+- **arquitectura_proyecto.md**: Arquitectura técnica detallada del sistema
+- **infrastructure/DEPLOYMENT.md**: Guía completa de deployment en producción
+- **infrastructure/MANUAL_TESTING_GUIDE.md**: Guía de testing manual del backend
 - **.kiro/specs/**: Especificaciones de desarrollo activas
 
 ### 🛠️ Herramientas de Desarrollo
@@ -762,7 +741,7 @@ curl http://localhost:3002/api/health
 4. ✅ **Infraestructura empresarial** con monitoreo y alertas
 5. ✅ **Testing de calidad empresarial** con 95%+ cobertura
 6. ✅ **Deployment automatizado** listo para producción
-7. ✅ **Documentación completa** organizada y actualizada
+7. ✅ **Documentación completa** consolidada y organizada
 
 #### **Siguiente paso:**
 Implementar las pantallas y funcionalidades de votación de películas usando toda la infraestructura robusta ya construida.
@@ -773,6 +752,6 @@ Implementar las pantallas y funcionalidades de votación de películas usando to
 - 🔒 **Security Enterprise** con AWS best practices
 - 📈 **Monitoring Completo** con CloudWatch y alertas
 - 🚀 **CI/CD Ready** con deployment automatizado
-- 📖 **Documentación Limpia** consolidada y organizada
+- 📖 **Documentación Consolidada** en README principal
 
 **Trinity está listo para escalar y crecer como una plataforma empresarial sólida.** 💪

@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../src/context/AuthContext';
+import { useCognitoAuth } from '../src/context/CognitoAuthContext';
 import { Button } from '../src/components';
 import { colors, spacing, fontSize } from '../src/utils/theme';
 
 export default function HomeScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout } = useCognitoAuth();
 
   return (
     <SafeAreaView style={styles.container}>
