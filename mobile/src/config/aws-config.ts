@@ -6,6 +6,7 @@
 export interface AWSConfig {
   region: string;
   graphqlEndpoint: string;
+  realtimeEndpoint: string;
   userPoolId: string;
   userPoolWebClientId: string;
   identityPoolId: string;
@@ -16,10 +17,11 @@ export interface AWSConfig {
 export const AWS_CONFIG: AWSConfig = {
   region: 'eu-west-1',
   graphqlEndpoint: 'https://imx6fos5lnd3xkdchl4rqtv4pi.appsync-api.eu-west-1.amazonaws.com/graphql',
+  realtimeEndpoint: 'wss://imx6fos5lnd3xkdchl4rqtv4pi.appsync-realtime-api.eu-west-1.amazonaws.com/graphql',
   userPoolId: 'eu-west-1_6UxioIj4z',
   userPoolWebClientId: '59dpqsm580j14ulkcha19shl64', // From CDK deployment
-  identityPoolId: 'eu-west-1:YOUR_IDENTITY_POOL_ID', // Will be updated after deployment
-  userPoolDomain: 'trinity-auth-dev.auth.eu-west-1.amazoncognito.com', // Will be updated after deployment
+  identityPoolId: '', // Will be populated by setup script
+  userPoolDomain: 'trinity-auth-dev.auth.eu-west-1.amazoncognito.com',
 };
 
 // Environment detection

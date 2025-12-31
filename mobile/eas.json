@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 5.9.0"
+    "version": ">= 5.9.0",
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -22,6 +23,11 @@
       "env": {
         "GOOGLE_SIGNIN_ENABLED": "false",
         "NODE_ENV": "preview"
+      }
+    },
+    "minimal": {
+      "android": {
+        "buildType": "apk"
       }
     },
     "production": {

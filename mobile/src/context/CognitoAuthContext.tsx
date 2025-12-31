@@ -89,11 +89,20 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       
-      // First, perform migration check
+      console.log('🔍 CognitoAuth: Checking auth status...');
+      
+      // First, perform migration check with error handling
       console.log('🔍 Checking for legacy token migration...');
       dispatch({ type: 'SET_MIGRATION_STATUS', payload: 'checking' });
       
-      const migrationResult = await migrationService.performMigrationCheck();
+      let migrationResult: string;
+      try {
+        migrationResult = await migrationService.performMigrationCheck();
+      } catch (migrationError) {
+        console.error('❌ Migration check failed:', migrationError);
+        // Continue with auth check even if migration fails
+        migrationResult = 'completed';
+      }
       
       switch (migrationResult) {
         case 'no_migration_needed':
@@ -111,7 +120,11 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
           dispatch({ type: 'SET_MIGRATION_STATUS', payload: 'relogin_required' });
           
           // Show re-login message to user
-          migrationService.showReloginMessage();
+          try {
+            migrationService.showReloginMessage();
+          } catch (alertError) {
+            console.warn('⚠️ Could not show re-login message:', alertError);
+          }
           
           // Clear any existing auth state
           dispatch({ type: 'SET_USER', payload: null });
@@ -119,9 +132,24 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
       
       // After migration check, proceed with normal auth check
-      const authResult = await cognitoAuthService.checkStoredAuth();
+      console.log('🔍 CognitoAuth: Checking stored auth...');
+      let authResult;
+      try {
+        authResult = await cognitoAuthService.checkStoredAuth();
+      } catch (authError) {
+        console.error('❌ Auth check failed:', authError);
+        // Set default auth result on error
+        authResult = { isAuthenticated: false };
+      }
+      
+      console.log('🔍 CognitoAuth: Auth result:', {
+        isAuthenticated: authResult.isAuthenticated,
+        hasUser: !!authResult.user,
+        hasTokens: !!authResult.tokens
+      });
       
       if (authResult.isAuthenticated && authResult.user && authResult.tokens) {
+        console.log('✅ CognitoAuth: User authenticated, setting user state');
         dispatch({ 
           type: 'SET_USER', 
           payload: { 
@@ -130,10 +158,12 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
           } 
         });
       } else {
+        console.log('❌ CognitoAuth: No valid auth found, setting null user');
         dispatch({ type: 'SET_USER', payload: null });
       }
     } catch (error) {
-      console.error('Check auth status error:', error);
+      console.error('❌ CognitoAuth: Check auth status error:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Error verificando autenticación' });
       dispatch({ type: 'SET_USER', payload: null });
       dispatch({ type: 'SET_MIGRATION_STATUS', payload: 'completed' });
     }
@@ -201,6 +231,8 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
     dispatch({ type: 'CLEAR_ERROR' });
 
     try {
+      console.log('🔍 Starting Google Sign-In process...');
+      
       const result = await federatedAuthService.signInWithGoogle();
       
       if (result.success && result.data) {
@@ -220,11 +252,28 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
         
         console.log('✅ Google Sign-In successful with Cognito');
       } else {
+        console.log('❌ Google Sign-In failed:', result.error);
         dispatch({ type: 'SET_ERROR', payload: result.error || 'Error al iniciar sesión con Google' });
       }
     } catch (error: any) {
       console.error('Google Sign-In error:', error);
-      dispatch({ type: 'SET_ERROR', payload: error.message || 'Error de conexión con Google' });
+      
+      // Provide user-friendly error messages
+      let errorMessage = 'Error de conexión con Google';
+      
+      if (error.message) {
+        if (error.message.includes('not available')) {
+          errorMessage = 'Google Sign-In no está disponible en este entorno. Usa email y contraseña.';
+        } else if (error.message.includes('configuration')) {
+          errorMessage = 'Google Sign-In no está configurado correctamente.';
+        } else if (error.message.includes('cancelled')) {
+          errorMessage = 'Inicio de sesión cancelado.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      dispatch({ type: 'SET_ERROR', payload: errorMessage });
     }
   };
 

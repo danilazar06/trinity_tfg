@@ -11,7 +11,12 @@ async function bootstrap() {
     origin:
       process.env.NODE_ENV === 'production'
         ? ['https://your-frontend-domain.com']
-        : ['http://localhost:3000', 'http://localhost:19006'], // React Native Metro
+        : [
+            'http://localhost:3000', 
+            'http://localhost:19006', // React Native Metro
+            'http://192.168.0.27:8081', // Expo Go
+            'exp://192.168.0.27:8081', // Expo protocol
+          ],
     credentials: true,
   });
 
@@ -44,9 +49,10 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   const port = process.env.PORT || 3002;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 
   console.log(`🚀 Trinity API ejecutándose en http://localhost:${port}`);
+  console.log(`🌐 También disponible en http://192.168.0.27:${port}`);
   console.log(
     `📚 Documentación disponible en http://localhost:${port}/api/docs`,
   );

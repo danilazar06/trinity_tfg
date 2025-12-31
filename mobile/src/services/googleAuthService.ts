@@ -1,12 +1,13 @@
 /**
  * Google Authentication Service
  * Handles Google Sign-In integration with AWS Cognito
+ * Uses simplified Google Sign-In for better APK compatibility
  */
 
-import { GoogleSignin, GoogleSigninButton, statusCodes } from '@react-native-google-signin/google-signin';
 import { getAWSConfig } from '../config/aws-config';
 import { loggingService } from './loggingService';
-import { CognitoIdentityCredentials } from 'amazon-cognito-identity-js';
+import { simpleGoogleSignInService, SimpleGoogleUser } from './simpleGoogleSignIn';
+import { environmentDetectionService } from './environmentDetectionService';
 
 export interface GoogleUser {
   id: string;
@@ -25,39 +26,9 @@ export interface GoogleAuthResult {
 
 class GoogleAuthService {
   private config = getAWSConfig();
-  private isConfigured = false;
 
   constructor() {
-    this.configureGoogleSignIn();
-  }
-
-  /**
-   * Configure Google Sign-In
-   */
-  private async configureGoogleSignIn() {
-    try {
-      await GoogleSignin.configure({
-        webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || 'YOUR_GOOGLE_WEB_CLIENT_ID',
-        iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-        androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-        offlineAccess: false,
-        hostedDomain: '', // Restrict to specific domain if needed
-        forceCodeForRefreshToken: true,
-        accountName: '',
-        googleServicePlistPath: '',
-        openIdConnect: {
-          issuer: 'https://accounts.google.com',
-          additionalParameters: {},
-          customHeaders: {},
-        },
-      });
-
-      this.isConfigured = true;
-      loggingService.info('GoogleAuthService', 'Google Sign-In configured successfully');
-    } catch (error) {
-      console.error('Google Sign-In configuration error:', error);
-      loggingService.error('GoogleAuthService', 'Failed to configure Google Sign-In', { error });
-    }
+    loggingService.info('GoogleAuthService', 'Google Auth service initialized');
   }
 
   /**
@@ -65,7 +36,7 @@ class GoogleAuthService {
    */
   async isSignedIn(): Promise<boolean> {
     try {
-      return await GoogleSignin.isSignedIn();
+      return await simpleGoogleSignInService.isSignedIn();
     } catch (error) {
       console.error('Error checking Google sign-in status:', error);
       return false;
@@ -77,12 +48,11 @@ class GoogleAuthService {
    */
   async getCurrentUser(): Promise<GoogleUser | null> {
     try {
-      const userInfo = await GoogleSignin.signInSilently();
-      return this.mapGoogleUserInfo(userInfo);
+      const user = await simpleGoogleSignInService.getCurrentUser();
+      if (!user) return null;
+
+      return this.mapSimpleUserToGoogleUser(user);
     } catch (error) {
-      if (error.code === statusCodes.SIGN_IN_REQUIRED) {
-        return null;
-      }
       console.error('Error getting current Google user:', error);
       loggingService.error('GoogleAuthService', 'Failed to get current user', { error });
       return null;
@@ -93,64 +63,60 @@ class GoogleAuthService {
    * Sign in with Google
    */
   async signIn(): Promise<{ success: boolean; data?: GoogleAuthResult; error?: string }> {
-    if (!this.isConfigured) {
-      return {
-        success: false,
-        error: 'Google Sign-In not configured properly',
-      };
-    }
-
     try {
       loggingService.logAuth('google_signin_attempt', {});
 
-      // Check if Google Play Services are available
-      await GoogleSignin.hasPlayServices();
+      // Check environment first
+      const env = environmentDetectionService.detectEnvironment();
+      console.log('🔍 Google Sign-In environment:', env.runtime);
 
-      // Perform Google Sign-In
-      const userInfo = await GoogleSignin.signIn();
+      // Use simplified Google Sign-In service
+      const result = await simpleGoogleSignInService.signIn();
       
-      if (!userInfo.data) {
+      if (!result.success) {
+        console.log('❌ Google Sign-In failed:', result.error);
+        
+        // Show user-friendly error if needed
+        if (result.error && !result.canRetry) {
+          simpleGoogleSignInService.showErrorMessage(result.error);
+        }
+        
+        return {
+          success: false,
+          error: result.error || 'Error durante Google Sign-In',
+        };
+      }
+
+      if (!result.user) {
         throw new Error('No user data received from Google');
       }
 
-      const user = this.mapGoogleUserInfo(userInfo);
-      
-      // Get tokens
-      const tokens = await GoogleSignin.getTokens();
-
-      const result: GoogleAuthResult = {
-        user,
-        idToken: tokens.idToken,
-        accessToken: tokens.accessToken,
+      const authResult: GoogleAuthResult = {
+        user: this.mapSimpleUserToGoogleUser(result.user),
+        idToken: result.user.idToken,
+        accessToken: result.user.accessToken || '',
       };
 
       loggingService.logAuth('google_signin_success', {
-        userId: user.id,
-        email: user.email,
+        userId: result.user.id,
+        email: result.user.email,
       });
 
       return {
         success: true,
-        data: result,
+        data: authResult,
       };
 
     } catch (error: any) {
       console.error('Google Sign-In error:', error);
       
       loggingService.logAuth('google_signin_error', {
-        errorCode: error.code,
         errorMessage: error.message,
       });
 
       let errorMessage = 'Error al iniciar sesión con Google';
 
-      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-        errorMessage = 'Inicio de sesión cancelado';
-      } else if (error.code === statusCodes.IN_PROGRESS) {
-        errorMessage = 'Inicio de sesión en progreso';
-      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        errorMessage = 'Google Play Services no disponible';
-      } else if (error.message) {
+      if (error.message) {
         errorMessage = error.message;
       }
 
@@ -166,7 +132,7 @@ class GoogleAuthService {
    */
   async signOut(): Promise<{ success: boolean; error?: string }> {
     try {
-      await GoogleSignin.signOut();
+      await simpleGoogleSignInService.signOut();
       
       loggingService.logAuth('google_signout', { success: true });
       
@@ -190,7 +156,8 @@ class GoogleAuthService {
    */
   async revokeAccess(): Promise<{ success: boolean; error?: string }> {
     try {
-      await GoogleSignin.revokeAccess();
+      // For simplified service, just sign out
+      await simpleGoogleSignInService.signOut();
       
       loggingService.logAuth('google_revoke_access', { success: true });
       
@@ -210,40 +177,50 @@ class GoogleAuthService {
   }
 
   /**
-   * Map Google user info to our user interface
+   * Map SimpleGoogleUser to GoogleUser interface
    */
-  private mapGoogleUserInfo(userInfo: any): GoogleUser {
-    const user = userInfo.data?.user || userInfo.user || userInfo;
+  private mapSimpleUserToGoogleUser(simpleUser: SimpleGoogleUser): GoogleUser {
+    const nameParts = simpleUser.name.split(' ');
     
     return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      givenName: user.givenName,
-      familyName: user.familyName,
-      photo: user.photo,
+      id: simpleUser.id,
+      email: simpleUser.email,
+      name: simpleUser.name,
+      givenName: nameParts[0] || simpleUser.name,
+      familyName: nameParts.slice(1).join(' ') || undefined,
+      photo: simpleUser.photo,
     };
   }
 
   /**
-   * Get Google Sign-In button component
+   * Check if Google Sign-In is available
    */
-  getSignInButton() {
-    return GoogleSigninButton;
+  async isAvailable(): Promise<boolean> {
+    return await simpleGoogleSignInService.isAvailable();
   }
 
   /**
-   * Get available button sizes
+   * Get environment-specific status message
    */
-  getButtonSizes() {
-    return GoogleSigninButton.Size;
+  getStatusMessage(): string {
+    return simpleGoogleSignInService.getStatusMessage();
   }
 
   /**
-   * Get available button colors
+   * Get detailed diagnostics for debugging
    */
-  getButtonColors() {
-    return GoogleSigninButton.Color;
+  async getDiagnostics(): Promise<any> {
+    const env = environmentDetectionService.detectEnvironment();
+    const available = await this.isAvailable();
+    const statusMessage = this.getStatusMessage();
+    
+    return {
+      environment: env,
+      available,
+      statusMessage,
+      currentUser: await this.getCurrentUser(),
+      isSignedIn: await this.isSignedIn(),
+    };
   }
 }
 

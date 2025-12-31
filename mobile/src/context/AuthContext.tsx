@@ -89,11 +89,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const checkAuthStatus = async () => {
     try {
-      const token = await AsyncStorage.getItem('authToken');
+      // Verificar tokens de Cognito primero
+      const cognitoTokens = await AsyncStorage.getItem('cognitoTokens');
+      let token = null;
+      
+      if (cognitoTokens) {
+        const tokens = JSON.parse(cognitoTokens);
+        token = tokens.accessToken || tokens.idToken;
+      } else {
+        // Fallback al token legacy
+        token = await AsyncStorage.getItem('authToken');
+      }
+      
       if (token) {
         // Si es un token mock, limpiar automáticamente
         if (token.startsWith('mock-token-')) {
           await AsyncStorage.removeItem('authToken');
+          await AsyncStorage.removeItem('cognitoTokens');
           await AsyncStorage.removeItem('userData');
           dispatch({ type: 'SET_USER', payload: null });
           return;
@@ -108,11 +120,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           } catch (error: any) {
             // Si el token es inválido, limpiar todo
             await AsyncStorage.removeItem('authToken');
+            await AsyncStorage.removeItem('cognitoTokens');
             await AsyncStorage.removeItem('userData');
             dispatch({ type: 'SET_USER', payload: null });
           }
         } else {
           await AsyncStorage.removeItem('authToken');
+          await AsyncStorage.removeItem('cognitoTokens');
           dispatch({ type: 'SET_USER', payload: null });
         }
       } else {
@@ -121,6 +135,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch {
       // En caso de error, limpiar todo
       await AsyncStorage.removeItem('authToken');
+      await AsyncStorage.removeItem('cognitoTokens');
       await AsyncStorage.removeItem('userData');
       dispatch({ type: 'SET_USER', payload: null });
     }
@@ -152,7 +167,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (response.success && response.data) {
           const { accessToken, idToken, user } = response.data;
           
-          // Usar accessToken preferentemente, luego idToken
+          // Guardar todos los tokens de Cognito
+          const tokens = {
+            accessToken: accessToken || '',
+            idToken: idToken || '',
+            refreshToken: response.data.refreshToken || ''
+          };
+          
+          // Usar accessToken preferentemente, luego idToken para compatibilidad
           let tokenToSave = '';
           if (accessToken && accessToken.length > 0) {
             tokenToSave = accessToken;
@@ -169,6 +191,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             dispatch({ type: 'SET_ERROR', payload: 'Token recibido no es válido' });
             return;
           }
+          
+          // Guardar tokens de Cognito para el apiClient
+          await AsyncStorage.setItem('cognitoTokens', JSON.stringify(tokens));
           
           // Obtener datos locales previos para preservar cambios no sincronizados
           const savedUserData = await AsyncStorage.getItem('userData');
@@ -232,6 +257,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     await AsyncStorage.removeItem('authToken');
+    await AsyncStorage.removeItem('cognitoTokens');
     await AsyncStorage.removeItem('userData');
     dispatch({ type: 'LOGOUT' });
   };

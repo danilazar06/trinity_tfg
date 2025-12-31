@@ -33,6 +33,18 @@ class FederatedAuthService {
     try {
       loggingService.logAuth('federated_google_signin_attempt', {});
 
+      // Check if Google Sign-In is available in current environment
+      const googleSignInService = await import('./googleSignInService');
+      const availability = await googleSignInService.googleSignInService.getAvailabilityStatus();
+      
+      if (!availability.canSignIn) {
+        console.log('❌ Google Sign-In not available:', availability.message);
+        return {
+          success: false,
+          error: availability.message,
+        };
+      }
+
       // Step 1: Sign in with Google
       const googleResult = await googleAuthService.signIn();
       

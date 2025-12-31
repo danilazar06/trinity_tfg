@@ -96,22 +96,36 @@ class RoomService {
    * Obtener salas del usuario
    */
   async getUserRooms(): Promise<RoomSummary[]> {
+    console.log('🔄 RoomService: getUserRooms called');
     try {
       if (USE_MOCK) {
+        console.log('📝 RoomService: Using mock data');
         return this.mockGetUserRooms();
       }
+      console.log('🌐 RoomService: Making REST API call to /rooms');
       const result = await apiClient.get<RoomSummary[]>('/rooms');
+      console.log('✅ RoomService: REST API call successful', result);
       return result;
     } catch (error: any) {
+      console.error('❌ RoomService: REST API call failed', error);
+      console.log('🔍 RoomService: Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      
       // Si hay error de autenticación o no hay salas, devolver array vacío
       if (error.response?.status === 401 || error.response?.status === 404) {
+        console.log('🔒 RoomService: Auth error or not found, returning empty array');
         return [];
       }
       // Solo usar mock en desarrollo si está habilitado
       if (USE_MOCK) {
+        console.log('📝 RoomService: Falling back to mock data');
         return this.mockGetUserRooms();
       }
       // En producción, devolver array vacío en caso de error
+      console.log('🚫 RoomService: Returning empty array due to error');
       return [];
     }
   }
