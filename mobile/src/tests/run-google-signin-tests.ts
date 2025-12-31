@@ -3,7 +3,7 @@
  * Executes all Google Sign-In related tests and generates comprehensive report
  */
 
-import { execSync } from 'child_process';
+import { spawn } from 'cross-spawn';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -194,24 +194,54 @@ class GoogleSignInTestRunner {
     const startTime = Date.now();
     
     try {
-      // Run Jest with specific pattern
-      const command = `npx jest --testPathPattern="${pattern}" --json --coverage`;
-      const output = execSync(command, { 
-        encoding: 'utf8',
-        cwd: process.cwd(),
-        timeout: 60000, // 60 second timeout
+      // Run Jest with specific pattern using cross-spawn for cross-platform compatibility
+      const result = await new Promise<string>((resolve, reject) => {
+        const child = spawn('npx', ['jest', `--testPathPattern=${pattern}`, '--json', '--coverage'], {
+          cwd: process.cwd(),
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        child.stdout?.on('data', (data) => {
+          stdout += data.toString();
+        });
+
+        child.stderr?.on('data', (data) => {
+          stderr += data.toString();
+        });
+
+        const timeout = setTimeout(() => {
+          child.kill();
+          reject(new Error('Test execution timeout (60s)'));
+        }, 60000);
+
+        child.on('close', (code) => {
+          clearTimeout(timeout);
+          if (code === 0 || stdout.includes('"success"')) {
+            resolve(stdout);
+          } else {
+            reject(new Error(`Jest failed with code ${code}: ${stderr}`));
+          }
+        });
+
+        child.on('error', (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        });
       });
       
-      const result = JSON.parse(output);
+      const parsedResult = JSON.parse(result);
       const endTime = Date.now();
       
       return {
-        passed: result.numPassedTests || 0,
-        failed: result.numFailedTests || 0,
-        skipped: result.numPendingTests || 0,
+        passed: parsedResult.numPassedTests || 0,
+        failed: parsedResult.numFailedTests || 0,
+        skipped: parsedResult.numPendingTests || 0,
         duration: endTime - startTime,
-        coverage: result.coverageMap ? this.calculateCoverage(result.coverageMap) : undefined,
-        errors: result.testResults
+        coverage: parsedResult.coverageMap ? this.calculateCoverage(parsedResult.coverageMap) : undefined,
+        errors: parsedResult.testResults
           ?.filter((tr: any) => tr.status === 'failed')
           ?.map((tr: any) => tr.message) || [],
       };
@@ -219,20 +249,25 @@ class GoogleSignInTestRunner {
       const endTime = Date.now();
       
       // Try to parse Jest output even if command failed
-      if (error instanceof Error && 'stdout' in error) {
-        try {
-          const result = JSON.parse((error as any).stdout);
-          return {
-            passed: result.numPassedTests || 0,
-            failed: result.numFailedTests || 0,
-            skipped: result.numPendingTests || 0,
-            duration: endTime - startTime,
-            errors: result.testResults
-              ?.filter((tr: any) => tr.status === 'failed')
-              ?.map((tr: any) => tr.message) || [],
-          };
-        } catch (parseError) {
-          // Fall through to error case
+      if (error instanceof Error && 'message' in error) {
+        const errorMessage = error.message;
+        if (errorMessage.includes('{') && errorMessage.includes('}')) {
+          try {
+            const jsonStart = errorMessage.indexOf('{');
+            const jsonPart = errorMessage.substring(jsonStart);
+            const result = JSON.parse(jsonPart);
+            return {
+              passed: result.numPassedTests || 0,
+              failed: result.numFailedTests || 0,
+              skipped: result.numPendingTests || 0,
+              duration: endTime - startTime,
+              errors: result.testResults
+                ?.filter((tr: any) => tr.status === 'failed')
+                ?.map((tr: any) => tr.message) || [],
+            };
+          } catch (parseError) {
+            // Fall through to error case
+          }
         }
       }
       

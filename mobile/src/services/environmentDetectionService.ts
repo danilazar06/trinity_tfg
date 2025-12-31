@@ -150,20 +150,25 @@ class EnvironmentDetectionService {
 
     // Verificar configuración de Google en app.json
     const hasWebClientId = config.extra?.googleWebClientId && 
-                          config.extra.googleWebClientId !== 'your_google_web_client_id_here';
+                          config.extra.googleWebClientId !== 'your_google_web_client_id_here' &&
+                          config.extra.googleWebClientId !== 'YOUR_GOOGLE_WEB_CLIENT_ID';
     
     // En web, solo necesitamos el web client ID
     if (Platform.OS === 'web') {
       return hasWebClientId;
     }
 
-    // En móvil, verificar archivos de servicios
-    const hasAndroidConfig = Platform.OS === 'android' && 
-                            config.android?.googleServicesFile;
-    const hasIosConfig = Platform.OS === 'ios' && 
-                        config.ios?.googleServicesFile;
+    // En móvil, verificar que tenemos las credenciales necesarias
+    // Para builds compilados (APK/IPA), los archivos están embebidos
+    const hasAndroidClientId = Platform.OS === 'android' && 
+                              config.extra?.googleAndroidClientId &&
+                              config.extra.googleAndroidClientId !== 'YOUR_GOOGLE_ANDROID_CLIENT_ID';
+    
+    const hasIosClientId = Platform.OS === 'ios' && 
+                          config.extra?.googleIosClientId &&
+                          config.extra.googleIosClientId !== 'YOUR_GOOGLE_IOS_CLIENT_ID';
 
-    return hasWebClientId && (hasAndroidConfig || hasIosConfig);
+    return hasWebClientId && (hasAndroidClientId || hasIosClientId);
   }
 
   /**

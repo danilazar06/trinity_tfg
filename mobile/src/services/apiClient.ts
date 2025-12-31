@@ -1,16 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { getAWSConfig } from '../config/aws-config';
-import { appSyncService } from './appSyncService';
 
 // Detectar si estamos en desarrollo o producción
 const getApiUrl = () => {
-  // DEPRECATED: Migrating to AWS AppSync GraphQL
-  // Keeping for backward compatibility during transition
-  const DEV_API_URL = 'http://192.168.0.27:3002/api';
-  const PROD_API_URL = 'https://api.trinity.app/api'; // URL de producción
+  // Use AppSync GraphQL for all operations
+  // Fallback REST API only for legacy compatibility
+  const PROD_API_URL = 'https://api.trinity.app/api'; // URL de producción (fallback)
   
-  return __DEV__ ? DEV_API_URL : PROD_API_URL;
+  // In development, prefer AppSync over local REST API
+  return PROD_API_URL;
 };
 
 const API_BASE_URL = getApiUrl();
@@ -39,13 +38,34 @@ class ApiClient {
   }
 
   private async getHeaders(): Promise<Record<string, string>> {
-    const token = await AsyncStorage.getItem('authToken');
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
+    
+    // Try to get Cognito tokens first (new format)
+    try {
+      const storedTokens = await AsyncStorage.getItem('cognitoTokens');
+      if (storedTokens) {
+        const tokens = JSON.parse(storedTokens);
+        if (tokens.accessToken) {
+          headers.Authorization = `Bearer ${tokens.accessToken}`;
+          return headers;
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not load Cognito tokens:', error);
     }
+    
+    // Fallback to legacy authToken format
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not load auth token:', error);
+    }
+    
     return headers;
   }
 

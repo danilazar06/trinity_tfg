@@ -18,14 +18,14 @@ export class WebGoogleSignIn implements AuthenticationStrategy {
   }
 
   async isAvailable(): Promise<boolean> {
-    // Web Google Sign-In is available in web environment or as fallback in Expo Go
+    // Web Google Sign-In is only available in web environment
     if (Platform.OS === 'web') {
       return true;
     }
 
-    // Can also be used in Expo Go as a web-based fallback
-    // This would open a web browser for authentication
-    return true;
+    // For Expo Go and other non-web platforms, this strategy is not available
+    // The fallback strategy should be used instead
+    return false;
   }
 
   async configure(): Promise<void> {

@@ -206,7 +206,7 @@ class GoogleSignInService {
   }
 
   /**
-   * Iniciar sesión con Google (nativo o web fallback)
+   * Sign in with Google (nativo o web fallback)
    */
   async signIn(): Promise<GoogleUser> {
     try {
@@ -216,12 +216,17 @@ class GoogleSignInService {
         throw new Error(availability.message);
       }
 
-      // Usar método nativo si está disponible
+      // For compiled APK/IPA, try native first, then fallback to simplified approach
       if (availability.method === 'native') {
-        return await this.signInNative();
+        try {
+          return await this.signInNative();
+        } catch (nativeError) {
+          console.warn('⚠️ Native Google Sign-In failed, trying fallback:', nativeError);
+          // Fall through to web fallback
+        }
       }
       
-      // Usar web fallback
+      // Use web fallback or show appropriate message
       if (availability.method === 'web') {
         return await this.signInWithWebFallback();
       }
@@ -332,8 +337,12 @@ class GoogleSignInService {
    * Iniciar sesión móvil web (WebBrowser)
    */
   private async signInMobileWeb(webClientId: string): Promise<GoogleUser> {
-    // Para Expo Go, necesitaríamos usar WebBrowser para OAuth flow
-    // Por ahora, lanzamos un error informativo
+    // For compiled APK/IPA, show informative message instead of trying WebBrowser
+    if (this.environment?.runtime === 'production' || this.environment?.runtime === 'development-build') {
+      throw new Error('Google Sign-In requiere configuración nativa completa en builds compilados. Por favor, usa email y contraseña o contacta al desarrollador.');
+    }
+    
+    // For Expo Go, show appropriate message
     throw new Error('Google Sign-In en Expo Go no implementado aún. Usa un Development Build para funcionalidad completa.');
   }
 

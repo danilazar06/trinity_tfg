@@ -81,3 +81,6 @@ GoogleService-Info.plist
 !google-services.json.template
 !GoogleService-Info.plist.template
 
+# Expo
+.expo/
+

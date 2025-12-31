@@ -212,17 +212,23 @@ class MigrationService {
    * Show re-login message to user
    */
   showReloginMessage(): void {
-    Alert.alert(
-      'Actualización de Seguridad',
-      'Hemos actualizado nuestro sistema de autenticación para mayor seguridad. Por favor, inicia sesión nuevamente.',
-      [
-        {
-          text: 'Entendido',
-          style: 'default'
-        }
-      ],
-      { cancelable: false }
-    );
+    try {
+      Alert.alert(
+        'Actualización de Seguridad',
+        'Hemos actualizado nuestro sistema de autenticación para mayor seguridad. Por favor, inicia sesión nuevamente.',
+        [
+          {
+            text: 'Entendido',
+            style: 'default'
+          }
+        ],
+        { cancelable: false }
+      );
+    } catch (error) {
+      console.error('❌ Error showing re-login message:', error);
+      // Fallback to console message if Alert fails
+      console.log('🔄 Re-login required: Please sign in again due to authentication system update');
+    }
   }
 
   /**

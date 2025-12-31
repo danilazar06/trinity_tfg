@@ -229,19 +229,57 @@ class AppSyncService {
       contentTypes?: ('movie' | 'tv')[];
     };
   }) {
-    return this.request({
-      query: GRAPHQL_OPERATIONS.CREATE_ROOM,
-      variables: { input },
-      operationName: 'CreateRoom'
-    });
+    try {
+      // Try AppSync first
+      return await this.request({
+        query: GRAPHQL_OPERATIONS.CREATE_ROOM,
+        variables: { input },
+        operationName: 'CreateRoom'
+      });
+    } catch (error: any) {
+      console.warn('⚠️ AppSync createRoom failed, falling back to REST API:', error.message);
+      
+      // Fallback to REST API via roomService
+      try {
+        const { roomService } = await import('./roomService');
+        const room = await roomService.createRoom(input.name, input.filters);
+        
+        // Transform to match AppSync response format
+        return {
+          createRoom: room
+        };
+      } catch (restError: any) {
+        console.error('❌ REST API fallback also failed:', restError.message);
+        throw restError;
+      }
+    }
   }
 
   async joinRoom(inviteCode: string) {
-    return this.request({
-      query: GRAPHQL_OPERATIONS.JOIN_ROOM,
-      variables: { inviteCode },
-      operationName: 'JoinRoom'
-    });
+    try {
+      // Try AppSync first
+      return await this.request({
+        query: GRAPHQL_OPERATIONS.JOIN_ROOM,
+        variables: { inviteCode },
+        operationName: 'JoinRoom'
+      });
+    } catch (error: any) {
+      console.warn('⚠️ AppSync joinRoom failed, falling back to REST API:', error.message);
+      
+      // Fallback to REST API via roomService
+      try {
+        const { roomService } = await import('./roomService');
+        const room = await roomService.joinRoom(inviteCode);
+        
+        // Transform to match AppSync response format
+        return {
+          joinRoom: room
+        };
+      } catch (restError: any) {
+        console.error('❌ REST API fallback also failed:', restError.message);
+        throw restError;
+      }
+    }
   }
 
   async getRoom(roomId: string) {
@@ -253,10 +291,40 @@ class AppSyncService {
   }
 
   async getUserRooms() {
-    return this.request({
-      query: GRAPHQL_OPERATIONS.GET_USER_ROOMS,
-      operationName: 'GetUserRooms'
-    });
+    console.log('🔄 AppSync: getUserRooms called - with debugging');
+    try {
+      // Try AppSync first
+      const result = await this.request({
+        query: GRAPHQL_OPERATIONS.GET_USER_ROOMS,
+        operationName: 'GetUserRooms'
+      });
+      return result;
+    } catch (error: any) {
+      console.warn('⚠️ AppSync getUserRooms failed, falling back to REST API:', error.message);
+      
+      // Fallback to REST API via roomService
+      try {
+        console.log('🔄 AppSync: Importing roomService for fallback...');
+        const { roomService } = await import('./roomService');
+        console.log('🌐 AppSync: Calling roomService.getUserRooms()...');
+        const rooms = await roomService.getUserRooms();
+        console.log('✅ AppSync: REST API fallback successful', rooms);
+        
+        // Transform to match AppSync response format
+        return {
+          getUserRooms: rooms
+        };
+      } catch (restError: any) {
+        console.error('❌ REST API fallback also failed:', restError.message);
+        console.log('🔍 AppSync: REST error details:', restError);
+        
+        // Return empty result to prevent app crash
+        console.log('🚫 AppSync: Returning empty result to prevent crash');
+        return {
+          getUserRooms: []
+        };
+      }
+    }
   }
 
   // Voting Operations
@@ -287,8 +355,8 @@ class AppSyncService {
   }
 
   createSubscriptionUrl(): string {
-    // Convert HTTP endpoint to WebSocket for subscriptions
-    return this.config.graphqlEndpoint.replace('https://', 'wss://').replace('/graphql', '/realtime');
+    // Use the dedicated realtime endpoint
+    return this.config.realtimeEndpoint || this.config.graphqlEndpoint.replace('https://', 'wss://').replace('/graphql', '/realtime');
   }
 
   private async createSubscriptionConnection(
