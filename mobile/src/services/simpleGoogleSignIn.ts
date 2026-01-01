@@ -98,12 +98,19 @@ class SimpleGoogleSignInService {
       const config = Constants.expoConfig?.extra;
       const webClientId = config?.googleWebClientId;
 
+      console.log('🔍 DEBUGGING - Configuration values:');
+      console.log('- Web Client ID:', webClientId);
+      console.log('- Android Client ID:', config?.googleAndroidClientId);
+      console.log('- iOS Client ID:', config?.googleIosClientId);
+
       if (!webClientId || webClientId === 'your_google_web_client_id_here') {
         console.log('❌ Cannot configure - Google Web Client ID not set');
         return false;
       }
 
-      console.log('🔧 Configuring Google Sign-In...');
+      console.log('🔧 Configuring Google Sign-In with:');
+      console.log('- webClientId:', webClientId);
+      console.log('- iosClientId:', config?.googleIosClientId);
 
       GoogleSignin.configure({
         webClientId: webClientId,
@@ -119,6 +126,13 @@ class SimpleGoogleSignInService {
 
       this.isConfigured = true;
       console.log('✅ Google Sign-In configured successfully');
+      
+      // Additional debugging info
+      console.log('🔍 IMPORTANT: For DEVELOPER_ERROR troubleshooting:');
+      console.log('- Ensure google-services.json has correct Client IDs');
+      console.log('- Ensure SHA-1 fingerprint is configured in Google Cloud Console');
+      console.log('- Package name must be: com.trinity.app');
+      
       return true;
 
     } catch (error) {
@@ -133,6 +147,8 @@ class SimpleGoogleSignInService {
    */
   async signIn(): Promise<SimpleGoogleSignInResult> {
     try {
+      console.log('🔍 SimpleGoogleSignIn: Starting sign-in process...');
+      
       // Check availability first
       const available = await this.isAvailable();
       if (!available) {
@@ -145,6 +161,7 @@ class SimpleGoogleSignInService {
 
       // Configure if not already configured
       if (!this.isConfigured) {
+        console.log('🔧 Configuring Google Sign-In...');
         const configured = await this.configure();
         if (!configured) {
           return {
@@ -156,11 +173,21 @@ class SimpleGoogleSignInService {
       }
 
       console.log('🔐 Starting Google Sign-In...');
+      
+      // Log configuration details for debugging
+      const config = Constants.expoConfig?.extra;
+      console.log('🔍 DEBUGGING - Configuration details:');
+      console.log('- Web Client ID:', config?.googleWebClientId);
+      console.log('- Android Client ID:', config?.googleAndroidClientId);
+      console.log('- Package name should be: com.trinity.app');
+      console.log('- Platform:', Platform.OS);
 
       // Check Play Services (Android only)
       if (Platform.OS === 'android') {
         try {
+          console.log('🔍 Checking Google Play Services...');
           await GoogleSignin.hasPlayServices();
+          console.log('✅ Google Play Services available');
         } catch (playServicesError: any) {
           console.error('❌ Google Play Services error:', playServicesError);
           return {
@@ -171,8 +198,50 @@ class SimpleGoogleSignInService {
         }
       }
 
-      // Perform sign-in
-      const userInfo = await GoogleSignin.signIn();
+      // Perform sign-in - THIS IS WHERE DEVELOPER_ERROR OCCURS
+      console.log('🔍 Calling GoogleSignin.signIn() - DEVELOPER_ERROR may occur here...');
+      console.log('🔍 If DEVELOPER_ERROR occurs, it means:');
+      console.log('   1. SHA-1 fingerprint not configured in Google Cloud Console');
+      console.log('   2. Package name mismatch (should be com.trinity.app)');
+      console.log('   3. Wrong Client ID in google-services.json');
+      console.log('   4. google-services.json is outdated or incorrect');
+      
+      let userInfo;
+      try {
+        userInfo = await GoogleSignin.signIn();
+        console.log('✅ GoogleSignin.signIn() completed successfully');
+      } catch (signInError: any) {
+        console.error('❌ DETAILED SIGN-IN ERROR:');
+        console.error('- Error code:', signInError.code);
+        console.error('- Error message:', signInError.message);
+        console.error('- Error name:', signInError.name);
+        console.error('- Full error object:', JSON.stringify(signInError, null, 2));
+        
+        // Special handling for DEVELOPER_ERROR
+        if (signInError.message && signInError.message.includes('DEVELOPER_ERROR')) {
+          console.error('🚨 DEVELOPER_ERROR DETECTED!');
+          console.error('🔍 This error means Google Cloud Console configuration is incorrect:');
+          console.error('   1. Go to: https://console.cloud.google.com/');
+          console.error('   2. Select project: trinity-app-production');
+          console.error('   3. Go to APIs & Services > Credentials');
+          console.error('   4. Create/Edit OAuth 2.0 Client ID for Android:');
+          console.error('      - Application type: Android');
+          console.error('      - Package name: com.trinity.app');
+          console.error('      - SHA-1 certificate fingerprint: [NEEDS TO BE CONFIGURED]');
+          console.error('   5. Download new google-services.json');
+          console.error('   6. Replace mobile/google-services.json');
+          console.error('   7. Rebuild APK');
+          
+          return {
+            success: false,
+            error: 'DEVELOPER_ERROR: Configuración de Google incorrecta. Revisa SHA-1 fingerprint en Google Cloud Console.',
+            canRetry: false,
+          };
+        }
+        
+        // Re-throw for other error handling
+        throw signInError;
+      }
       
       if (!userInfo?.data?.user || !userInfo?.data?.idToken) {
         throw new Error('No se pudo obtener información del usuario de Google');
@@ -199,6 +268,7 @@ class SimpleGoogleSignInService {
 
       // Handle specific error codes
       if (statusCodes && error.code) {
+        console.log('🔍 Error code detected:', error.code);
         switch (error.code) {
           case statusCodes.SIGN_IN_CANCELLED:
             return {

@@ -1,278 +1,329 @@
-import { ApiResponse, LoginCredentials, RegisterData, User } from '../types';
-import { apiClient } from './apiClient';
+/**
+ * Unified Authentication Service
+ * Handles both email/password and Google federated sign-in with AWS Cognito
+ */
 
-interface AuthResponse {
-  accessToken?: string;
-  idToken?: string;
-  refreshToken?: string;
-  user: User;
-  tokens?: {
-    accessToken: string;
-    idToken: string;
-    refreshToken: string;
-  };
+import { Auth } from 'aws-amplify';
+import { awsCognitoGoogleService } from './awsCognitoGoogleService';
+
+export interface AuthUser {
+  userId: string;
+  email: string;
+  name: string;
+  picture?: string;
+  provider: 'cognito' | 'google';
+  attributes: any;
 }
 
-interface RegisterResponse {
-  message: string;
-  userSub?: string;
+export interface AuthResult {
+  success: boolean;
+  user?: AuthUser;
+  error?: string;
+  canRetry?: boolean;
 }
 
 class AuthService {
-  async login(credentials: LoginCredentials): Promise<ApiResponse<AuthResponse>> {
+  /**
+   * Sign in with email and password (Cognito native)
+   */
+  async signInWithEmail(email: string, password: string): Promise<AuthResult> {
     try {
-      const data = await apiClient.post<any>('/auth/login', {
-        email: credentials.email,
-        password: credentials.password,
-      });
+      console.log('🔐 Signing in with email/password...');
       
-      // Normalizar la respuesta - el backend puede devolver tokens anidados o planos
-      const normalizedData: AuthResponse = {
-        user: data.user,
-        accessToken: data.tokens?.accessToken || data.accessToken,
-        idToken: data.tokens?.idToken || data.idToken,
-        refreshToken: data.tokens?.refreshToken || data.refreshToken,
+      const cognitoUser = await Auth.signIn(email, password);
+      
+      console.log('✅ Email sign-in successful');
+      
+      return {
+        success: true,
+        user: {
+          userId: cognitoUser.attributes?.sub || cognitoUser.username,
+          email: cognitoUser.attributes?.email || email,
+          name: cognitoUser.attributes?.name || email,
+          provider: 'cognito',
+          attributes: cognitoUser.attributes,
+        },
       };
       
-      return { success: true, data: normalizedData };
     } catch (error: any) {
-      // Manejar errores de validación que vienen como array
-      let errorMessage = 'Error al iniciar sesión';
-      const responseMessage = error.response?.data?.message;
-      if (Array.isArray(responseMessage)) {
-        errorMessage = responseMessage.join('. ');
-      } else if (typeof responseMessage === 'string') {
-        errorMessage = responseMessage;
-      } else if (error.message) {
-        errorMessage = error.message;
+      console.error('❌ Email sign-in error:', error);
+      
+      let errorMessage = 'Error de inicio de sesión';
+      
+      switch (error.code) {
+        case 'UserNotConfirmedException':
+          errorMessage = 'Usuario no confirmado. Revisa tu email.';
+          break;
+        case 'NotAuthorizedException':
+          errorMessage = 'Email o contraseña incorrectos.';
+          break;
+        case 'UserNotFoundException':
+          errorMessage = 'Usuario no encontrado.';
+          break;
+        case 'TooManyRequestsException':
+          errorMessage = 'Demasiados intentos. Intenta más tarde.';
+          break;
+        default:
+          errorMessage = error.message || 'Error desconocido';
       }
+      
       return {
         success: false,
         error: errorMessage,
+        canRetry: error.code !== 'UserNotFoundException',
       };
     }
   }
 
-  async register(data: RegisterData): Promise<ApiResponse<RegisterResponse>> {
+  /**
+   * Sign in with Google (federated to Cognito)
+   */
+  async signInWithGoogle(): Promise<AuthResult> {
     try {
-      const response = await apiClient.post<RegisterResponse>('/auth/register', {
-        email: data.email,
-        password: data.password,
-        username: data.name, // Backend espera 'username' no 'name'
-        displayName: data.fullName, // Nombre completo del usuario
-      });
-      return { success: true, data: response };
-    } catch (error: any) {
-      console.error('AuthService register error:', error);
-      // Manejar errores de validación que vienen como array
-      let errorMessage = 'Error al registrarse';
-      const responseMessage = error.response?.data?.message;
-      if (Array.isArray(responseMessage)) {
-        errorMessage = responseMessage.join('. ');
-      } else if (typeof responseMessage === 'string') {
-        errorMessage = responseMessage;
-      } else if (error.message) {
-        errorMessage = error.message;
+      console.log('🔐 Starting Google federated sign-in...');
+      
+      const result = await awsCognitoGoogleService.signInWithGoogle();
+      
+      if (!result.success) {
+        return {
+          success: false,
+          error: result.error,
+          canRetry: result.canRetry,
+        };
       }
+      
+      return {
+        success: true,
+        user: {
+          userId: result.user!.userId,
+          email: result.user!.email,
+          name: result.user!.name,
+          picture: result.user!.picture,
+          provider: 'google',
+          attributes: result.user!.attributes,
+        },
+      };
+      
+    } catch (error: any) {
+      console.error('❌ Google federated sign-in error:', error);
+      return {
+        success: false,
+        error: error.message || 'Error en Google Sign-In',
+        canRetry: true,
+      };
+    }
+  }
+
+  /**
+   * Sign up with email and password
+   */
+  async signUp(email: string, password: string, name: string): Promise<AuthResult> {
+    try {
+      console.log('📝 Signing up with email/password...');
+      
+      const result = await Auth.signUp({
+        username: email,
+        password: password,
+        attributes: {
+          email: email,
+          name: name,
+        },
+      });
+      
+      console.log('✅ Sign-up successful');
+      
+      return {
+        success: true,
+        user: {
+          userId: result.userSub,
+          email: email,
+          name: name,
+          provider: 'cognito',
+          attributes: { email, name },
+        },
+      };
+      
+    } catch (error: any) {
+      console.error('❌ Sign-up error:', error);
+      
+      let errorMessage = 'Error de registro';
+      
+      switch (error.code) {
+        case 'UsernameExistsException':
+          errorMessage = 'Este email ya está registrado.';
+          break;
+        case 'InvalidPasswordException':
+          errorMessage = 'La contraseña no cumple los requisitos.';
+          break;
+        case 'InvalidParameterException':
+          errorMessage = 'Email inválido.';
+          break;
+        default:
+          errorMessage = error.message || 'Error desconocido';
+      }
+      
       return {
         success: false,
         error: errorMessage,
+        canRetry: true,
       };
     }
   }
 
-  async confirmSignUp(email: string, code: string): Promise<ApiResponse<{ message: string }>> {
+  /**
+   * Confirm sign up with verification code
+   */
+  async confirmSignUp(email: string, code: string): Promise<AuthResult> {
     try {
-      const response = await apiClient.post<{ message: string }>('/auth/confirm-signup', {
-        email,
-        code,
-      });
-      return { success: true, data: response };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.message || 'Código de confirmación inválido',
-      };
-    }
-  }
-
-  async resendConfirmation(email: string): Promise<ApiResponse<{ message: string }>> {
-    try {
-      const response = await apiClient.post<{ message: string }>('/auth/resend-confirmation', {
-        email,
-      });
-      return { success: true, data: response };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.message || 'Error al reenviar código',
-      };
-    }
-  }
-
-  async forgotPassword(email: string): Promise<ApiResponse<{ message: string }>> {
-    try {
-      const response = await apiClient.post<{ message: string }>('/auth/forgot-password', {
-        email,
-      });
-      return { success: true, data: response };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.message || 'Error al enviar código de recuperación',
-      };
-    }
-  }
-
-  async resetPassword(
-    email: string,
-    code: string,
-    newPassword: string
-  ): Promise<ApiResponse<{ message: string }>> {
-    try {
-      const response = await apiClient.post<{ message: string }>('/auth/reset-password', {
-        email,
-        code,
-        newPassword,
-      });
-      return { success: true, data: response };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.message || 'Error al restablecer contraseña',
-      };
-    }
-  }
-
-  async getProfile(): Promise<ApiResponse<User>> {
-    try {
-      const user = await apiClient.get<User>('/auth/profile');
-      return { success: true, data: user };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.message || 'Error al obtener perfil',
-      };
-    }
-  }
-
-  async updateProfile(data: { displayName?: string; avatarUrl?: string; phoneNumber?: string }): Promise<ApiResponse<User>> {
-    try {
-      const user = await apiClient.put<User>('/auth/profile', data);
-      return { success: true, data: user };
-    } catch (error: any) {
-      let errorMessage = 'Error al actualizar perfil';
-      const responseMessage = error.response?.data?.message;
-      if (Array.isArray(responseMessage)) {
-        errorMessage = responseMessage.join('. ');
-      } else if (typeof responseMessage === 'string') {
-        errorMessage = responseMessage;
-      }
-      return { success: false, error: errorMessage };
-    }
-  }
-
-  // Métodos de Google OAuth
-  async loginWithGoogle(idToken: string): Promise<ApiResponse<AuthResponse>> {
-    try {
-      const data = await apiClient.post<any>('/auth/google/login', {
-        idToken,
-      });
+      console.log('✅ Confirming sign-up...');
       
-      // Normalizar la respuesta
-      const normalizedData: AuthResponse = {
-        user: data.data.user,
-        accessToken: data.data.tokens?.accessToken || data.data.accessToken,
-        idToken: data.data.tokens?.idToken || data.data.idToken,
-        refreshToken: data.data.tokens?.refreshToken || data.data.refreshToken,
+      await Auth.confirmSignUp(email, code);
+      
+      console.log('✅ Sign-up confirmed');
+      
+      return {
+        success: true,
       };
       
-      return { success: true, data: normalizedData };
     } catch (error: any) {
-      let errorMessage = 'Error al iniciar sesión con Google';
-      const responseMessage = error.response?.data?.message;
-      if (typeof responseMessage === 'string') {
-        errorMessage = responseMessage;
-      } else if (error.message) {
-        errorMessage = error.message;
+      console.error('❌ Confirm sign-up error:', error);
+      
+      let errorMessage = 'Error de confirmación';
+      
+      switch (error.code) {
+        case 'CodeMismatchException':
+          errorMessage = 'Código de verificación incorrecto.';
+          break;
+        case 'ExpiredCodeException':
+          errorMessage = 'Código de verificación expirado.';
+          break;
+        case 'NotAuthorizedException':
+          errorMessage = 'Usuario ya confirmado.';
+          break;
+        default:
+          errorMessage = error.message || 'Error desconocido';
       }
-      return { success: false, error: errorMessage };
-    }
-  }
-
-  async linkGoogleAccount(idToken: string): Promise<ApiResponse<User>> {
-    try {
-      const response = await apiClient.post<{ user: User }>('/auth/google/link', {
-        idToken,
-      });
-      return { success: true, data: response.user };
-    } catch (error: any) {
-      let errorMessage = 'Error al vincular cuenta de Google';
-      const responseMessage = error.response?.data?.message;
-      if (typeof responseMessage === 'string') {
-        errorMessage = responseMessage;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      return { success: false, error: errorMessage };
-    }
-  }
-
-  async unlinkGoogleAccount(): Promise<ApiResponse<User>> {
-    try {
-      const response = await apiClient.delete<{ user: User }>('/auth/google/unlink');
-      return { success: true, data: response.user };
-    } catch (error: any) {
-      let errorMessage = 'Error al desvincular cuenta de Google';
-      const responseMessage = error.response?.data?.message;
-      if (typeof responseMessage === 'string') {
-        errorMessage = responseMessage;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      return { success: false, error: errorMessage };
-    }
-  }
-
-  async getGoogleLinkStatus(): Promise<ApiResponse<{
-    isGoogleLinked: boolean;
-    authProviders: string[];
-    canUnlinkGoogle: boolean;
-    googleAuthAvailable: boolean;
-  }>> {
-    try {
-      const response = await apiClient.get<{
-        isGoogleLinked: boolean;
-        authProviders: string[];
-        canUnlinkGoogle: boolean;
-        googleAuthAvailable: boolean;
-      }>('/auth/google/status');
-      return { success: true, data: response };
-    } catch (error: any) {
+      
       return {
         success: false,
-        error: error.response?.data?.message || 'Error al obtener estado de Google',
+        error: errorMessage,
+        canRetry: error.code !== 'NotAuthorizedException',
       };
     }
   }
 
-  async checkGoogleAuthAvailability(): Promise<ApiResponse<{
-    available: boolean;
-    message: string;
-  }>> {
+  /**
+   * Sign out from all providers
+   */
+  async signOut(): Promise<void> {
     try {
-      const response = await apiClient.get<{
-        available: boolean;
-        message: string;
-      }>('/auth/google/available');
-      return { success: true, data: response };
+      console.log('🚪 Signing out...');
+      
+      // This will sign out from both Cognito and Google
+      await awsCognitoGoogleService.signOut();
+      
+      console.log('✅ Sign-out successful');
+      
+    } catch (error) {
+      console.error('❌ Sign-out error:', error);
+      // Don't throw - sign out should always succeed locally
+    }
+  }
+
+  /**
+   * Get current authenticated user
+   */
+  async getCurrentUser(): Promise<AuthUser | null> {
+    try {
+      // Try AWS Cognito first (works for both email and Google users)
+      const cognitoUser = await Auth.currentAuthenticatedUser();
+      
+      if (!cognitoUser) {
+        return null;
+      }
+
+      // Determine provider based on identity provider
+      const identityProvider = cognitoUser.attributes?.identities 
+        ? JSON.parse(cognitoUser.attributes.identities)[0]?.providerName 
+        : 'Cognito';
+      
+      const provider = identityProvider === 'Google' ? 'google' : 'cognito';
+      
+      return {
+        userId: cognitoUser.attributes?.sub || cognitoUser.username,
+        email: cognitoUser.attributes?.email,
+        name: cognitoUser.attributes?.name || cognitoUser.attributes?.email,
+        picture: cognitoUser.attributes?.picture,
+        provider: provider,
+        attributes: cognitoUser.attributes,
+      };
+      
+    } catch (error) {
+      console.error('❌ Error getting current user:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Check if user is signed in
+   */
+  async isSignedIn(): Promise<boolean> {
+    try {
+      const user = await this.getCurrentUser();
+      return user !== null;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Resend confirmation code
+   */
+  async resendConfirmationCode(email: string): Promise<AuthResult> {
+    try {
+      await Auth.resendSignUp(email);
+      return { success: true };
     } catch (error: any) {
       return {
         success: false,
-        error: error.response?.data?.message || 'Error al verificar disponibilidad de Google Auth',
+        error: error.message || 'Error reenviando código',
+        canRetry: true,
+      };
+    }
+  }
+
+  /**
+   * Forgot password
+   */
+  async forgotPassword(email: string): Promise<AuthResult> {
+    try {
+      await Auth.forgotPassword(email);
+      return { success: true };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Error enviando código de recuperación',
+        canRetry: true,
+      };
+    }
+  }
+
+  /**
+   * Confirm forgot password
+   */
+  async confirmForgotPassword(email: string, code: string, newPassword: string): Promise<AuthResult> {
+    try {
+      await Auth.forgotPasswordSubmit(email, code, newPassword);
+      return { success: true };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Error cambiando contraseña',
+        canRetry: true,
       };
     }
   }
 }
 
+// Export singleton instance
 export const authService = new AuthService();

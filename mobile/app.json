@@ -47,7 +47,7 @@
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.googleusercontent.apps.320120465080-4lf6l426q4ct2jn4mpgte9m5mbmlss7j"
+          "iosUrlScheme": "com.googleusercontent.apps.230498169556-cqb6dv3o58oeblrfrk49o0a6l7ecjtrn"
         }
       ]
     ],
@@ -56,9 +56,9 @@
       "cognitoClientId": "59dpqsm580j14ulkcha19shl64",
       "cognitoRegion": "eu-west-1",
       "cognitoUserPoolDomain": "trinity-auth-dev.auth.eu-west-1.amazoncognito.com",
-      "googleWebClientId": "320120465080-4lf6l426q4ct2jn4mpgte9m5mbmlss7j.apps.googleusercontent.com",
+      "googleWebClientId": "230498169556-cqb6dv3o58oeblrfrk49o0a6l7ecjtrn.apps.googleusercontent.com",
       "googleIosClientId": "320120465080-ios-specific-client-id.apps.googleusercontent.com",
-      "googleAndroidClientId": "320120465080-android-specific-client-id.apps.googleusercontent.com",
+      "googleAndroidClientId": "230498169556-ipt2iafpd75h17kjcsgmb89oc9u1ciii.apps.googleusercontent.com",
       "graphqlEndpoint": "https://imx6fos5lnd3xkdchl4rqtv4pi.appsync-api.eu-west-1.amazonaws.com/graphql",
       "realtimeEndpoint": "wss://imx6fos5lnd3xkdchl4rqtv4pi.appsync-realtime-api.eu-west-1.amazonaws.com/graphql",
       "eas": {

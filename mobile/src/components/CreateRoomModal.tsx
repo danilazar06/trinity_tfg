@@ -132,21 +132,24 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
         ? `Búsqueda: ${GENRES.find(g => g.id === selectedGenres[0])?.name}`
         : 'Nueva sala';
 
-    const filters = {
-      genres: selectedGenres.length > 0 ? selectedGenres : undefined,
-      contentTypes: ['movie', 'tv'] as ('movie' | 'tv')[],
+    const roomData = {
+      name,
+      // description: `Sala para ${selectedGenres.length > 0 ? selectedGenres.join(', ') : 'todas las películas'}`,
+      // isPrivate: false,
     };
 
     try {
       setCreatingStatus('Creando sala con GraphQL...');
       
-      // Use AppSync GraphQL instead of REST API
-      const response = await appSync.createRoom({ name, filters });
+      console.log('🚨🚨🚨 CreateRoomModal - About to call createRoomSimple with name:', name);
       
-      console.log('✅ Room created via AppSync:', response);
+      // Use AppSync GraphQL instead of REST API
+      const response = await appSync.createRoomSimple(name);
+      
+      console.log('✅ CreateRoomModal - Room created via AppSync:', response);
       
       // Extract room data from GraphQL response
-      const room = response.createRoom;
+      const room = response.createRoomSimple;
       
       setCreatingStatus('¡Sala creada exitosamente!');
       setRoomCode(room.inviteCode);
@@ -157,7 +160,12 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
       if (onRoomCreated) onRoomCreated(room);
       
     } catch (error: any) {
-      console.error('❌ Error creating room via AppSync:', error);
+      console.error('❌❌❌ CreateRoomModal - Error creating room via AppSync:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       
       let errorMessage = 'No se pudo crear la sala. Inténtalo de nuevo.';
       

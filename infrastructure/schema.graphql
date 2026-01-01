@@ -1,17 +1,66 @@
 # Trinity MVP - GraphQL Schema with AppSync Real-time Subscriptions
 
+# Input Types
+input CreateRoomInput {
+  name: String!
+  description: String
+  isPrivate: Boolean
+  maxMembers: Int
+}
+
+input CreateRoomInputDebug {
+  name: String!
+}
+
+input JoinRoomInput {
+  inviteCode: String!
+}
+
+input VoteInput {
+  roomId: ID!
+  movieId: ID!
+  voteType: VoteType!
+}
+
+# Main Types
 type Room {
   id: ID!
-  status: String
+  name: String!
+  description: String
+  status: String!
   resultMovieId: String
-  hostId: String
+  hostId: String!
+  inviteCode: String
+  isActive: Boolean!
+  isPrivate: Boolean!
+  memberCount: Int!
+  maxMembers: Int
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime
 }
 
 type Movie {
   id: ID!
-  title: String
+  title: String!
   poster: String
   overview: String
+  vote_average: Float
+  release_date: String
+  genres: [Genre]
+  runtime: Int
+}
+
+type Genre {
+  id: Int!
+  name: String!
+}
+
+type User {
+  id: ID!
+  email: String!
+  name: String
+  picture: String
+  createdAt: AWSDateTime!
 }
 
 # Real-time Event Types
@@ -269,12 +318,17 @@ type Query {
   getMovies(genre: String): [Movie]           # DataSource: MovieHandler
   getChatRecommendations(text: String!): TriniResponse # DataSource: AIHandler (Trini)
   getMyHistory: [Room]                        # DataSource: RoomHandler
+  getUserRooms: [Room]                        # DataSource: RoomHandler (alias for getMyHistory)
+  getRoom(roomId: ID!): Room                  # DataSource: RoomHandler
+  getMovieDetails(movieId: String!): Movie    # DataSource: MovieHandler
 }
 
 type Mutation {
-  createRoom: Room                            # DataSource: RoomHandler
-  joinRoom(roomId: ID!): Room                 # DataSource: RoomHandler
-  vote(roomId: ID!, movieId: ID!): Room       # DataSource: VoteHandler
+  createRoom(input: CreateRoomInput!): Room   # DataSource: RoomHandler
+  createRoomDebug(input: CreateRoomInputDebug!): Room   # DataSource: RoomHandler
+  createRoomSimple(name: String!): Room   # DataSource: RoomHandler
+  joinRoom(input: JoinRoomInput!): Room       # DataSource: RoomHandler
+  vote(input: VoteInput!): Room               # DataSource: VoteHandler
   
   # Real-time event publishing mutations
   publishRoomEvent(roomId: ID!, eventType: String!, data: AWSJSON!): RoomEvent

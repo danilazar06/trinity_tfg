@@ -18,7 +18,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::847850007406:role/cdk-hnb659fds-deploy-role-847850007406-eu-west-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::847850007406:role/cdk-hnb659fds-cfn-exec-role-847850007406-eu-west-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-847850007406-eu-west-1/675f3cc6b08f8af67d77b7567f238677825311df18bd7170f8aa0035ced3607f.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-847850007406-eu-west-1/e96e379c5006da72024ca203b638471db0b440cf2e14cacd7a883f023a94a9f8.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -134,6 +134,12 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "TrinityUserPoolPostConfirmationCognito467F7114"
+          }
+        ],
+        "/TrinityMvpStack/TrinityIdentityPool": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityIdentityPool"
           }
         ],
         "/TrinityMvpStack/AuthHandler/ServiceRole/Resource": [
@@ -388,10 +394,34 @@
             "data": "TrinityGraphQLApiGetMyHistoryResolver279EAD74"
           }
         ],
+        "/TrinityMvpStack/TrinityGraphQLApi/GetRoomResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiGetRoomResolver909E0E9E"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/GetMovieDetailsResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiGetMovieDetailsResolver4A6A05EA"
+          }
+        ],
         "/TrinityMvpStack/TrinityGraphQLApi/CreateRoomResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
             "data": "TrinityGraphQLApiCreateRoomResolver75F89F45"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/CreateRoomDebugResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiCreateRoomDebugResolver402AFF79"
+          }
+        ],
+        "/TrinityMvpStack/TrinityGraphQLApi/CreateRoomSimpleResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrinityGraphQLApiCreateRoomSimpleResolver6B377A97"
           }
         ],
         "/TrinityMvpStack/TrinityGraphQLApi/JoinRoomResolver/Resource": [
@@ -494,6 +524,12 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "UserPoolClientId"
+          }
+        ],
+        "/TrinityMvpStack/IdentityPoolId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "IdentityPoolId"
           }
         ],
         "/TrinityMvpStack/Region": [

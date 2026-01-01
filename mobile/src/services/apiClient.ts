@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { getAWSConfig } from '../config/aws-config';
+import { appSyncService } from './appSyncService';
 
 // Detectar si estamos en desarrollo o producción
 const getApiUrl = () => {
@@ -132,6 +133,8 @@ export const useAppSync = () => {
   return {
     // Room operations via AppSync
     createRoom: appSyncService.createRoom.bind(appSyncService),
+    createRoomDebug: appSyncService.createRoomDebug.bind(appSyncService),
+    createRoomSimple: appSyncService.createRoomSimple.bind(appSyncService),
     joinRoom: appSyncService.joinRoom.bind(appSyncService),
     getRoom: appSyncService.getRoom.bind(appSyncService),
     getUserRooms: appSyncService.getUserRooms.bind(appSyncService),

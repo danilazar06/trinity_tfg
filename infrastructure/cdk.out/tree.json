@@ -397,31 +397,45 @@
                     "attributes": {
                       "aws:cdk:cloudformation:type": "AWS::Cognito::UserPoolClient",
                       "aws:cdk:cloudformation:props": {
+                        "accessTokenValidity": 60,
                         "allowedOAuthFlows": [
                           "implicit",
                           "code"
                         ],
                         "allowedOAuthFlowsUserPoolClient": true,
                         "allowedOAuthScopes": [
-                          "profile",
-                          "phone",
                           "email",
                           "openid",
-                          "aws.cognito.signin.user.admin"
+                          "profile"
                         ],
                         "callbackUrLs": [
-                          "https://example.com"
+                          "trinity://auth/callback",
+                          "https://trinity.app/auth/callback"
                         ],
                         "clientName": "trinity-mobile-dev",
                         "explicitAuthFlows": [
                           "ALLOW_USER_PASSWORD_AUTH",
+                          "ALLOW_ADMIN_USER_PASSWORD_AUTH",
+                          "ALLOW_CUSTOM_AUTH",
                           "ALLOW_USER_SRP_AUTH",
                           "ALLOW_REFRESH_TOKEN_AUTH"
                         ],
                         "generateSecret": false,
-                        "supportedIdentityProviders": [
-                          "COGNITO"
+                        "idTokenValidity": 60,
+                        "logoutUrLs": [
+                          "trinity://auth/logout",
+                          "https://trinity.app/auth/logout"
                         ],
+                        "refreshTokenValidity": 43200,
+                        "supportedIdentityProviders": [
+                          "COGNITO",
+                          "Google"
+                        ],
+                        "tokenValidityUnits": {
+                          "idToken": "minutes",
+                          "accessToken": "minutes",
+                          "refreshToken": "minutes"
+                        },
                         "userPoolId": {
                           "Ref": "TrinityUserPool2A37BF21"
                         }
@@ -468,6 +482,38 @@
             },
             "constructInfo": {
               "fqn": "aws-cdk-lib.aws_cognito.UserPool",
+              "version": "2.100.0"
+            }
+          },
+          "TrinityIdentityPool": {
+            "id": "TrinityIdentityPool",
+            "path": "TrinityMvpStack/TrinityIdentityPool",
+            "attributes": {
+              "aws:cdk:cloudformation:type": "AWS::Cognito::IdentityPool",
+              "aws:cdk:cloudformation:props": {
+                "allowUnauthenticatedIdentities": false,
+                "cognitoIdentityProviders": [
+                  {
+                    "clientId": {
+                      "Ref": "TrinityUserPoolTrinityMobileClientE4889438"
+                    },
+                    "providerName": {
+                      "Fn::GetAtt": [
+                        "TrinityUserPool2A37BF21",
+                        "ProviderName"
+                      ]
+                    },
+                    "serverSideTokenCheck": true
+                  }
+                ],
+                "identityPoolName": "trinity_identity_pool_dev",
+                "supportedLoginProviders": {
+                  "accounts.google.com": "GOOGLE_CLIENT_ID_PLACEHOLDER"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cognito.CfnIdentityPool",
               "version": "2.100.0"
             }
           },
@@ -1078,7 +1124,7 @@
                           "Ref": "MoviesCacheTableE1998D48"
                         },
                         "STAGE": "dev",
-                        "TMDB_API_KEY": "dc4dbcd2404c1ca852f8eb964add267d",
+                        "TMDB_API_KEY": "",
                         "RESERVED_CONCURRENCY": "10"
                       }
                     },
@@ -1478,7 +1524,7 @@
                           "Ref": "MoviesCacheTableE1998D48"
                         },
                         "STAGE": "dev",
-                        "HF_API_TOKEN": "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",
+                        "HF_API_TOKEN": "",
                         "RESERVED_CONCURRENCY": "10"
                       }
                     },
@@ -1829,7 +1875,7 @@
                         "ApiId"
                       ]
                     },
-                    "definition": "# Trinity MVP - GraphQL Schema with AppSync Real-time Subscriptions\r\n\r\ntype Room {\r\n  id: ID!\r\n  status: String\r\n  resultMovieId: String\r\n  hostId: String\r\n}\r\n\r\ntype Movie {\r\n  id: ID!\r\n  title: String\r\n  poster: String\r\n  overview: String\r\n}\r\n\r\n# Real-time Event Types\r\ninterface BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n}\r\n\r\ntype RoomEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  data: AWSJSON!\r\n}\r\n\r\ntype VoteEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  userId: ID!\r\n  mediaId: ID!\r\n  voteType: VoteType!\r\n  progress: VoteProgress!\r\n}\r\n\r\ntype MatchEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  matchId: ID!\r\n  mediaId: ID!\r\n  mediaTitle: String!\r\n  participants: [ID!]!\r\n  consensusType: ConsensusType!\r\n}\r\n\r\ntype MemberEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  userId: ID!\r\n  action: MemberAction!\r\n  memberCount: Int!\r\n  memberData: MemberData\r\n}\r\n\r\ntype RoleEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  targetUserId: ID!\r\n  roleId: ID!\r\n  roleName: String!\r\n  assignedBy: ID!\r\n  action: RoleAction!\r\n}\r\n\r\ntype ModerationEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  targetUserId: ID!\r\n  moderatorId: ID!\r\n  actionType: String!\r\n  reason: String!\r\n  duration: Int\r\n  expiresAt: AWSDateTime\r\n}\r\n\r\ntype ScheduleEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  scheduleId: ID!\r\n  title: String!\r\n  action: ScheduleAction!\r\n  startTime: AWSDateTime!\r\n  endTime: AWSDateTime!\r\n  message: String\r\n}\r\n\r\ntype ThemeEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  themeId: ID\r\n  themeName: String\r\n  action: ThemeAction!\r\n  appliedBy: ID!\r\n  customizations: AWSJSON\r\n}\r\n\r\ntype SettingsEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  settingKey: String!\r\n  oldValue: AWSJSON\r\n  newValue: AWSJSON!\r\n  changedBy: ID!\r\n  category: SettingsCategory!\r\n}\r\n\r\ntype ChatEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  messageId: ID!\r\n  userId: ID!\r\n  username: String!\r\n  content: String\r\n  messageType: ChatMessageType!\r\n  action: ChatAction!\r\n  metadata: AWSJSON\r\n}\r\n\r\ntype SuggestionEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  suggestionId: ID!\r\n  userId: ID!\r\n  username: String!\r\n  action: SuggestionAction!\r\n  suggestion: AWSJSON\r\n  vote: AWSJSON\r\n  comment: AWSJSON\r\n}\r\n\r\ntype UserNotification {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  userId: ID!\r\n  type: NotificationType!\r\n  title: String!\r\n  message: String!\r\n  data: AWSJSON\r\n  read: Boolean!\r\n}\r\n\r\n# Supporting Types\r\ntype VoteProgress {\r\n  totalVotes: Int!\r\n  likesCount: Int!\r\n  dislikesCount: Int!\r\n  skipsCount: Int!\r\n  remainingUsers: Int!\r\n  percentage: Float!\r\n}\r\n\r\ntype MemberData {\r\n  role: String\r\n  status: String\r\n  permissions: [String!]\r\n  lastActivity: AWSDateTime\r\n}\r\n\r\n# Enums\r\nenum VoteType {\r\n  LIKE\r\n  DISLIKE\r\n  SKIP\r\n}\r\n\r\nenum ConsensusType {\r\n  UNANIMOUS\r\n  MAJORITY\r\n}\r\n\r\nenum MemberAction {\r\n  JOINED\r\n  LEFT\r\n  STATUS_CHANGED\r\n  ROLE_CHANGED\r\n}\r\n\r\nenum RoleAction {\r\n  ASSIGNED\r\n  REMOVED\r\n}\r\n\r\nenum ScheduleAction {\r\n  CREATED\r\n  UPDATED\r\n  CANCELLED\r\n  REMINDER\r\n}\r\n\r\nenum ThemeAction {\r\n  APPLIED\r\n  REMOVED\r\n  UPDATED\r\n}\r\n\r\nenum SettingsCategory {\r\n  PRIVACY\r\n  CONSENSUS\r\n  CAPACITY\r\n  TIMEOUT\r\n  OTHER\r\n}\r\n\r\nenum ChatMessageType {\r\n  TEXT\r\n  SYSTEM\r\n  REACTION\r\n}\r\n\r\nenum ChatAction {\r\n  CREATED\r\n  EDITED\r\n  DELETED\r\n  REACTION_ADDED\r\n  REACTION_REMOVED\r\n}\r\n\r\nenum SuggestionAction {\r\n  CREATED\r\n  VOTED\r\n  COMMENTED\r\n  APPROVED\r\n  REJECTED\r\n  IMPLEMENTED\r\n}\r\n\r\nenum NotificationType {\r\n  ROOM_INVITE\r\n  MATCH_FOUND\r\n  ROLE_ASSIGNED\r\n  MODERATION_ACTION\r\n  SCHEDULE_REMINDER\r\n  SYSTEM_MESSAGE\r\n}\r\n\r\n# Trini AI Response Type\r\ntype TriniResponse {\r\n  chatResponse: String!\r\n  recommendedGenres: [String!]!\r\n}\r\n\r\ntype Query {\r\n  getMovies(genre: String): [Movie]           # DataSource: MovieHandler\r\n  getChatRecommendations(text: String!): TriniResponse # DataSource: AIHandler (Trini)\r\n  getMyHistory: [Room]                        # DataSource: RoomHandler\r\n}\r\n\r\ntype Mutation {\r\n  createRoom: Room                            # DataSource: RoomHandler\r\n  joinRoom(roomId: ID!): Room                 # DataSource: RoomHandler\r\n  vote(roomId: ID!, movieId: ID!): Room       # DataSource: VoteHandler\r\n  \r\n  # Real-time event publishing mutations\r\n  publishRoomEvent(roomId: ID!, eventType: String!, data: AWSJSON!): RoomEvent\r\n  publishVoteEvent(roomId: ID!, voteData: AWSJSON!): VoteEvent\r\n  publishMatchEvent(roomId: ID!, matchData: AWSJSON!): MatchEvent\r\n  publishMemberEvent(roomId: ID!, memberData: AWSJSON!): MemberEvent\r\n  publishRoleEvent(roomId: ID!, roleData: AWSJSON!): RoleEvent\r\n  publishModerationEvent(roomId: ID!, moderationData: AWSJSON!): ModerationEvent\r\n  publishScheduleEvent(roomId: ID!, scheduleData: AWSJSON!): ScheduleEvent\r\n  publishThemeEvent(roomId: ID!, themeData: AWSJSON!): ThemeEvent\r\n  publishSettingsEvent(roomId: ID!, settingsData: AWSJSON!): SettingsEvent\r\n  publishChatEvent(roomId: ID!, chatData: AWSJSON!): ChatEvent\r\n  publishSuggestionEvent(roomId: ID!, suggestionData: AWSJSON!): SuggestionEvent\r\n}\r\n\r\ntype Subscription {\r\n  # Room-level subscriptions\r\n  onRoomEvent(roomId: ID!): RoomEvent\r\n    @aws_subscribe(mutations: [\"publishRoomEvent\"])\r\n  \r\n  onVoteUpdate(roomId: ID!): VoteEvent\r\n    @aws_subscribe(mutations: [\"publishVoteEvent\"])\r\n  \r\n  onMatchFound(roomId: ID!): MatchEvent\r\n    @aws_subscribe(mutations: [\"publishMatchEvent\"])\r\n  \r\n  onMemberUpdate(roomId: ID!): MemberEvent\r\n    @aws_subscribe(mutations: [\"publishMemberEvent\"])\r\n  \r\n  # Advanced features subscriptions\r\n  onRoleAssignment(roomId: ID!): RoleEvent\r\n    @aws_subscribe(mutations: [\"publishRoleEvent\"])\r\n  \r\n  onModerationAction(roomId: ID!): ModerationEvent\r\n    @aws_subscribe(mutations: [\"publishModerationEvent\"])\r\n  \r\n  onScheduleEvent(roomId: ID!): ScheduleEvent\r\n    @aws_subscribe(mutations: [\"publishScheduleEvent\"])\r\n  \r\n  onThemeChange(roomId: ID!): ThemeEvent\r\n    @aws_subscribe(mutations: [\"publishThemeEvent\"])\r\n  \r\n  onSettingsChange(roomId: ID!): SettingsEvent\r\n    @aws_subscribe(mutations: [\"publishSettingsEvent\"])\r\n  \r\n  # Collaboration subscriptions\r\n  onChatMessage(roomId: ID!): ChatEvent\r\n    @aws_subscribe(mutations: [\"publishChatEvent\"])\r\n  \r\n  onContentSuggestion(roomId: ID!): SuggestionEvent\r\n    @aws_subscribe(mutations: [\"publishSuggestionEvent\"])\r\n  \r\n  # User-specific subscriptions - REMOVED: publishUserNotification mutation doesn't exist\r\n  # onUserNotification(userId: ID!): UserNotification\r\n  #   @aws_subscribe(mutations: [\"publishUserNotification\"])\r\n  \r\n  # Legacy subscription for backward compatibility\r\n  onRoomUpdated(roomId: ID!): Room\r\n    @aws_subscribe(mutations: [\"vote\", \"joinRoom\"])\r\n}\r\n\r\nschema {\r\n  query: Query\r\n  mutation: Mutation\r\n  subscription: Subscription\r\n}"
+                    "definition": "# Trinity MVP - GraphQL Schema with AppSync Real-time Subscriptions\r\n\r\n# Input Types\r\ninput CreateRoomInput {\r\n  name: String!\r\n  description: String\r\n  isPrivate: Boolean\r\n  maxMembers: Int\r\n}\r\n\r\ninput CreateRoomInputDebug {\r\n  name: String!\r\n}\r\n\r\ninput JoinRoomInput {\r\n  inviteCode: String!\r\n}\r\n\r\ninput VoteInput {\r\n  roomId: ID!\r\n  movieId: ID!\r\n  voteType: VoteType!\r\n}\r\n\r\n# Main Types\r\ntype Room {\r\n  id: ID!\r\n  name: String!\r\n  description: String\r\n  status: String!\r\n  resultMovieId: String\r\n  hostId: String!\r\n  inviteCode: String\r\n  isActive: Boolean!\r\n  isPrivate: Boolean!\r\n  memberCount: Int!\r\n  maxMembers: Int\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime\r\n}\r\n\r\ntype Movie {\r\n  id: ID!\r\n  title: String!\r\n  poster: String\r\n  overview: String\r\n  vote_average: Float\r\n  release_date: String\r\n  genres: [Genre]\r\n  runtime: Int\r\n}\r\n\r\ntype Genre {\r\n  id: Int!\r\n  name: String!\r\n}\r\n\r\ntype User {\r\n  id: ID!\r\n  email: String!\r\n  name: String\r\n  picture: String\r\n  createdAt: AWSDateTime!\r\n}\r\n\r\n# Real-time Event Types\r\ninterface BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n}\r\n\r\ntype RoomEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  data: AWSJSON!\r\n}\r\n\r\ntype VoteEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  userId: ID!\r\n  mediaId: ID!\r\n  voteType: VoteType!\r\n  progress: VoteProgress!\r\n}\r\n\r\ntype MatchEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  matchId: ID!\r\n  mediaId: ID!\r\n  mediaTitle: String!\r\n  participants: [ID!]!\r\n  consensusType: ConsensusType!\r\n}\r\n\r\ntype MemberEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  userId: ID!\r\n  action: MemberAction!\r\n  memberCount: Int!\r\n  memberData: MemberData\r\n}\r\n\r\ntype RoleEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  targetUserId: ID!\r\n  roleId: ID!\r\n  roleName: String!\r\n  assignedBy: ID!\r\n  action: RoleAction!\r\n}\r\n\r\ntype ModerationEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  targetUserId: ID!\r\n  moderatorId: ID!\r\n  actionType: String!\r\n  reason: String!\r\n  duration: Int\r\n  expiresAt: AWSDateTime\r\n}\r\n\r\ntype ScheduleEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  scheduleId: ID!\r\n  title: String!\r\n  action: ScheduleAction!\r\n  startTime: AWSDateTime!\r\n  endTime: AWSDateTime!\r\n  message: String\r\n}\r\n\r\ntype ThemeEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  themeId: ID\r\n  themeName: String\r\n  action: ThemeAction!\r\n  appliedBy: ID!\r\n  customizations: AWSJSON\r\n}\r\n\r\ntype SettingsEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  settingKey: String!\r\n  oldValue: AWSJSON\r\n  newValue: AWSJSON!\r\n  changedBy: ID!\r\n  category: SettingsCategory!\r\n}\r\n\r\ntype ChatEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  messageId: ID!\r\n  userId: ID!\r\n  username: String!\r\n  content: String\r\n  messageType: ChatMessageType!\r\n  action: ChatAction!\r\n  metadata: AWSJSON\r\n}\r\n\r\ntype SuggestionEvent implements BaseEvent {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  roomId: ID!\r\n  eventType: String!\r\n  suggestionId: ID!\r\n  userId: ID!\r\n  username: String!\r\n  action: SuggestionAction!\r\n  suggestion: AWSJSON\r\n  vote: AWSJSON\r\n  comment: AWSJSON\r\n}\r\n\r\ntype UserNotification {\r\n  id: ID!\r\n  timestamp: AWSDateTime!\r\n  userId: ID!\r\n  type: NotificationType!\r\n  title: String!\r\n  message: String!\r\n  data: AWSJSON\r\n  read: Boolean!\r\n}\r\n\r\n# Supporting Types\r\ntype VoteProgress {\r\n  totalVotes: Int!\r\n  likesCount: Int!\r\n  dislikesCount: Int!\r\n  skipsCount: Int!\r\n  remainingUsers: Int!\r\n  percentage: Float!\r\n}\r\n\r\ntype MemberData {\r\n  role: String\r\n  status: String\r\n  permissions: [String!]\r\n  lastActivity: AWSDateTime\r\n}\r\n\r\n# Enums\r\nenum VoteType {\r\n  LIKE\r\n  DISLIKE\r\n  SKIP\r\n}\r\n\r\nenum ConsensusType {\r\n  UNANIMOUS\r\n  MAJORITY\r\n}\r\n\r\nenum MemberAction {\r\n  JOINED\r\n  LEFT\r\n  STATUS_CHANGED\r\n  ROLE_CHANGED\r\n}\r\n\r\nenum RoleAction {\r\n  ASSIGNED\r\n  REMOVED\r\n}\r\n\r\nenum ScheduleAction {\r\n  CREATED\r\n  UPDATED\r\n  CANCELLED\r\n  REMINDER\r\n}\r\n\r\nenum ThemeAction {\r\n  APPLIED\r\n  REMOVED\r\n  UPDATED\r\n}\r\n\r\nenum SettingsCategory {\r\n  PRIVACY\r\n  CONSENSUS\r\n  CAPACITY\r\n  TIMEOUT\r\n  OTHER\r\n}\r\n\r\nenum ChatMessageType {\r\n  TEXT\r\n  SYSTEM\r\n  REACTION\r\n}\r\n\r\nenum ChatAction {\r\n  CREATED\r\n  EDITED\r\n  DELETED\r\n  REACTION_ADDED\r\n  REACTION_REMOVED\r\n}\r\n\r\nenum SuggestionAction {\r\n  CREATED\r\n  VOTED\r\n  COMMENTED\r\n  APPROVED\r\n  REJECTED\r\n  IMPLEMENTED\r\n}\r\n\r\nenum NotificationType {\r\n  ROOM_INVITE\r\n  MATCH_FOUND\r\n  ROLE_ASSIGNED\r\n  MODERATION_ACTION\r\n  SCHEDULE_REMINDER\r\n  SYSTEM_MESSAGE\r\n}\r\n\r\n# Trini AI Response Type\r\ntype TriniResponse {\r\n  chatResponse: String!\r\n  recommendedGenres: [String!]!\r\n}\r\n\r\ntype Query {\r\n  getMovies(genre: String): [Movie]           # DataSource: MovieHandler\r\n  getChatRecommendations(text: String!): TriniResponse # DataSource: AIHandler (Trini)\r\n  getMyHistory: [Room]                        # DataSource: RoomHandler\r\n  getRoom(roomId: ID!): Room                  # DataSource: RoomHandler\r\n  getMovieDetails(movieId: String!): Movie    # DataSource: MovieHandler\r\n}\r\n\r\ntype Mutation {\r\n  createRoom(input: CreateRoomInput!): Room   # DataSource: RoomHandler\r\n  createRoomDebug(input: CreateRoomInputDebug!): Room   # DataSource: RoomHandler\r\n  createRoomSimple(name: String!): Room   # DataSource: RoomHandler\r\n  joinRoom(input: JoinRoomInput!): Room       # DataSource: RoomHandler\r\n  vote(input: VoteInput!): Room               # DataSource: VoteHandler\r\n  \r\n  # Real-time event publishing mutations\r\n  publishRoomEvent(roomId: ID!, eventType: String!, data: AWSJSON!): RoomEvent\r\n  publishVoteEvent(roomId: ID!, voteData: AWSJSON!): VoteEvent\r\n  publishMatchEvent(roomId: ID!, matchData: AWSJSON!): MatchEvent\r\n  publishMemberEvent(roomId: ID!, memberData: AWSJSON!): MemberEvent\r\n  publishRoleEvent(roomId: ID!, roleData: AWSJSON!): RoleEvent\r\n  publishModerationEvent(roomId: ID!, moderationData: AWSJSON!): ModerationEvent\r\n  publishScheduleEvent(roomId: ID!, scheduleData: AWSJSON!): ScheduleEvent\r\n  publishThemeEvent(roomId: ID!, themeData: AWSJSON!): ThemeEvent\r\n  publishSettingsEvent(roomId: ID!, settingsData: AWSJSON!): SettingsEvent\r\n  publishChatEvent(roomId: ID!, chatData: AWSJSON!): ChatEvent\r\n  publishSuggestionEvent(roomId: ID!, suggestionData: AWSJSON!): SuggestionEvent\r\n}\r\n\r\ntype Subscription {\r\n  # Room-level subscriptions\r\n  onRoomEvent(roomId: ID!): RoomEvent\r\n    @aws_subscribe(mutations: [\"publishRoomEvent\"])\r\n  \r\n  onVoteUpdate(roomId: ID!): VoteEvent\r\n    @aws_subscribe(mutations: [\"publishVoteEvent\"])\r\n  \r\n  onMatchFound(roomId: ID!): MatchEvent\r\n    @aws_subscribe(mutations: [\"publishMatchEvent\"])\r\n  \r\n  onMemberUpdate(roomId: ID!): MemberEvent\r\n    @aws_subscribe(mutations: [\"publishMemberEvent\"])\r\n  \r\n  # Advanced features subscriptions\r\n  onRoleAssignment(roomId: ID!): RoleEvent\r\n    @aws_subscribe(mutations: [\"publishRoleEvent\"])\r\n  \r\n  onModerationAction(roomId: ID!): ModerationEvent\r\n    @aws_subscribe(mutations: [\"publishModerationEvent\"])\r\n  \r\n  onScheduleEvent(roomId: ID!): ScheduleEvent\r\n    @aws_subscribe(mutations: [\"publishScheduleEvent\"])\r\n  \r\n  onThemeChange(roomId: ID!): ThemeEvent\r\n    @aws_subscribe(mutations: [\"publishThemeEvent\"])\r\n  \r\n  onSettingsChange(roomId: ID!): SettingsEvent\r\n    @aws_subscribe(mutations: [\"publishSettingsEvent\"])\r\n  \r\n  # Collaboration subscriptions\r\n  onChatMessage(roomId: ID!): ChatEvent\r\n    @aws_subscribe(mutations: [\"publishChatEvent\"])\r\n  \r\n  onContentSuggestion(roomId: ID!): SuggestionEvent\r\n    @aws_subscribe(mutations: [\"publishSuggestionEvent\"])\r\n  \r\n  # User-specific subscriptions - REMOVED: publishUserNotification mutation doesn't exist\r\n  # onUserNotification(userId: ID!): UserNotification\r\n  #   @aws_subscribe(mutations: [\"publishUserNotification\"])\r\n  \r\n  # Legacy subscription for backward compatibility\r\n  onRoomUpdated(roomId: ID!): Room\r\n    @aws_subscribe(mutations: [\"vote\", \"joinRoom\"])\r\n}\r\n\r\nschema {\r\n  query: Query\r\n  mutation: Mutation\r\n  subscription: Subscription\r\n}"
                   }
                 },
                 "constructInfo": {
@@ -1849,7 +1895,7 @@
                         "ApiId"
                       ]
                     },
-                    "expires": 1798590528
+                    "expires": 1798828776
                   }
                 },
                 "constructInfo": {
@@ -2852,6 +2898,72 @@
                   "version": "2.100.0"
                 }
               },
+              "GetRoomResolver": {
+                "id": "GetRoomResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/GetRoomResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/GetRoomResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "RoomDataSource",
+                        "fieldName": "getRoom",
+                        "kind": "UNIT",
+                        "typeName": "Query"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "GetMovieDetailsResolver": {
+                "id": "GetMovieDetailsResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/GetMovieDetailsResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/GetMovieDetailsResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "MovieDataSource",
+                        "fieldName": "getMovieDetails",
+                        "kind": "UNIT",
+                        "typeName": "Query"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
               "CreateRoomResolver": {
                 "id": "CreateRoomResolver",
                 "path": "TrinityMvpStack/TrinityGraphQLApi/CreateRoomResolver",
@@ -2870,6 +2982,72 @@
                         },
                         "dataSourceName": "RoomDataSource",
                         "fieldName": "createRoom",
+                        "kind": "UNIT",
+                        "typeName": "Mutation"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "CreateRoomDebugResolver": {
+                "id": "CreateRoomDebugResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/CreateRoomDebugResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/CreateRoomDebugResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "RoomDataSource",
+                        "fieldName": "createRoomDebug",
+                        "kind": "UNIT",
+                        "typeName": "Mutation"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_appsync.CfnResolver",
+                      "version": "2.100.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_appsync.Resolver",
+                  "version": "2.100.0"
+                }
+              },
+              "CreateRoomSimpleResolver": {
+                "id": "CreateRoomSimpleResolver",
+                "path": "TrinityMvpStack/TrinityGraphQLApi/CreateRoomSimpleResolver",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "TrinityMvpStack/TrinityGraphQLApi/CreateRoomSimpleResolver/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::AppSync::Resolver",
+                      "aws:cdk:cloudformation:props": {
+                        "apiId": {
+                          "Fn::GetAtt": [
+                            "TrinityGraphQLApi1D4CC11E",
+                            "ApiId"
+                          ]
+                        },
+                        "dataSourceName": "RoomDataSource",
+                        "fieldName": "createRoomSimple",
                         "kind": "UNIT",
                         "typeName": "Mutation"
                       }
@@ -3347,6 +3525,14 @@
           "UserPoolClientId": {
             "id": "UserPoolClientId",
             "path": "TrinityMvpStack/UserPoolClientId",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "IdentityPoolId": {
+            "id": "IdentityPoolId",
+            "path": "TrinityMvpStack/IdentityPoolId",
             "constructInfo": {
               "fqn": "aws-cdk-lib.CfnOutput",
               "version": "2.100.0"

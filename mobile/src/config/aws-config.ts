@@ -11,6 +11,15 @@ export interface AWSConfig {
   userPoolWebClientId: string;
   identityPoolId: string;
   userPoolDomain?: string;
+  // Google Federation
+  googleClientId?: string;
+  oauth?: {
+    domain: string;
+    scope: string[];
+    redirectSignIn: string;
+    redirectSignOut: string;
+    responseType: string;
+  };
 }
 
 // Production AWS Configuration
@@ -22,6 +31,15 @@ export const AWS_CONFIG: AWSConfig = {
   userPoolWebClientId: '59dpqsm580j14ulkcha19shl64', // From CDK deployment
   identityPoolId: '', // Will be populated by setup script
   userPoolDomain: 'trinity-auth-dev.auth.eu-west-1.amazoncognito.com',
+  // Google Federation Configuration
+  googleClientId: '230498169556-cqb6dv3o58oeblrfrk49o0a6l7ecjtrn.apps.googleusercontent.com',
+  oauth: {
+    domain: 'trinity-auth-dev.auth.eu-west-1.amazoncognito.com',
+    scope: ['email', 'openid', 'profile'],
+    redirectSignIn: 'trinity://auth/callback',
+    redirectSignOut: 'trinity://auth/logout',
+    responseType: 'code',
+  },
 };
 
 // Environment detection
@@ -44,33 +62,42 @@ export const GRAPHQL_OPERATIONS = {
       createRoom(input: $input) {
         id
         name
+        description
         hostId
         status
         inviteCode
+        isActive
+        isPrivate
+        memberCount
+        maxMembers
         createdAt
       }
     }
   `,
   
   JOIN_ROOM: `
-    mutation JoinRoom($inviteCode: String!) {
-      joinRoom(inviteCode: $inviteCode) {
+    mutation JoinRoom($input: JoinRoomInput!) {
+      joinRoom(input: $input) {
         id
         name
+        description
         hostId
         status
         inviteCode
+        memberCount
+        isActive
       }
     }
   `,
   
   VOTE: `
-    mutation Vote($roomId: ID!, $movieId: String!) {
-      vote(roomId: $roomId, movieId: $movieId) {
+    mutation Vote($input: VoteInput!) {
+      vote(input: $input) {
         id
         status
         resultMovieId
         hostId
+        memberCount
       }
     }
   `,
@@ -98,10 +125,15 @@ export const GRAPHQL_OPERATIONS = {
       getRoom(roomId: $roomId) {
         id
         name
+        description
         hostId
         status
         inviteCode
         resultMovieId
+        isActive
+        isPrivate
+        memberCount
+        maxMembers
         createdAt
         updatedAt
       }
@@ -109,13 +141,15 @@ export const GRAPHQL_OPERATIONS = {
   `,
   
   GET_USER_ROOMS: `
-    query GetUserRooms {
-      getUserRooms {
+    query GetMyHistory {
+      getMyHistory {
         id
         name
+        description
         hostId
         status
         memberCount
+        isActive
         createdAt
       }
     }
@@ -127,8 +161,7 @@ export const GRAPHQL_OPERATIONS = {
         id
         title
         overview
-        poster_path
-        backdrop_path
+        poster
         vote_average
         release_date
         genres {
@@ -136,6 +169,19 @@ export const GRAPHQL_OPERATIONS = {
           name
         }
         runtime
+      }
+    }
+  `,
+  
+  GET_MOVIES: `
+    query GetMovies($genre: String) {
+      getMovies(genre: $genre) {
+        id
+        title
+        overview
+        poster
+        vote_average
+        release_date
       }
     }
   `,

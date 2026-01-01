@@ -78,7 +78,7 @@ describe('Property Test 9: Comprehensive Error Handling', () => {
     ];
 
     const operations = [
-      { name: 'createRoom', method: 'createRoom', args: [{ name: 'Test Room', filters: {} }] },
+      { name: 'createRoom', method: 'createRoom', args: [{ name: 'Test Room', description: 'Test room' }] },
       { name: 'getUserRooms', method: 'getUserRooms', args: [] },
       { name: 'vote', method: 'vote', args: [generateRoomId(), generateMovieId()] },
       { name: 'getMovieDetails', method: 'getMovieDetails', args: [generateMovieId()] },
@@ -311,7 +311,7 @@ describe('Property Test 9: Comprehensive Error Handling', () => {
     for (const { error, category } of errorTypes) {
       // Test createRoom operation
       mockAppSyncService.createRoom.mockRejectedValueOnce(error);
-      await expect(appSyncService.createRoom({ name: 'Test', filters: {} }))
+      await expect(appSyncService.createRoom({ name: 'Test', description: 'Test room' }))
         .rejects.toThrow(error.message);
 
       // Test getUserRooms operation
@@ -380,7 +380,7 @@ describe('Property Test 9: Comprehensive Error Handling', () => {
 
     for (const criticalError of criticalErrors) {
       const operations = [
-        () => appSyncService.createRoom({ name: 'Test', filters: {} }),
+        () => appSyncService.createRoom({ name: 'Test', description: 'Test room' }),
         () => appSyncService.getUserRooms(),
         () => mediaService.getMovieDetails(Math.floor(Math.random() * 1000000)),
       ];

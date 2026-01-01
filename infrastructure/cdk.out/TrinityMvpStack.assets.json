@@ -15,7 +15,7 @@
         }
       }
     },
-    "675f3cc6b08f8af67d77b7567f238677825311df18bd7170f8aa0035ced3607f": {
+    "e96e379c5006da72024ca203b638471db0b440cf2e14cacd7a883f023a94a9f8": {
       "source": {
         "path": "TrinityMvpStack.template.json",
         "packaging": "file"
@@ -23,7 +23,7 @@
       "destinations": {
         "847850007406-eu-west-1": {
           "bucketName": "cdk-hnb659fds-assets-847850007406-eu-west-1",
-          "objectKey": "675f3cc6b08f8af67d77b7567f238677825311df18bd7170f8aa0035ced3607f.json",
+          "objectKey": "e96e379c5006da72024ca203b638471db0b440cf2e14cacd7a883f023a94a9f8.json",
           "region": "eu-west-1",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::847850007406:role/cdk-hnb659fds-file-publishing-role-847850007406-eu-west-1"
         }

@@ -226,7 +226,7 @@ async function testGraphQLAPIErrors(): Promise<ErrorTestResult[]> {
       execute: async () => {
         return await appSyncService.createRoom({
           name: 'Test Room',
-          filters: { genres: ['Action'] }
+          description: 'Test room for error handling'
         });
       },
       validate: (result, error) => {
