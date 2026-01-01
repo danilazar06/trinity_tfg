@@ -137,7 +137,29 @@ export default function RoomSwipeScreen() {
       // Subscribe to match found events
       unsubscribeMatches.current = await appSyncService.subscribeToMatchFound(
         roomId,
-        handleMatchFound
+        (matchData: MatchFound) => {
+          console.log('🎉 Match found via subscription:', matchData);
+          
+          // Show match immediately
+          setMatchedMedia({
+            id: `realtime-match-${Date.now()}`,
+            roomId: matchData.roomId,
+            mediaId: matchData.movieId,
+            mediaTitle: matchData.movieTitle,
+            mediaPosterPath: '', // Will be loaded from TMDB if needed
+            participantCount: matchData.participants.length,
+            createdAt: matchData.timestamp,
+            consensusType: 'unanimous_like',
+          });
+          
+          setShowMatch(true);
+          setCurrentMedia(null); // Stop showing content to vote on
+          
+          // Optional: Navigate to match result screen after a delay
+          setTimeout(() => {
+            router.push(`/room/${roomId}/matches`);
+          }, 3000); // Show match modal for 3 seconds, then navigate
+        }
       );
       
       // Subscribe to room updates
@@ -152,19 +174,39 @@ export default function RoomSwipeScreen() {
           // Handle room status changes
           if (roomUpdate.status === 'MATCHED' && roomUpdate.resultMovieId) {
             // Room has been matched, load match details
-            loadMatchedMovie(roomUpdate.resultMovieId);
+            mediaService.getMovieDetails(parseInt(roomUpdate.resultMovieId))
+              .then(movieDetails => {
+                setMatchedMedia({
+                  id: `existing-match-${roomId}`,
+                  roomId,
+                  mediaId: roomUpdate.resultMovieId!,
+                  mediaTitle: movieDetails.title,
+                  mediaPosterPath: movieDetails.posterPath || '',
+                  participantCount: roomUpdate.memberCount || 0,
+                  createdAt: new Date().toISOString(),
+                  consensusType: 'unanimous_like',
+                });
+                setShowMatch(true);
+                setCurrentMedia(null);
+              })
+              .catch(error => {
+                console.error('Error loading matched movie details:', error);
+              });
           }
           
           // Update room details if available
-          if (roomDetails) {
-            setRoomDetails({
-              ...roomDetails,
-              room: {
-                ...roomDetails.room,
-                status: roomUpdate.status,
-              },
-            });
-          }
+          setRoomDetails(prevDetails => {
+            if (prevDetails) {
+              return {
+                ...prevDetails,
+                room: {
+                  ...prevDetails.room,
+                  status: roomUpdate.status,
+                },
+              };
+            }
+            return prevDetails;
+          });
           
           // Handle different room states
           switch (roomUpdate.status) {
@@ -203,10 +245,10 @@ export default function RoomSwipeScreen() {
         [{ text: 'Entendido' }]
       );
     }
-  }, [roomId, roomDetails, handleMatchFound]);
+  }, [roomId]); // Solo roomId como dependencia
 
   // Load matched movie details
-  const loadMatchedMovie = async (movieId: string) => {
+  const loadMatchedMovie = useCallback(async (movieId: string) => {
     try {
       const movieDetails = await mediaService.getMovieDetails(parseInt(movieId));
       setMatchedMedia({
@@ -224,7 +266,7 @@ export default function RoomSwipeScreen() {
     } catch (error) {
       console.error('Error loading matched movie details:', error);
     }
-  };
+  }, [roomId, memberCount]);
 
   const resetPosition = () => {
     Animated.spring(position, {
@@ -254,11 +296,9 @@ export default function RoomSwipeScreen() {
     
     // Optional: Navigate to match result screen after a delay
     setTimeout(() => {
-      if (roomId) {
-        router.push(`/room/${roomId}/matches`);
-      }
+      router.push(`/room/${roomId}/matches`);
     }, 3000); // Show match modal for 3 seconds, then navigate
-  }, [roomId, router]);
+  }, [roomId]);
 
   // Cleanup subscriptions
   const cleanupSubscriptions = useCallback(() => {
@@ -298,14 +338,18 @@ export default function RoomSwipeScreen() {
     }).start(() => handleVote('dislike'));
   };
 
-  const loadRoomData = async () => {
+  const loadRoomData = useCallback(async () => {
     if (!roomId) return;
     
     try {
       setLoading(true);
       
+      console.log('🏠 Loading room data for ID:', roomId);
+      
       // Cargar detalles de la sala usando AppSync
       const roomResult = await appSyncService.getRoom(roomId);
+      
+      console.log('✅ Room data loaded:', roomResult);
       
       // Convertir formato GraphQL a formato esperado por el componente
       if (roomResult.getRoom) {
@@ -319,8 +363,11 @@ export default function RoomSwipeScreen() {
             inviteCode: room.inviteCode,
             createdAt: room.createdAt,
           },
-          members: [], // TODO: Obtener miembros de la sala desde GraphQL
+          members: [], // Members list not available in GraphQL schema, using memberCount instead
         });
+        
+        // Set member count from GraphQL response
+        setMemberCount(room.memberCount || 0);
         
         // Verificar si la sala ya tiene un match
         if (room.status === 'MATCHED' && room.resultMovieId) {
@@ -333,7 +380,7 @@ export default function RoomSwipeScreen() {
               mediaId: room.resultMovieId,
               mediaTitle: movieDetails.title,
               mediaPosterPath: movieDetails.posterPath || '',
-              participantCount: 0, // TODO: Obtener número real de participantes
+              participantCount: room.memberCount || 0,
               createdAt: room.updatedAt || room.createdAt,
               consensusType: 'unanimous_like',
             });
@@ -344,6 +391,8 @@ export default function RoomSwipeScreen() {
             console.error('Error loading matched movie details:', error);
           }
         }
+      } else {
+        throw new Error('No se encontraron datos de la sala');
       }
       
       // Si no hay match, cargar contenido actual para votar
@@ -356,15 +405,37 @@ export default function RoomSwipeScreen() {
         percentage: 0,
       });
       
-    } catch (error) {
-      console.error('Error loading room:', error);
-      Alert.alert('Error', 'No se pudo cargar la sala');
+    } catch (error: any) {
+      console.error('❌ Error loading room:', error);
+      
+      let errorMessage = 'No se pudo cargar la sala.';
+      
+      if (error.message) {
+        if (error.message.includes('No tienes acceso')) {
+          errorMessage = 'No tienes acceso a esta sala. Verifica que tengas permisos o que la sala exista.';
+        } else if (error.message.includes('Sala no encontrada')) {
+          errorMessage = 'Esta sala no existe o ha sido eliminada.';
+        } else if (error.message.includes('Unauthorized')) {
+          errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión de nuevo.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      Alert.alert(
+        'Error',
+        errorMessage,
+        [
+          { text: 'Reintentar', onPress: () => loadRoomData() },
+          { text: 'Volver', onPress: () => router.back() }
+        ]
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, [roomId]);
 
-  const loadCurrentMedia = async () => {
+  const loadCurrentMedia = useCallback(async () => {
     if (!roomId) return;
     
     try {
@@ -373,17 +444,35 @@ export default function RoomSwipeScreen() {
       const currentMovieId = 550 + progress.current; // Fight Club + offset
       
       try {
+        console.log('🎬 Loading movie details for ID:', currentMovieId);
         const mediaDetails = await mediaService.getMovieDetails(currentMovieId);
+        console.log('✅ Movie details loaded:', mediaDetails.title);
         setCurrentMedia(mediaDetails);
       } catch (error) {
-        console.error('Error loading movie details:', error);
+        console.error('❌ Error loading movie details:', error);
+        
+        // Show user-friendly error message
+        Alert.alert(
+          'Error cargando contenido',
+          'No se pudo cargar el contenido multimedia. Esto puede deberse a problemas de conectividad o que el contenido no esté disponible.',
+          [
+            { text: 'Reintentar', onPress: () => loadCurrentMedia() },
+            { text: 'Salir', onPress: () => router.back() }
+          ]
+        );
+        
         // Si no se puede cargar la película, marcar como completado
         setCurrentMedia(null);
       }
     } catch (error) {
-      console.error('Error loading current media:', error);
+      console.error('❌ Error in loadCurrentMedia:', error);
+      Alert.alert(
+        'Error',
+        'Ocurrió un error inesperado al cargar el contenido.',
+        [{ text: 'Volver', onPress: () => router.back() }]
+      );
     }
-  };
+  }, [roomId, progress.current]);
 
   const handleVote = async (voteType: 'like' | 'dislike') => {
     if (!roomId || !currentMedia || isVoting) return;
@@ -515,14 +604,14 @@ export default function RoomSwipeScreen() {
     return () => {
       cleanupSubscriptions();
     };
-  }, [roomId, setupSubscriptions, cleanupSubscriptions]);
+  }, [roomId]); // Solo roomId como dependencia - las funciones useCallback son estables
 
   // Additional useEffect to setup subscriptions when room details are loaded
   useEffect(() => {
     if (roomDetails && realtimeStatus === 'disconnected') {
       setupSubscriptions();
     }
-  }, [roomDetails, realtimeStatus, setupSubscriptions]);
+  }, [roomDetails, realtimeStatus]); // setupSubscriptions es estable por useCallback
 
   if (loading) {
     return (
@@ -549,7 +638,7 @@ export default function RoomSwipeScreen() {
           <View style={styles.membersRow}>
             <Ionicons name="people" size={14} color={colors.textMuted} />
             <Text style={styles.membersText}>
-              {memberCount || roomDetails?.members.length || 0} participantes
+              {memberCount || 0} participantes
             </Text>
             {voteCount > 0 && (
               <>

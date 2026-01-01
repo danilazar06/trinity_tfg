@@ -154,12 +154,10 @@ class MediaService {
         title: details.title,
         originalTitle: details.title, // GraphQL no devuelve original_title por ahora
         overview: details.overview || '',
-        posterPath: details.poster_path 
-          ? `${TMDB_IMAGE_BASE}/w500${details.poster_path}`
+        posterPath: details.poster 
+          ? `${TMDB_IMAGE_BASE}/w500${details.poster}`
           : null,
-        backdropPath: details.backdrop_path
-          ? `${TMDB_IMAGE_BASE}/w780${details.backdrop_path}`
-          : null,
+        backdropPath: null, // No disponible en GraphQL actual
         releaseDate: details.release_date || '',
         year: details.release_date ? details.release_date.split('-')[0] : '',
         rating: Math.round((details.vote_average || 0) * 10) / 10,
@@ -224,12 +222,10 @@ class MediaService {
         title: details.title,
         originalTitle: details.title,
         overview: details.overview || '',
-        posterPath: details.poster_path 
-          ? `${TMDB_IMAGE_BASE}/w500${details.poster_path}`
+        posterPath: details.poster 
+          ? `${TMDB_IMAGE_BASE}/w500${details.poster}`
           : null,
-        backdropPath: details.backdrop_path
-          ? `${TMDB_IMAGE_BASE}/w780${details.backdrop_path}`
-          : null,
+        backdropPath: null, // No disponible en GraphQL actual
         releaseDate: details.release_date || '',
         year: details.release_date ? details.release_date.split('-')[0] : '',
         rating: Math.round((details.vote_average || 0) * 10) / 10,

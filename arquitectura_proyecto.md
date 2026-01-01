@@ -245,21 +245,20 @@ La arquitectura está optimizada para el Free Tier de AWS:
 2. **✅ Stop-on-Match Algorithm**: Con notificaciones real-time
 3. **✅ Duplicate Vote Prevention**: Tabla UserVotes implementada
 4. **✅ Comprehensive Monitoring**: Sistema de métricas empresarial
-5. **✅ Automated Deployment**: Scripts PowerShell y Bash
+5. **✅ Automated Deployment**: Configuración AWS CDK
 
 ### 🚀 LISTO PARA DEPLOYMENT - Fase 2: Producción
 1. **🔧 Deployment Automatizado**: 
    ```bash
-   # Windows
-   .\infrastructure\deploy-production.ps1
-   
-   # Linux/macOS  
-   ./infrastructure/deploy-production.sh
+   # Deployment con AWS CDK
+   cd infrastructure
+   npm run build
+   cdk deploy --all --require-approval never
    ```
 
 2. **📊 Monitoreo Inmediato**: CloudWatch dashboards y alertas
-3. **🧪 Testing Completo**: Scripts de verificación incluidos
-4. **📖 Documentación**: Guía completa en DEPLOYMENT.md
+3. **🧪 Testing Completo**: Configuración Jest incluida
+4. **📖 Documentación**: Guía completa en README.md
 
 ### 🔮 Futuras Mejoras (Opcionales)
 1. **CDN Integration**: CloudFront para assets estáticos

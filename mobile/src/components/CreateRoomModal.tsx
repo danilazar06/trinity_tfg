@@ -18,8 +18,10 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import { colors, spacing, fontSize, borderRadius, shadows } from '../utils/theme';
 import { useAppSync } from '../services/apiClient';
+import { cognitoAuthService } from '../services/cognitoAuthService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -65,6 +67,7 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
   const [participants, setParticipants] = useState(2);
   const [roomCode, setRoomCode] = useState('');
   const [roomName, setRoomName] = useState('');
+  const [roomId, setRoomId] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [movieCount, setMovieCount] = useState(0);
   const [creatingStatus, setCreatingStatus] = useState('');
@@ -115,10 +118,18 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
     setIsCreating(true);
     setCreatingStatus('Verificando autenticación...');
     
-    // Check Cognito authentication instead of legacy token
-    const storedTokens = await AsyncStorage.getItem('cognitoTokens');
-    if (!storedTokens) {
-      Alert.alert('Sesión expirada', 'Por favor, inicia sesión de nuevo.');
+    // Check Cognito authentication using proper service
+    try {
+      const authResult = await cognitoAuthService.checkStoredAuth();
+      if (!authResult.isAuthenticated) {
+        Alert.alert('Sesión expirada', 'Por favor, inicia sesión de nuevo.');
+        setIsCreating(false);
+        setCreatingStatus('');
+        return;
+      }
+    } catch (error) {
+      console.error('❌ Auth check failed:', error);
+      Alert.alert('Error de autenticación', 'No se pudo verificar tu sesión. Inicia sesión de nuevo.');
       setIsCreating(false);
       setCreatingStatus('');
       return;
@@ -131,12 +142,6 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
       : selectedGenres.length > 0 
         ? `Búsqueda: ${GENRES.find(g => g.id === selectedGenres[0])?.name}`
         : 'Nueva sala';
-
-    const roomData = {
-      name,
-      // description: `Sala para ${selectedGenres.length > 0 ? selectedGenres.join(', ') : 'todas las películas'}`,
-      // isPrivate: false,
-    };
 
     try {
       setCreatingStatus('Creando sala con GraphQL...');
@@ -154,6 +159,7 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
       setCreatingStatus('¡Sala creada exitosamente!');
       setRoomCode(room.inviteCode);
       setRoomName(room.name);
+      setRoomId(room.id);
       setMovieCount(0); // GraphQL response doesn't include masterList count yet
       setStep('share');
       
@@ -540,7 +546,19 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.startButtonWrapper} onPress={resetAndClose} activeOpacity={0.85}>
+      <TouchableOpacity 
+        style={styles.startButtonWrapper} 
+        onPress={() => {
+          if (roomId) {
+            resetAndClose();
+            // Navigate to the created room
+            router.push(`/room/${roomId}`);
+          } else {
+            resetAndClose();
+          }
+        }} 
+        activeOpacity={0.85}
+      >
         <LinearGradient
           colors={[colors.primary, '#6366F1']}
           start={{ x: 0, y: 0 }}

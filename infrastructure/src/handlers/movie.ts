@@ -1,9 +1,11 @@
 import { AppSyncResolverEvent, AppSyncResolverHandler } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
-import fetch from 'node-fetch';
-import { tmdbCircuitBreaker } from '../utils/circuit-breaker';
-import { logCacheMetric, logBusinessMetric, logError, PerformanceTimer } from '../utils/metrics';
+
+// Use AWS SDK v3 from Lambda runtime
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, GetCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
+
+// Import fetch for Node.js
+const fetch = require('node-fetch');
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -36,6 +38,9 @@ export const handler: AppSyncResolverHandler<any, any> = async (event: AppSyncRe
       case 'getMovies':
         return await getMovies(args.genre);
       
+      case 'getMovieDetails':
+        return await getMovieDetails(args.movieId);
+      
       default:
         throw new Error(`Operación no soportada: ${fieldName}`);
     }
@@ -46,51 +51,40 @@ export const handler: AppSyncResolverHandler<any, any> = async (event: AppSyncRe
 };
 
 /**
- * Obtener películas con Circuit Breaker
+ * Obtener películas simplificado
  */
 async function getMovies(genre?: string): Promise<Movie[]> {
-  const timer = new PerformanceTimer('GetMovies');
-  const cacheKey = `movies_${genre || 'popular'}`;
-  
   try {
     // 1. Intentar obtener desde cache
-    const cachedMovies = await getCachedMovies(cacheKey);
+    const cachedMovies = await getCachedMovies(`movies_${genre || 'popular'}`);
     if (cachedMovies && cachedMovies.length > 0) {
-      logCacheMetric('MOVIES', true, cacheKey);
       console.log(`💾 Películas obtenidas desde cache: ${cachedMovies.length}`);
-      timer.finish(true, undefined, { source: 'cache', count: cachedMovies.length });
       return cachedMovies;
     }
 
-    logCacheMetric('MOVIES', false, cacheKey);
-
-    // 2. Si no hay cache, intentar API TMDB con Circuit Breaker
-    console.log('🌐 Obteniendo películas desde TMDB API con Circuit Breaker...');
-    const moviesFromAPI = await tmdbCircuitBreaker.execute(() => fetchMoviesFromTMDB(genre));
+    // 2. Si no hay cache, obtener desde API TMDB
+    console.log('🌐 Obteniendo películas desde TMDB API...');
+    const moviesFromAPI = await fetchMoviesFromTMDB(genre);
     
     // 3. Cachear resultado exitoso
-    await cacheMovies(cacheKey, moviesFromAPI);
+    await cacheMovies(`movies_${genre || 'popular'}`, moviesFromAPI);
     
     console.log(`✅ Películas obtenidas desde API: ${moviesFromAPI.length}`);
-    timer.finish(true, undefined, { source: 'api', count: moviesFromAPI.length });
     return moviesFromAPI;
 
   } catch (apiError) {
-    console.warn('⚠️ Error en API TMDB (Circuit Breaker activo), intentando fallback desde cache:', apiError);
+    console.warn('⚠️ Error en API TMDB, intentando fallback desde cache:', apiError);
     
     // 4. Fallback: intentar cache expirado como último recurso
-    const fallbackMovies = await getCachedMovies(cacheKey, true);
+    const fallbackMovies = await getCachedMovies(`movies_${genre || 'popular'}`, true);
     if (fallbackMovies && fallbackMovies.length > 0) {
       console.log(`🔄 Usando cache expirado como fallback: ${fallbackMovies.length}`);
-      timer.finish(true, undefined, { source: 'expired_cache', count: fallbackMovies.length });
       return fallbackMovies;
     }
 
     // 5. Si todo falla, retornar películas por defecto
-    console.log('🎭 Usando películas por defecto - Circuit Breaker protegió el sistema');
-    const defaultMovies = getDefaultMovies();
-    timer.finish(true, undefined, { source: 'default', count: defaultMovies.length });
-    return defaultMovies;
+    console.log('🎭 Usando películas por defecto');
+    return getDefaultMovies();
   }
 }
 
@@ -108,7 +102,7 @@ async function getCachedMovies(cacheKey: string, allowExpired = false): Promise<
       return null;
     }
 
-    const cached = response.Item as CachedMovie & { movies: Movie[] };
+    const cached = response.Item as any;
     
     // Verificar si el cache ha expirado (a menos que allowExpired sea true)
     if (!allowExpired && cached.ttl < Math.floor(Date.now() / 1000)) {
@@ -219,6 +213,154 @@ function getGenreId(genreName: string): string {
   };
 
   return genreMap[genreName.toLowerCase()] || '28'; // Default: Action
+}
+
+/**
+ * Obtener detalles de una película específica
+ */
+async function getMovieDetails(movieId: string): Promise<any> {
+  const cacheKey = `movie_details_${movieId}`;
+  
+  try {
+    // 1. Intentar obtener desde cache
+    const cachedMovie = await getCachedMovieDetails(cacheKey);
+    if (cachedMovie) {
+      console.log(`💾 Detalles de película obtenidos desde cache: ${movieId}`);
+      return cachedMovie;
+    }
+
+    // 2. Si no hay cache, obtener desde API TMDB
+    console.log(`🌐 Obteniendo detalles de película ${movieId} desde TMDB API...`);
+    const movieDetails = await fetchMovieDetailsFromTMDB(movieId);
+    
+    // 3. Cachear resultado exitoso
+    await cacheMovieDetails(cacheKey, movieDetails);
+    
+    console.log(`✅ Detalles de película obtenidos desde API: ${movieDetails.title}`);
+    return movieDetails;
+
+  } catch (apiError) {
+    console.warn(`⚠️ Error en API TMDB para película ${movieId}, intentando fallback:`, apiError);
+    
+    // 4. Fallback: intentar cache expirado
+    const fallbackMovie = await getCachedMovieDetails(cacheKey, true);
+    if (fallbackMovie) {
+      console.log(`🔄 Usando cache expirado como fallback para película ${movieId}`);
+      return fallbackMovie;
+    }
+
+    // 5. Si todo falla, retornar película por defecto
+    console.log(`🎭 Usando película por defecto para ID ${movieId}`);
+    return getDefaultMovieDetails(movieId);
+  }
+}
+
+/**
+ * Obtener detalles de película desde cache DynamoDB
+ */
+async function getCachedMovieDetails(cacheKey: string, allowExpired = false): Promise<any | null> {
+  try {
+    const response = await docClient.send(new GetCommand({
+      TableName: process.env.MOVIES_CACHE_TABLE!,
+      Key: { tmdbId: cacheKey },
+    }));
+
+    if (!response.Item) {
+      return null;
+    }
+
+    const cached = response.Item as any;
+    
+    // Verificar si el cache ha expirado
+    if (!allowExpired && cached.ttl < Math.floor(Date.now() / 1000)) {
+      console.log('⏰ Cache de detalles expirado');
+      return null;
+    }
+
+    return cached.movieDetails || null;
+  } catch (error) {
+    console.warn('⚠️ Error leyendo cache de detalles:', error);
+    return null;
+  }
+}
+
+/**
+ * Cachear detalles de película en DynamoDB
+ */
+async function cacheMovieDetails(cacheKey: string, movieDetails: any): Promise<void> {
+  try {
+    const ttl = Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60); // 30 días
+    
+    await docClient.send(new PutCommand({
+      TableName: process.env.MOVIES_CACHE_TABLE!,
+      Item: {
+        tmdbId: cacheKey,
+        movieDetails,
+        cachedAt: new Date().toISOString(),
+        ttl,
+      },
+    }));
+
+    console.log(`💾 Detalles de película cacheados: ${cacheKey}`);
+  } catch (error) {
+    console.warn('⚠️ Error cacheando detalles de película:', error);
+  }
+}
+
+/**
+ * Obtener detalles de película desde API TMDB
+ */
+async function fetchMovieDetailsFromTMDB(movieId: string): Promise<any> {
+  const apiKey = process.env.TMDB_API_KEY;
+  if (!apiKey) {
+    throw new Error('TMDB_API_KEY no configurada');
+  }
+
+  const url = `https://api.themoviedb.org/3/movie/${movieId}?api_key=${apiKey}&language=es-ES&append_to_response=credits,videos`;
+  
+  const response = await fetch(url, {
+    headers: {
+      'Accept': 'application/json',
+      'User-Agent': 'Trinity-App/1.0',
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error(`Película no encontrada: ${movieId}`);
+    }
+    throw new Error(`TMDB API error: ${response.status} ${response.statusText}`);
+  }
+
+  const movie: any = await response.json();
+  
+  // Transformar a formato GraphQL esperado
+  return {
+    id: movie.id.toString(),
+    title: movie.title || movie.original_title || 'Título no disponible',
+    overview: movie.overview || 'Descripción no disponible',
+    poster: movie.poster_path || null,
+    vote_average: movie.vote_average || 0,
+    release_date: movie.release_date || '',
+    genres: movie.genres?.map((g: any) => ({ id: g.id, name: g.name })) || [],
+    runtime: movie.runtime || null,
+  };
+}
+
+/**
+ * Detalles de película por defecto cuando todo falla
+ */
+function getDefaultMovieDetails(movieId: string): any {
+  return {
+    id: movieId,
+    title: 'Película no disponible',
+    overview: 'Los detalles de esta película no están disponibles temporalmente debido a problemas de conectividad. Por favor, inténtalo más tarde.',
+    poster: null,
+    vote_average: 0,
+    release_date: '',
+    genres: [],
+    runtime: null,
+  };
 }
 
 /**

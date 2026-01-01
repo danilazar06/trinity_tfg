@@ -19,6 +19,7 @@ interface Room {
   isPrivate: boolean;
   memberCount: number;
   maxMembers?: number;
+  matchCount?: number; // Add matchCount field
   createdAt: string;
   updatedAt?: string;
 }
@@ -114,6 +115,7 @@ async function createRoom(hostId: string, input: CreateRoomInput): Promise<Room>
       isPrivate: input.isPrivate || false,
       memberCount: 1, // El host cuenta como miembro
       maxMembers: input.maxMembers,
+      matchCount: 0, // Initialize matchCount field
       createdAt: now,
       updatedAt: now,
     };
@@ -121,6 +123,8 @@ async function createRoom(hostId: string, input: CreateRoomInput): Promise<Room>
     await docClient.send(new PutCommand({
       TableName: process.env.ROOMS_TABLE!,
       Item: {
+        PK: roomId, // Add PK for DynamoDB primary key
+        SK: 'ROOM', // Add SK for DynamoDB sort key
         roomId,
         ...room,
       },
@@ -168,7 +172,7 @@ async function joinRoom(userId: string, roomId: string): Promise<Room> {
     // Verificar que la sala existe y está disponible
     const roomResponse = await docClient.send(new GetCommand({
       TableName: process.env.ROOMS_TABLE!,
-      Key: { roomId },
+      Key: { PK: roomId, SK: 'ROOM' }, // Use PK and SK instead of roomId
     }));
 
     if (!roomResponse.Item) {
@@ -217,7 +221,7 @@ async function joinRoom(userId: string, roomId: string): Promise<Room> {
     // Actualizar timestamp de la sala
     await docClient.send(new UpdateCommand({
       TableName: process.env.ROOMS_TABLE!,
-      Key: { roomId },
+      Key: { PK: roomId, SK: 'ROOM' }, // Use PK and SK instead of roomId
       UpdateExpression: 'SET updatedAt = :updatedAt',
       ExpressionAttributeValues: {
         ':updatedAt': new Date().toISOString(),
@@ -246,6 +250,7 @@ async function joinRoom(userId: string, roomId: string): Promise<Room> {
       isPrivate: room.isPrivate,
       memberCount: room.memberCount,
       maxMembers: room.maxMembers,
+      matchCount: room.matchCount || 0, // Add matchCount field
       createdAt: room.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -284,7 +289,7 @@ async function getMyHistory(userId: string): Promise<Room[]> {
     try {
       const roomResponse = await docClient.send(new GetCommand({
         TableName: process.env.ROOMS_TABLE!,
-        Key: { roomId: member.roomId },
+        Key: { PK: member.roomId, SK: 'ROOM' }, // Use PK and SK instead of roomId
       }));
 
       if (roomResponse.Item) {
@@ -301,6 +306,7 @@ async function getMyHistory(userId: string): Promise<Room[]> {
           isPrivate: room.isPrivate || false,
           memberCount: room.memberCount || 1,
           maxMembers: room.maxMembers,
+          matchCount: room.matchCount || 0, // Add matchCount field
           createdAt: room.createdAt || new Date().toISOString(),
           updatedAt: room.updatedAt || new Date().toISOString(),
         });
@@ -342,6 +348,7 @@ async function createRoomDebug(hostId: string, input: CreateRoomInputDebug): Pro
       isPrivate: false,
       memberCount: 1, // El host cuenta como miembro
       maxMembers: 10, // Valor por defecto
+      matchCount: 0, // Initialize matchCount field
       createdAt: now,
       updatedAt: now,
     };
@@ -349,6 +356,8 @@ async function createRoomDebug(hostId: string, input: CreateRoomInputDebug): Pro
     await docClient.send(new PutCommand({
       TableName: process.env.ROOMS_TABLE!,
       Item: {
+        PK: roomId, // Add PK for DynamoDB primary key
+        SK: 'ROOM', // Add SK for DynamoDB sort key
         roomId,
         ...room,
       },
@@ -414,6 +423,7 @@ async function createRoomSimple(hostId: string, name: string): Promise<Room> {
       isPrivate: false,
       memberCount: 1, // El host cuenta como miembro
       maxMembers: 10, // Valor por defecto
+      matchCount: 0, // Initialize matchCount field
       createdAt: now,
       updatedAt: now,
     };
@@ -421,6 +431,8 @@ async function createRoomSimple(hostId: string, name: string): Promise<Room> {
     await docClient.send(new PutCommand({
       TableName: process.env.ROOMS_TABLE!,
       Item: {
+        PK: roomId, // Add PK for DynamoDB primary key
+        SK: 'ROOM', // Add SK for DynamoDB sort key
         roomId,
         ...room,
       },
@@ -477,7 +489,7 @@ async function getRoom(userId: string, roomId: string): Promise<Room | null> {
     // Obtener detalles de la sala
     const roomResponse = await docClient.send(new GetCommand({
       TableName: process.env.ROOMS_TABLE!,
-      Key: { roomId },
+      Key: { PK: roomId, SK: 'ROOM' }, // Use PK and SK instead of roomId
     }));
 
     if (!roomResponse.Item) {
@@ -498,6 +510,7 @@ async function getRoom(userId: string, roomId: string): Promise<Room | null> {
       isPrivate: room.isPrivate || false,
       memberCount: room.memberCount || 1,
       maxMembers: room.maxMembers,
+      matchCount: room.matchCount || 0, // Add matchCount field
       createdAt: room.createdAt || new Date().toISOString(),
       updatedAt: room.updatedAt || new Date().toISOString(),
     };

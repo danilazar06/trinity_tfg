@@ -35,6 +35,7 @@ type Room {
   isPrivate: Boolean!
   memberCount: Int!
   maxMembers: Int
+  matchCount: Int
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime
 }

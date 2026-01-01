@@ -249,6 +249,9 @@ class AppSyncService {
           isActive
           isPrivate
           memberCount
+          inviteCode
+          hostId
+          status
           createdAt
         }
       }
@@ -276,26 +279,34 @@ class AppSyncService {
   }
 
   /**
-   * Join a room
+   * Join a room using invite code
    */
-  async joinRoom(roomId: string): Promise<{ joinRoom: any }> {
+  async joinRoom(inviteCode: string): Promise<{ joinRoom: any }> {
     const mutation = `
-      mutation JoinRoom($roomId: ID!) {
-        joinRoom(roomId: $roomId) {
+      mutation JoinRoom($input: JoinRoomInput!) {
+        joinRoom(input: $input) {
           id
           name
           description
           isActive
           memberCount
+          matchCount
+          createdAt
+          updatedAt
         }
       }
     `;
 
+    const input = { inviteCode };
+
+    console.log('🚪 AppSyncService.joinRoom - Input:', JSON.stringify(input, null, 2));
+
     const result = await this.graphqlRequest<{ joinRoom: any }>({
       query: mutation,
-      variables: { roomId }
+      variables: { input }
     });
 
+    console.log('🚪 AppSyncService.joinRoom - Result:', JSON.stringify(result, null, 2));
     return result;
   }
 
@@ -309,15 +320,15 @@ class AppSyncService {
           id
           name
           description
+          status
+          resultMovieId
+          hostId
+          inviteCode
           isActive
           isPrivate
           memberCount
+          maxMembers
           matchCount
-          members {
-            id
-            name
-            email
-          }
           createdAt
           updatedAt
         }
@@ -335,29 +346,42 @@ class AppSyncService {
   /**
    * Vote on content
    */
-  async vote(input: {
-    roomId: string;
-    contentId: string;
-    contentType: string;
-    vote: 'like' | 'dislike';
-  }): Promise<{ vote: any }> {
+  async vote(roomId: string, movieId: string): Promise<{ vote: any }> {
     const mutation = `
       mutation Vote($input: VoteInput!) {
         vote(input: $input) {
           id
-          contentId
-          contentType
-          vote
+          name
+          description
+          status
+          resultMovieId
+          hostId
+          inviteCode
+          isActive
+          isPrivate
+          memberCount
+          maxMembers
+          matchCount
           createdAt
+          updatedAt
         }
       }
     `;
+
+    const input = {
+      roomId,
+      movieId,
+      voteType: 'LIKE' // Solo procesamos votos LIKE en Stop-on-Match
+    };
+
+    console.log('🗳️ AppSyncService.vote - Input:', JSON.stringify(input, null, 2));
 
     const result = await this.graphqlRequest<{ vote: any }>({
       query: mutation,
       variables: { input }
     });
 
+    console.log('🗳️ AppSyncService.vote - Result:', JSON.stringify(result, null, 2));
     return result;
   }
 
@@ -366,16 +390,18 @@ class AppSyncService {
    */
   async getMovieDetails(movieId: string): Promise<{ getMovieDetails: any }> {
     const query = `
-      query GetMovieDetails($movieId: ID!) {
+      query GetMovieDetails($movieId: String!) {
         getMovieDetails(movieId: $movieId) {
           id
           title
           overview
-          posterPath
-          backdropPath
-          releaseDate
-          voteAverage
-          genres
+          poster
+          vote_average
+          release_date
+          genres {
+            id
+            name
+          }
           runtime
         }
       }
@@ -420,29 +446,63 @@ class AppSyncService {
   }
 
   /**
-   * Subscribe to vote updates (placeholder - real-time subscriptions need WebSocket)
+   * Subscribe to vote updates
    */
-  async subscribeToVoteUpdates(roomId: string): Promise<any> {
-    // For now, return a placeholder
-    // Real implementation would use WebSocket subscriptions
-    console.log('📡 Subscribing to vote updates for room:', roomId);
-    return {
-      subscribe: () => console.log('Subscription started'),
-      unsubscribe: () => console.log('Subscription ended')
-    };
+  async subscribeToVoteUpdates(roomId: string, callback: (voteUpdate: any) => void): Promise<(() => void) | null> {
+    try {
+      console.log('📡 Setting up vote updates subscription for room:', roomId);
+      
+      // For now, return a placeholder cleanup function
+      // Real implementation would use WebSocket subscriptions with AppSync
+      const cleanup = () => {
+        console.log('🧹 Cleaning up vote updates subscription for room:', roomId);
+      };
+      
+      return cleanup;
+    } catch (error) {
+      console.error('❌ Failed to setup vote updates subscription:', error);
+      return null;
+    }
   }
 
   /**
-   * Subscribe to match found events (placeholder)
+   * Subscribe to match found events
    */
-  async subscribeToMatchFound(roomId: string): Promise<any> {
-    // For now, return a placeholder
-    // Real implementation would use WebSocket subscriptions
-    console.log('📡 Subscribing to match events for room:', roomId);
-    return {
-      subscribe: () => console.log('Match subscription started'),
-      unsubscribe: () => console.log('Match subscription ended')
-    };
+  async subscribeToMatchFound(roomId: string, callback: (matchData: any) => void): Promise<(() => void) | null> {
+    try {
+      console.log('📡 Setting up match found subscription for room:', roomId);
+      
+      // For now, return a placeholder cleanup function
+      // Real implementation would use WebSocket subscriptions with AppSync
+      const cleanup = () => {
+        console.log('🧹 Cleaning up match found subscription for room:', roomId);
+      };
+      
+      return cleanup;
+    } catch (error) {
+      console.error('❌ Failed to setup match found subscription:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Subscribe to room updates
+   */
+  async subscribeToRoomUpdates(roomId: string, callback: (roomUpdate: any) => void): Promise<(() => void) | null> {
+    try {
+      console.log('📡 Setting up room updates subscription for room:', roomId);
+      
+      // For now, return a placeholder cleanup function
+      // Real implementation would use WebSocket subscriptions with AppSync
+      const cleanup = () => {
+        console.log('🧹 Cleaning up room updates subscription for room:', roomId);
+      };
+      
+      return cleanup;
+    } catch (error) {
+      console.error('❌ Failed to setup room updates subscription:', error);
+      return null;
+    }
   }
 }
 
