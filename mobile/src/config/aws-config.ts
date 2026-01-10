@@ -11,6 +11,7 @@ export interface AWSConfig {
   userPoolWebClientId: string;
   identityPoolId: string;
   userPoolDomain?: string;
+  apiKey?: string; // Optional API key for AppSync
   // Google Federation
   googleClientId?: string;
   oauth?: {

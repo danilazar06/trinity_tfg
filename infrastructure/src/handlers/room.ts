@@ -170,12 +170,41 @@ async function joinRoom(userId: string, roomId: string): Promise<Room> {
   
   try {
     // Verificar que la sala existe y está disponible
-    const roomResponse = await docClient.send(new GetCommand({
-      TableName: process.env.ROOMS_TABLE!,
-      Key: { PK: roomId, SK: 'ROOM' }, // Use PK and SK instead of roomId
-    }));
+    const maxRetries = 3;
+    let attempt = 0;
+    let roomResponse;
+    
+    while (attempt < maxRetries) {
+      try {
+        roomResponse = await docClient.send(new GetCommand({
+          TableName: process.env.ROOMS_TABLE!,
+          Key: { PK: roomId, SK: 'ROOM' },
+        }));
+        break; // Success, exit retry loop
+      } catch (error: any) {
+        if (error.name === 'ValidationException' && error.message.includes('key element does not match')) {
+          console.error('❌ Error de estructura de clave en ROOMS_TABLE (joinRoom):', error.message);
+          throw new Error('Error interno del sistema. Por favor, inténtalo de nuevo más tarde.');
+        }
+        
+        // Errores de red o temporales - reintentar
+        if (error.name === 'ServiceException' || error.name === 'ThrottlingException' || error.name === 'InternalServerError') {
+          attempt++;
+          if (attempt >= maxRetries) {
+            console.error('❌ Máximo de reintentos alcanzado para joinRoom getRoomAndValidate');
+            throw new Error('Error interno del sistema. Servicio temporalmente no disponible.');
+          }
+          
+          console.log(`🔄 Reintentando joinRoom getRoomAndValidate (intento ${attempt + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attempt))); // Exponential backoff
+          continue;
+        }
+        
+        throw error; // Re-throw other errors
+      }
+    }
 
-    if (!roomResponse.Item) {
+    if (!roomResponse!.Item) {
       throw new Error('Sala no encontrada');
     }
 
@@ -219,14 +248,42 @@ async function joinRoom(userId: string, roomId: string): Promise<Room> {
     }
 
     // Actualizar timestamp de la sala
-    await docClient.send(new UpdateCommand({
-      TableName: process.env.ROOMS_TABLE!,
-      Key: { PK: roomId, SK: 'ROOM' }, // Use PK and SK instead of roomId
-      UpdateExpression: 'SET updatedAt = :updatedAt',
-      ExpressionAttributeValues: {
-        ':updatedAt': new Date().toISOString(),
-      },
-    }));
+    const maxRetriesUpdate = 3;
+    let attemptUpdate = 0;
+    
+    while (attemptUpdate < maxRetriesUpdate) {
+      try {
+        await docClient.send(new UpdateCommand({
+          TableName: process.env.ROOMS_TABLE!,
+          Key: { PK: roomId, SK: 'ROOM' },
+          UpdateExpression: 'SET updatedAt = :updatedAt',
+          ExpressionAttributeValues: {
+            ':updatedAt': new Date().toISOString(),
+          },
+        }));
+        break; // Success, exit retry loop
+      } catch (error: any) {
+        if (error.name === 'ValidationException' && error.message.includes('key element does not match')) {
+          console.error('❌ Error de estructura de clave en ROOMS_TABLE (joinRoom update):', error.message);
+          throw new Error('Error interno del sistema al actualizar la sala.');
+        }
+        
+        // Errores de red o temporales - reintentar
+        if (error.name === 'ServiceException' || error.name === 'ThrottlingException' || error.name === 'InternalServerError') {
+          attemptUpdate++;
+          if (attemptUpdate >= maxRetriesUpdate) {
+            console.error('❌ Máximo de reintentos alcanzado para joinRoom updateRoom');
+            throw new Error('Error interno del sistema. No se pudo actualizar la sala después de múltiples intentos.');
+          }
+          
+          console.log(`🔄 Reintentando joinRoom updateRoom (intento ${attemptUpdate + 1}/${maxRetriesUpdate})`);
+          await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attemptUpdate))); // Exponential backoff
+          continue;
+        }
+        
+        throw error; // Re-throw other errors
+      }
+    }
 
     // Log business metric
     logBusinessMetric('ROOM_JOINED', roomId, userId, {
@@ -287,12 +344,42 @@ async function getMyHistory(userId: string): Promise<Room[]> {
   
   for (const member of response.Items) {
     try {
-      const roomResponse = await docClient.send(new GetCommand({
-        TableName: process.env.ROOMS_TABLE!,
-        Key: { PK: member.roomId, SK: 'ROOM' }, // Use PK and SK instead of roomId
-      }));
+      const maxRetriesHistory = 3;
+      let attemptHistory = 0;
+      let roomResponse;
+      
+      while (attemptHistory < maxRetriesHistory) {
+        try {
+          roomResponse = await docClient.send(new GetCommand({
+            TableName: process.env.ROOMS_TABLE!,
+            Key: { PK: member.roomId, SK: 'ROOM' },
+          }));
+          break; // Success, exit retry loop
+        } catch (error: any) {
+          if (error.name === 'ValidationException' && error.message.includes('key element does not match')) {
+            console.error('❌ Error de estructura de clave en ROOMS_TABLE (getMyHistory):', error.message);
+            // Skip this room and continue with others
+            break;
+          }
+          
+          // Errores de red o temporales - reintentar
+          if (error.name === 'ServiceException' || error.name === 'ThrottlingException' || error.name === 'InternalServerError') {
+            attemptHistory++;
+            if (attemptHistory >= maxRetriesHistory) {
+              console.warn(`⚠️ Error obteniendo sala ${member.roomId} después de múltiples intentos:`, error);
+              break; // Skip this room and continue with others
+            }
+            
+            console.log(`🔄 Reintentando getMyHistory getRoomDetails (intento ${attemptHistory + 1}/${maxRetriesHistory})`);
+            await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attemptHistory))); // Exponential backoff
+            continue;
+          }
+          
+          throw error; // Re-throw other errors
+        }
+      }
 
-      if (roomResponse.Item) {
+      if (roomResponse && roomResponse.Item) {
         const room = roomResponse.Item;
         rooms.push({
           id: room.roomId,
@@ -487,12 +574,41 @@ async function getRoom(userId: string, roomId: string): Promise<Room | null> {
     }
 
     // Obtener detalles de la sala
-    const roomResponse = await docClient.send(new GetCommand({
-      TableName: process.env.ROOMS_TABLE!,
-      Key: { PK: roomId, SK: 'ROOM' }, // Use PK and SK instead of roomId
-    }));
+    const maxRetriesGetRoom = 3;
+    let attemptGetRoom = 0;
+    let roomResponse;
+    
+    while (attemptGetRoom < maxRetriesGetRoom) {
+      try {
+        roomResponse = await docClient.send(new GetCommand({
+          TableName: process.env.ROOMS_TABLE!,
+          Key: { PK: roomId, SK: 'ROOM' },
+        }));
+        break; // Success, exit retry loop
+      } catch (error: any) {
+        if (error.name === 'ValidationException' && error.message.includes('key element does not match')) {
+          console.error('❌ Error de estructura de clave en ROOMS_TABLE (getRoom):', error.message);
+          throw new Error('Error interno del sistema. Por favor, inténtalo de nuevo más tarde.');
+        }
+        
+        // Errores de red o temporales - reintentar
+        if (error.name === 'ServiceException' || error.name === 'ThrottlingException' || error.name === 'InternalServerError') {
+          attemptGetRoom++;
+          if (attemptGetRoom >= maxRetriesGetRoom) {
+            console.error('❌ Máximo de reintentos alcanzado para getRoom');
+            throw new Error('Error interno del sistema. Servicio temporalmente no disponible.');
+          }
+          
+          console.log(`🔄 Reintentando getRoom (intento ${attemptGetRoom + 1}/${maxRetriesGetRoom})`);
+          await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attemptGetRoom))); // Exponential backoff
+          continue;
+        }
+        
+        throw error; // Re-throw other errors
+      }
+    }
 
-    if (!roomResponse.Item) {
+    if (!roomResponse!.Item) {
       throw new Error('Sala no encontrada');
     }
 

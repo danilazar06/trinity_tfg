@@ -36,7 +36,9 @@ export const handler: AppSyncResolverHandler<any, any> = async (event: AppSyncRe
   try {
     switch (fieldName) {
       case 'vote':
-        return await processVote(userId, args.roomId, args.movieId);
+        // Extraer parámetros del input según el schema GraphQL
+        const { roomId, movieId, voteType } = args.input;
+        return await processVote(userId, roomId, movieId, voteType);
       
       default:
         throw new Error(`Operación no soportada: ${fieldName}`);
@@ -67,6 +69,24 @@ export const handler: AppSyncResolverHandler<any, any> = async (event: AppSyncRe
       if (error.message.includes('no está disponible para votar')) {
         throw new Error('Esta sala no está disponible para votar en este momento.');
       }
+      
+      // Errores de red o conectividad
+      if (error.message.includes('Network') || error.message.includes('timeout')) {
+        throw new Error('Problema de conexión. Por favor, verifica tu conexión a internet e inténtalo de nuevo.');
+      }
+      
+      // Errores de autorización
+      if (error.message.includes('Unauthorized') || error.message.includes('Forbidden')) {
+        throw new Error('Tu sesión ha expirado. Por favor, inicia sesión de nuevo.');
+      }
+      
+      // Errores de validación de datos
+      if (error.message.includes('ValidationException') || error.message.includes('Invalid')) {
+        throw new Error('Los datos enviados no son válidos. Por favor, inténtalo de nuevo.');
+      }
+      
+      // Error genérico para casos no manejados específicamente
+      throw new Error('Ocurrió un error inesperado. Por favor, inténtalo de nuevo más tarde.');
     }
     
     throw error;
@@ -75,10 +95,11 @@ export const handler: AppSyncResolverHandler<any, any> = async (event: AppSyncRe
 
 /**
  * Procesar voto con algoritmo Stop-on-Match
+ * Solo procesa votos LIKE - los DISLIKE se ignoran según el algoritmo
  */
-async function processVote(userId: string, roomId: string, movieId: string): Promise<Room> {
+async function processVote(userId: string, roomId: string, movieId: string, voteType: string): Promise<Room> {
   const timer = new PerformanceTimer('ProcessVote');
-  console.log(`🗳️ Procesando voto: Usuario ${userId}, Sala ${roomId}, Película ${movieId}`);
+  console.log(`🗳️ Procesando voto: Usuario ${userId}, Sala ${roomId}, Película ${movieId}, Tipo: ${voteType}`);
 
   try {
     // 1. Verificar que la sala existe y está ACTIVE
@@ -87,18 +108,29 @@ async function processVote(userId: string, roomId: string, movieId: string): Pro
     // 2. Verificar que el usuario es miembro de la sala
     await validateUserMembership(userId, roomId);
     
-    // 3. Prevenir votos duplicados del mismo usuario para la misma película
+    // 3. Solo procesar votos LIKE - ignorar DISLIKE según algoritmo Stop-on-Match
+    if (voteType !== 'LIKE') {
+      console.log(`⏭️ Ignorando voto ${voteType} según algoritmo Stop-on-Match`);
+      return {
+        id: roomId,
+        status: room.status,
+        resultMovieId: room.resultMovieId,
+        hostId: room.hostId,
+      };
+    }
+    
+    // 4. Prevenir votos duplicados del mismo usuario para la misma película
     await preventDuplicateVote(userId, roomId, movieId);
     
-    // 4. Incrementar contador atómico en VotesTable
+    // 5. Incrementar contador atómico en VotesTable
     const currentVotes = await incrementVoteCount(roomId, movieId);
     
-    // 5. Obtener total de miembros activos en la sala
+    // 6. Obtener total de miembros activos en la sala
     const totalMembers = await getTotalActiveMembers(roomId);
     
     console.log(`📊 Votos actuales: ${currentVotes}, Miembros totales: ${totalMembers}`);
     
-    // 6. Publicar evento de actualización de voto en tiempo real
+    // 7. Publicar evento de actualización de voto en tiempo real
     await publishVoteUpdateEvent(roomId, userId, movieId, 'LIKE', currentVotes, totalMembers);
     
     // Log business metric
@@ -109,7 +141,7 @@ async function processVote(userId: string, roomId: string, movieId: string): Pro
       progress: totalMembers > 0 ? (currentVotes / totalMembers) * 100 : 0
     });
     
-    // 7. Verificar si se alcanzó el consenso (Stop-on-Match)
+    // 8. Verificar si se alcanzó el consenso (Stop-on-Match)
     if (currentVotes >= totalMembers) {
       console.log('🎉 ¡Match encontrado! Actualizando sala y notificando...');
       
@@ -147,7 +179,7 @@ async function processVote(userId: string, roomId: string, movieId: string): Pro
       };
     }
     
-    // 8. Si no hay match, retornar sala actualizada
+    // 9. Si no hay match, retornar sala actualizada
     timer.finish(true, undefined, { 
       result: 'vote_recorded',
       progress: `${currentVotes}/${totalMembers}` 
@@ -171,59 +203,101 @@ async function processVote(userId: string, roomId: string, movieId: string): Pro
  * Obtener y validar sala
  */
 async function getRoomAndValidate(roomId: string): Promise<any> {
-  try {
-    console.log('🔍 DEBUG: getRoomAndValidate usando clave:', { PK: roomId, SK: 'ROOM' });
-    const response = await docClient.send(new GetCommand({
-      TableName: process.env.ROOMS_TABLE!,
-      Key: { PK: roomId, SK: 'ROOM' }, // Usar PK y SK en lugar de roomId
-    }));
+  const maxRetries = 3;
+  let attempt = 0;
+  
+  while (attempt < maxRetries) {
+    try {
+      console.log('🔍 DEBUG: getRoomAndValidate usando clave:', { PK: roomId, SK: 'ROOM' });
+      const response = await docClient.send(new GetCommand({
+        TableName: process.env.ROOMS_TABLE!,
+        Key: { PK: roomId, SK: 'ROOM' },
+      }));
 
-    if (!response.Item) {
-      throw new Error('Sala no encontrada');
-    }
+      if (!response.Item) {
+        throw new Error('Sala no encontrada');
+      }
 
-    const room = response.Item;
-    
-    if (room.status !== 'ACTIVE' && room.status !== 'WAITING') {
-      throw new Error(`La sala no está disponible para votar. Estado actual: ${room.status}`);
-    }
+      const room = response.Item;
+      
+      if (room.status !== 'ACTIVE' && room.status !== 'WAITING') {
+        throw new Error(`La sala no está disponible para votar. Estado actual: ${room.status}`);
+      }
 
-    return room;
-  } catch (error: any) {
-    // Distinguir entre errores de clave y errores de negocio
-    if (error.name === 'ValidationException' && error.message.includes('key element does not match')) {
-      console.error('❌ Error de estructura de clave en ROOMS_TABLE:', error.message);
-      throw new Error('Error interno del sistema. Por favor, inténtalo de nuevo más tarde.');
+      return room;
+    } catch (error: any) {
+      // Distinguir entre errores de clave y errores de negocio
+      if (error.name === 'ValidationException' && error.message.includes('key element does not match')) {
+        console.error('❌ Error de estructura de clave en ROOMS_TABLE:', error.message);
+        throw new Error('Error interno del sistema. Por favor, inténtalo de nuevo más tarde.');
+      }
+      
+      // Errores de red o temporales - reintentar
+      if (error.name === 'ServiceException' || error.name === 'ThrottlingException' || error.name === 'InternalServerError') {
+        attempt++;
+        if (attempt >= maxRetries) {
+          console.error('❌ Máximo de reintentos alcanzado para getRoomAndValidate');
+          throw new Error('Error interno del sistema. Servicio temporalmente no disponible.');
+        }
+        
+        console.log(`🔄 Reintentando getRoomAndValidate (intento ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attempt))); // Exponential backoff
+        continue;
+      }
+      
+      // Re-lanzar errores de negocio tal como están
+      throw error;
     }
-    
-    // Re-lanzar errores de negocio tal como están
-    throw error;
   }
+  
+  throw new Error('Error interno del sistema. No se pudo validar la sala después de múltiples intentos.');
 }
 
 /**
  * Validar que el usuario es miembro de la sala
  */
 async function validateUserMembership(userId: string, roomId: string): Promise<void> {
-  try {
-    const response = await docClient.send(new GetCommand({
-      TableName: process.env.ROOM_MEMBERS_TABLE!,
-      Key: { roomId, userId },
-    }));
+  const maxRetries = 3;
+  let attempt = 0;
+  
+  while (attempt < maxRetries) {
+    try {
+      const response = await docClient.send(new GetCommand({
+        TableName: process.env.ROOM_MEMBERS_TABLE!,
+        Key: { roomId, userId },
+      }));
 
-    if (!response.Item || !response.Item.isActive) {
-      throw new Error('Usuario no es miembro activo de la sala');
+      if (!response.Item || !response.Item.isActive) {
+        throw new Error('Usuario no es miembro activo de la sala');
+      }
+      
+      return; // Success
+    } catch (error: any) {
+      // Distinguir entre errores de clave y errores de negocio
+      if (error.name === 'ValidationException' && error.message.includes('key element does not match')) {
+        console.error('❌ Error de estructura de clave en ROOM_MEMBERS_TABLE:', error.message);
+        throw new Error('Error interno del sistema. Por favor, inténtalo de nuevo más tarde.');
+      }
+      
+      // Errores de red o temporales - reintentar
+      if (error.name === 'ServiceException' || error.name === 'ThrottlingException' || error.name === 'InternalServerError') {
+        attempt++;
+        if (attempt >= maxRetries) {
+          console.error('❌ Máximo de reintentos alcanzado para validateUserMembership');
+          throw new Error('Error interno del sistema. Servicio temporalmente no disponible.');
+        }
+        
+        console.log(`🔄 Reintentando validateUserMembership (intento ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attempt))); // Exponential backoff
+        continue;
+      }
+      
+      // Re-lanzar errores de negocio tal como están
+      throw error;
     }
-  } catch (error: any) {
-    // Distinguir entre errores de clave y errores de negocio
-    if (error.name === 'ValidationException' && error.message.includes('key element does not match')) {
-      console.error('❌ Error de estructura de clave en ROOM_MEMBERS_TABLE:', error.message);
-      throw new Error('Error interno del sistema. Por favor, inténtalo de nuevo más tarde.');
-    }
-    
-    // Re-lanzar errores de negocio tal como están
-    throw error;
   }
+  
+  throw new Error('Error interno del sistema. No se pudo validar la membresía después de múltiples intentos.');
 }
 
 /**
@@ -338,33 +412,54 @@ async function getTotalActiveMembers(roomId: string): Promise<number> {
  * Actualizar sala con resultado del match
  */
 async function updateRoomWithMatch(roomId: string, movieId: string): Promise<void> {
-  try {
-    console.log('🔍 DEBUG: updateRoomWithMatch usando clave:', { PK: roomId, SK: 'ROOM' });
-    await docClient.send(new UpdateCommand({
-      TableName: process.env.ROOMS_TABLE!,
-      Key: { PK: roomId, SK: 'ROOM' }, // Usar PK y SK en lugar de roomId
-      UpdateExpression: 'SET #status = :status, resultMovieId = :movieId, updatedAt = :updatedAt',
-      ExpressionAttributeNames: {
-        '#status': 'status', // 'status' es palabra reservada en DynamoDB
-      },
-      ExpressionAttributeValues: {
-        ':status': 'MATCHED',
-        ':movieId': movieId,
-        ':updatedAt': new Date().toISOString(),
-      },
-    }));
+  const maxRetries = 3;
+  let attempt = 0;
+  
+  while (attempt < maxRetries) {
+    try {
+      console.log('🔍 DEBUG: updateRoomWithMatch usando clave:', { PK: roomId, SK: 'ROOM' });
+      await docClient.send(new UpdateCommand({
+        TableName: process.env.ROOMS_TABLE!,
+        Key: { PK: roomId, SK: 'ROOM' },
+        UpdateExpression: 'SET #status = :status, resultMovieId = :movieId, updatedAt = :updatedAt',
+        ExpressionAttributeNames: {
+          '#status': 'status', // 'status' es palabra reservada en DynamoDB
+        },
+        ExpressionAttributeValues: {
+          ':status': 'MATCHED',
+          ':movieId': movieId,
+          ':updatedAt': new Date().toISOString(),
+        },
+      }));
 
-    console.log(`✅ Sala ${roomId} actualizada con match: película ${movieId}`);
-  } catch (error: any) {
-    // Manejar errores de clave
-    if (error.name === 'ValidationException' && error.message.includes('key element does not match')) {
-      console.error('❌ Error de estructura de clave en ROOMS_TABLE (UPDATE):', error.message);
-      throw new Error('Error interno del sistema al actualizar la sala.');
+      console.log(`✅ Sala ${roomId} actualizada con match: película ${movieId}`);
+      return; // Success
+    } catch (error: any) {
+      // Manejar errores de clave
+      if (error.name === 'ValidationException' && error.message.includes('key element does not match')) {
+        console.error('❌ Error de estructura de clave en ROOMS_TABLE (UPDATE):', error.message);
+        throw new Error('Error interno del sistema al actualizar la sala.');
+      }
+      
+      // Errores de red o temporales - reintentar
+      if (error.name === 'ServiceException' || error.name === 'ThrottlingException' || error.name === 'InternalServerError') {
+        attempt++;
+        if (attempt >= maxRetries) {
+          console.error('❌ Máximo de reintentos alcanzado para updateRoomWithMatch');
+          throw new Error('Error interno del sistema. No se pudo actualizar la sala después de múltiples intentos.');
+        }
+        
+        console.log(`🔄 Reintentando updateRoomWithMatch (intento ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attempt))); // Exponential backoff
+        continue;
+      }
+      
+      console.error('❌ Error actualizando sala con match:', error);
+      throw error;
     }
-    
-    console.error('❌ Error actualizando sala con match:', error);
-    throw error;
   }
+  
+  throw new Error('Error interno del sistema. No se pudo actualizar la sala después de múltiples intentos.');
 }
 
 /**

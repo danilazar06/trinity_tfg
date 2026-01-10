@@ -7,6 +7,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "test": "jest",
     "build:development": "eas build --profile development",
     "build:preview": "eas build --profile preview",
     "build:production": "eas build --profile production",
@@ -51,6 +52,9 @@
     "@babel/core": "^7.24.0",
     "@types/cross-spawn": "^6.0.6",
     "@types/react": "~18.3.12",
+    "@types/jest": "^29.5.5",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
     "typescript": "~5.3.0"
   },
   "private": true

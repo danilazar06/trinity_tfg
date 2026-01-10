@@ -66,7 +66,6 @@ class AppSyncService {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authResult.tokens.idToken}`,
-          'x-api-key': this.config.apiKey || '',
         },
         body: JSON.stringify(request),
       });
@@ -410,6 +409,31 @@ class AppSyncService {
     const result = await this.graphqlRequest<{ getMovieDetails: any }>({
       query,
       variables: { movieId }
+    });
+
+    return result;
+  }
+
+  /**
+   * Get movies list
+   */
+  async getMovies(genre?: string): Promise<{ getMovies: any[] }> {
+    const query = `
+      query GetMovies($genre: String) {
+        getMovies(genre: $genre) {
+          id
+          title
+          overview
+          poster
+          vote_average
+          release_date
+        }
+      }
+    `;
+
+    const result = await this.graphqlRequest<{ getMovies: any[] }>({
+      query,
+      variables: { genre }
     });
 
     return result;

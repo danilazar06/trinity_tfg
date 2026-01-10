@@ -143,6 +143,7 @@ export const useAppSync = () => {
     vote: appSyncService.vote.bind(appSyncService),
     
     // Movie operations via AppSync
+    getMovies: appSyncService.getMovies.bind(appSyncService),
     getMovieDetails: appSyncService.getMovieDetails.bind(appSyncService),
     
     // AI operations via AppSync
