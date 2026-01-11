@@ -172,9 +172,15 @@ class AppSyncService {
   }
 
   /**
-   * Make authenticated GraphQL request to AppSync
+   * Make authenticated GraphQL request to AppSync with enhanced error handling and timeout
    */
   private async graphqlRequest<T>(request: GraphQLRequest): Promise<T> {
+    // Create AbortController for timeout handling
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 10000); // 10 second timeout
+
     try {
       // Check network connectivity first
       if (!networkService.isConnected()) {
@@ -201,10 +207,12 @@ class AppSyncService {
       console.log('🔍 AppSyncService.graphqlRequest - Endpoint:', this.graphqlEndpoint);
       console.log('🔍 AppSyncService.graphqlRequest - Has auth token:', !!authToken);
 
-      // Prepare headers with authentication
+      // Prepare headers with authentication and proper content types
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Authorization': `Bearer ${authToken}`,
+        'User-Agent': 'Trinity-Mobile-App/1.0',
       };
 
       // Add additional headers if needed
@@ -212,17 +220,51 @@ class AppSyncService {
         headers['x-amz-region'] = this.config.region;
       }
 
-      console.log('🔍 AppSyncService.graphqlRequest - Headers prepared (token masked)');
+      console.log('🔍 AppSyncService.graphqlRequest - Headers prepared:', {
+        'Content-Type': headers['Content-Type'],
+        'Accept': headers['Accept'],
+        'User-Agent': headers['User-Agent'],
+        'x-amz-region': headers['x-amz-region'],
+        'hasAuthorization': !!headers['Authorization']
+      });
 
+      // Prepare request body
+      const requestBody = JSON.stringify(request);
+      console.log('🔍 AppSyncService.graphqlRequest - Request body size:', requestBody.length, 'bytes');
+      console.log('🔍 AppSyncService.graphqlRequest - Request preview:', requestBody.substring(0, 200) + '...');
+
+      // Make the request with timeout
+      console.log('🔍 AppSyncService.graphqlRequest - Starting fetch with 10s timeout...');
       const response = await fetch(this.graphqlEndpoint, {
         method: 'POST',
         headers,
-        body: JSON.stringify(request),
+        body: requestBody,
+        signal: controller.signal,
       });
 
-      console.log('🔍 AppSyncService.graphqlRequest - Response status:', response.status, response.statusText);
+      // Clear timeout since request completed
+      clearTimeout(timeoutId);
+
+      console.log('🔍 AppSyncService.graphqlRequest - Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: {
+          'content-type': response.headers.get('content-type'),
+          'content-length': response.headers.get('content-length'),
+        }
+      });
 
       if (!response.ok) {
+        // Try to get response body for better error details
+        let errorBody = '';
+        try {
+          errorBody = await response.text();
+          console.log('🔍 AppSyncService.graphqlRequest - Error response body:', errorBody);
+        } catch (bodyError) {
+          console.warn('⚠️ Could not read error response body:', bodyError);
+        }
+
         // Handle specific HTTP errors
         if (response.status === 401) {
           throw new Error('Authentication failed. Please log in again.');
@@ -231,20 +273,30 @@ class AppSyncService {
         } else if (response.status === 429) {
           throw new Error('Too many requests. Please try again later.');
         } else if (response.status >= 500) {
-          throw new Error('Server error. Please try again later.');
+          throw new Error(`Server error (${response.status}). Please try again later.`);
         }
         
-        throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+        const errorMessage = errorBody ? 
+          `Request failed: ${response.status} ${response.statusText} - ${errorBody}` :
+          `Request failed: ${response.status} ${response.statusText}`;
+        throw new Error(errorMessage);
       }
 
-      const result: GraphQLResponse<T> = await response.json();
-
-      console.log('🔍 AppSyncService.graphqlRequest - Response received');
+      // Parse JSON response
+      let result: GraphQLResponse<T>;
+      try {
+        result = await response.json();
+        console.log('🔍 AppSyncService.graphqlRequest - JSON parsed successfully');
+      } catch (jsonError: any) {
+        console.error('❌ Failed to parse JSON response:', jsonError);
+        throw new Error(`Invalid JSON response from server: ${jsonError.message}`);
+      }
 
       // Check for GraphQL errors
       if (result.errors && result.errors.length > 0) {
         const errorMessages = result.errors.map(e => e.message).join(', ');
         
+        console.log('🔍 AppSyncService.graphqlRequest - GraphQL errors found:', result.errors);
         loggingService.error('AppSyncService', 'GraphQL errors', { errors: result.errors });
         
         // Handle specific GraphQL errors
@@ -257,6 +309,7 @@ class AppSyncService {
 
       // Check if we have data
       if (!result.data) {
+        console.warn('⚠️ No data in GraphQL response:', result);
         throw new Error('No data received from server');
       }
 
@@ -266,14 +319,43 @@ class AppSyncService {
       return result.data as T;
 
     } catch (error: any) {
+      // Clear timeout in case of error
+      clearTimeout(timeoutId);
+
+      // Enhanced error logging with full error details
+      console.error('❌ AppSyncService.graphqlRequest - Full error details:', {
+        name: error.name,
+        message: error.message,
+        cause: error.cause,
+        stack: error.stack,
+        code: error.code,
+        errno: error.errno,
+        syscall: error.syscall,
+        type: error.type,
+        isAbortError: error.name === 'AbortError',
+        isNetworkError: error.message?.includes('Network request failed'),
+        isTimeoutError: error.name === 'AbortError' && controller.signal.aborted,
+      });
+
       loggingService.error('AppSyncService', 'GraphQL request error', { 
         error: error.message,
+        errorName: error.name,
+        errorCause: error.cause,
         endpoint: this.graphqlEndpoint,
         query: request.query.substring(0, 100) + '...'
       });
-      
-      console.error('❌ AppSyncService.graphqlRequest - Error:', error.message);
-      throw error;
+
+      // Provide user-friendly error messages based on error type
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out after 10 seconds. Please check your internet connection and try again.');
+      } else if (error.message?.includes('Network request failed')) {
+        throw new Error('Network connection failed. This might be due to SSL issues on Android emulator or poor connectivity. Please try again.');
+      } else if (error.message?.includes('Failed to fetch')) {
+        throw new Error('Unable to connect to server. Please check your internet connection and try again.');
+      } else {
+        // Re-throw the original error if it's already user-friendly
+        throw error;
+      }
     }
   }
 

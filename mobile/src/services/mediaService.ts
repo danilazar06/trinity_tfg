@@ -55,6 +55,12 @@ export interface MediaItemDetails extends MediaItem {
   cast: CastMember[];
   director?: string | null;
   creator?: string | null;
+  // Properties expected by room screen
+  mediaPosterPath?: string | null;
+  mediaTitle?: string;
+  mediaYear?: string;
+  mediaOverview?: string;
+  mediaRating?: number | null;
 }
 
 export interface MediaResponse {
@@ -436,6 +442,166 @@ class MediaService {
    */
   getImageCacheStats() {
     return imageCacheService.getCacheStats();
+  }
+
+  /**
+   * Get current media for a room (required by room screen)
+   */
+  async getCurrentMedia(roomId: string): Promise<MediaItemDetails | null> {
+    try {
+      console.log(`🎬 Getting current media for room: ${roomId}`);
+      
+      // Try to get current media via AppSync
+      const result = await appSyncService.getMovies();
+      
+      if (!result.getMovies || result.getMovies.length === 0) {
+        console.warn(`⚠️ No movies found for room: ${roomId}`);
+        return null;
+      }
+
+      // Get the first movie as current media (simplified for now)
+      const movie = result.getMovies[0];
+      
+      const currentMedia: MediaItemDetails = {
+        id: `movie-${movie.id}`,
+        tmdbId: parseInt(movie.id),
+        title: movie.title,
+        originalTitle: movie.title,
+        overview: movie.overview || '',
+        posterPath: movie.poster 
+          ? `${TMDB_IMAGE_BASE}/w500${movie.poster}`
+          : null,
+        backdropPath: null,
+        releaseDate: movie.release_date || '',
+        year: movie.release_date ? movie.release_date.split('-')[0] : '',
+        rating: Math.round((movie.vote_average || 0) * 10) / 10,
+        voteCount: 0,
+        genres: [],
+        mediaType: 'movie' as const,
+        runtime: null,
+        tagline: '',
+        budget: 0,
+        revenue: 0,
+        trailerKey: null,
+        watchProviders: [],
+        cast: [],
+        director: null,
+        // Add properties expected by room screen
+        mediaPosterPath: movie.poster,
+        mediaTitle: movie.title,
+        mediaYear: movie.release_date ? movie.release_date.split('-')[0] : '',
+        mediaOverview: movie.overview || '',
+        mediaRating: movie.vote_average ? Math.round(movie.vote_average * 10) / 10 : null,
+      };
+
+      console.log(`✅ Current media loaded: ${currentMedia.title}`);
+      return currentMedia;
+      
+    } catch (error: any) {
+      console.error('❌ Error getting current media:', error);
+      
+      // Return fallback media to prevent crashes
+      return this.getFallbackCurrentMedia(roomId);
+    }
+  }
+
+  /**
+   * Get next media for a room (required by room screen)
+   */
+  async getNextMedia(roomId: string): Promise<MediaItemDetails | null> {
+    try {
+      console.log(`🎬 Getting next media for room: ${roomId}`);
+      
+      // Try to get movies via AppSync
+      const result = await appSyncService.getMovies();
+      
+      if (!result.getMovies || result.getMovies.length === 0) {
+        console.warn(`⚠️ No more movies found for room: ${roomId}`);
+        return null;
+      }
+
+      // Get a random movie as next media (simplified for now)
+      const randomIndex = Math.floor(Math.random() * result.getMovies.length);
+      const movie = result.getMovies[randomIndex];
+      
+      const nextMedia: MediaItemDetails = {
+        id: `movie-${movie.id}`,
+        tmdbId: parseInt(movie.id),
+        title: movie.title,
+        originalTitle: movie.title,
+        overview: movie.overview || '',
+        posterPath: movie.poster 
+          ? `${TMDB_IMAGE_BASE}/w500${movie.poster}`
+          : null,
+        backdropPath: null,
+        releaseDate: movie.release_date || '',
+        year: movie.release_date ? movie.release_date.split('-')[0] : '',
+        rating: Math.round((movie.vote_average || 0) * 10) / 10,
+        voteCount: 0,
+        genres: [],
+        mediaType: 'movie' as const,
+        runtime: null,
+        tagline: '',
+        budget: 0,
+        revenue: 0,
+        trailerKey: null,
+        watchProviders: [],
+        cast: [],
+        director: null,
+        // Add properties expected by room screen
+        mediaPosterPath: movie.poster,
+        mediaTitle: movie.title,
+        mediaYear: movie.release_date ? movie.release_date.split('-')[0] : '',
+        mediaOverview: movie.overview || '',
+        mediaRating: movie.vote_average ? Math.round(movie.vote_average * 10) / 10 : null,
+      };
+
+      console.log(`✅ Next media loaded: ${nextMedia.title}`);
+      return nextMedia;
+      
+    } catch (error: any) {
+      console.error('❌ Error getting next media:', error);
+      
+      // Return fallback media to prevent crashes
+      return this.getFallbackCurrentMedia(roomId);
+    }
+  }
+
+  /**
+   * Fallback current media when API fails
+   */
+  private getFallbackCurrentMedia(roomId: string): MediaItemDetails {
+    console.log(`🔄 Using fallback current media for room: ${roomId}`);
+    
+    return {
+      id: `fallback-movie-${Date.now()}`,
+      tmdbId: 12345,
+      title: 'Película de ejemplo',
+      originalTitle: 'Example Movie',
+      overview: 'Esta es una película de ejemplo que se muestra cuando no se pueden cargar los datos reales. Por favor, verifica tu conexión a internet.',
+      posterPath: null,
+      backdropPath: null,
+      releaseDate: '2024-01-01',
+      year: '2024',
+      rating: 7.5,
+      voteCount: 1000,
+      genres: ['Drama', 'Acción'],
+      mediaType: 'movie' as const,
+      runtime: 120,
+      tagline: 'Una película de ejemplo',
+      budget: 0,
+      revenue: 0,
+      trailerKey: null,
+      watchProviders: [],
+      cast: [],
+      director: null,
+      // Add properties expected by room screen
+      mediaPosterPath: null,
+      mediaTitle: 'Película de ejemplo',
+      mediaYear: '2024',
+      mediaOverview: 'Esta es una película de ejemplo que se muestra cuando no se pueden cargar los datos reales.',
+      mediaRating: 7.5,
+    };
   }
 }
 

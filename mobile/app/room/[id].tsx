@@ -228,7 +228,7 @@ export default function RoomScreen() {
     try {
       // Submit vote
       const voteType = direction === 'right' ? 'LIKE' : 'DISLIKE';
-      await appSyncService.submitVote(roomId!, currentMedia.tmdbId, voteType);
+      await appSyncService.vote(roomId!, currentMedia.tmdbId.toString());
       
       // Load next media
       setTimeout(async () => {
