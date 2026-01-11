@@ -134,48 +134,94 @@ export const useAppSync = () => {
   if (!appSyncService) {
     console.error('❌ AppSync service is not initialized');
     
-    // Return dummy functions that throw meaningful errors
-    const createUnavailableFunction = (operationName: string) => {
-      return () => {
-        throw new Error(`AppSync service is not available. Cannot perform ${operationName}. Please check your authentication status.`);
+    // Return dummy functions that provide fallback behavior instead of crashing
+    const createFallbackFunction = (operationName: string) => {
+      return async (...args: any[]) => {
+        console.warn(`⚠️ AppSync service not available for ${operationName}. Returning fallback response.`);
+        
+        // Return appropriate fallback responses based on operation type
+        switch (operationName) {
+          case 'getUserRooms':
+            return { getUserRooms: [] };
+          case 'getMovies':
+            return { getMovies: [] };
+          case 'getRoom':
+            return { getRoom: null };
+          case 'healthCheck':
+            return { status: 'unavailable', timestamp: new Date().toISOString() };
+          case 'subscribeToVoteUpdates':
+          case 'subscribeToMatchFound':
+            return { unsubscribe: () => {} }; // Return mock subscription
+          default:
+            throw new Error(`AppSync service is not available. Cannot perform ${operationName}. Please check your authentication status and try again.`);
+        }
       };
     };
     
     return {
-      // Room operations - dummy functions
-      createRoom: createUnavailableFunction('createRoom'),
-      createRoomDebug: createUnavailableFunction('createRoomDebug'),
-      createRoomSimple: createUnavailableFunction('createRoomSimple'),
-      joinRoom: createUnavailableFunction('joinRoom'),
-      getRoom: createUnavailableFunction('getRoom'),
-      getUserRooms: createUnavailableFunction('getUserRooms'),
+      // Room operations - fallback functions
+      createRoom: createFallbackFunction('createRoom'),
+      createRoomDebug: createFallbackFunction('createRoomDebug'),
+      createRoomSimple: createFallbackFunction('createRoomSimple'),
+      joinRoom: createFallbackFunction('joinRoom'),
+      getRoom: createFallbackFunction('getRoom'),
+      getUserRooms: createFallbackFunction('getUserRooms'),
       
-      // Voting operations - dummy functions
-      vote: createUnavailableFunction('vote'),
+      // Voting operations - fallback functions
+      vote: createFallbackFunction('vote'),
       
-      // Movie operations - dummy functions
-      getMovies: createUnavailableFunction('getMovies'),
-      getMovieDetails: createUnavailableFunction('getMovieDetails'),
+      // Movie operations - fallback functions
+      getMovies: createFallbackFunction('getMovies'),
+      getMovieDetails: createFallbackFunction('getMovieDetails'),
       
-      // AI operations - dummy functions
-      getAIRecommendations: createUnavailableFunction('getAIRecommendations'),
+      // AI operations - fallback functions
+      getAIRecommendations: createFallbackFunction('getAIRecommendations'),
       
-      // Real-time subscriptions - dummy functions
-      subscribeToVoteUpdates: createUnavailableFunction('subscribeToVoteUpdates'),
-      subscribeToMatchFound: createUnavailableFunction('subscribeToMatchFound'),
+      // Real-time subscriptions - fallback functions
+      subscribeToVoteUpdates: createFallbackFunction('subscribeToVoteUpdates'),
+      subscribeToMatchFound: createFallbackFunction('subscribeToMatchFound'),
       
-      // Health check - dummy function
-      healthCheck: createUnavailableFunction('healthCheck'),
+      // Health check - fallback function
+      healthCheck: createFallbackFunction('healthCheck'),
     };
   }
   
   // Defensive binding: check each method exists before binding
   const safeBindMethod = (methodName: string) => {
     if (appSyncService && typeof appSyncService[methodName] === 'function') {
-      return appSyncService[methodName].bind(appSyncService);
+      return async (...args: any[]) => {
+        try {
+          return await appSyncService[methodName](...args);
+        } catch (error: any) {
+          console.error(`❌ AppSync ${methodName} error:`, error);
+          
+          // Provide fallback responses for common operations
+          switch (methodName) {
+            case 'getUserRooms':
+              console.warn(`⚠️ ${methodName} failed, returning empty array`);
+              return { getUserRooms: [] };
+            case 'getMovies':
+              console.warn(`⚠️ ${methodName} failed, returning empty array`);
+              return { getMovies: [] };
+            case 'getRoom':
+              console.warn(`⚠️ ${methodName} failed, returning null`);
+              return { getRoom: null };
+            case 'healthCheck':
+              console.warn(`⚠️ ${methodName} failed, returning unhealthy status`);
+              return { status: 'unhealthy', timestamp: new Date().toISOString() };
+            case 'subscribeToVoteUpdates':
+            case 'subscribeToMatchFound':
+              console.warn(`⚠️ ${methodName} failed, returning mock subscription`);
+              return { unsubscribe: () => {} };
+            default:
+              // For operations that should fail (like createRoom, vote), re-throw the error
+              throw error;
+          }
+        }
+      };
     } else {
       console.warn(`⚠️ AppSync method ${methodName} is not available`);
-      return () => {
+      return async (...args: any[]) => {
         throw new Error(`AppSync method ${methodName} is not available. Service may not be fully initialized.`);
       };
     }
