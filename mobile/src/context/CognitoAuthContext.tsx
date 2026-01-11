@@ -1,13 +1,28 @@
 /**
  * AWS Cognito Authentication Context
  * Manages authentication state using AWS Cognito User Pool
- * TEMPORARY: Background services disabled for EAS Build compatibility
+ * FIXED: Proper service imports and error handling
  */
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { cognitoAuthService, CognitoUser, CognitoTokens } from '../services/cognitoAuthService';
-import { dualAuthFlowService, AuthenticationResult } from '../services/dualAuthFlowService';
+import { 
+  cognitoAuthService, 
+  CognitoUser, 
+  CognitoTokens 
+} from '../services/cognitoAuthService';
+import { 
+  dualAuthFlowService, 
+  AuthenticationResult 
+} from '../services/dualAuthFlowService';
 import { migrationService } from '../services/migrationService';
+import { 
+  backgroundTokenRefreshService, 
+  TokenRefreshResult 
+} from '../services/backgroundTokenRefreshService';
+import { 
+  sessionExpirationService, 
+  ExpirationEvent 
+} from '../services/sessionExpirationService';
 
 interface AuthState {
   user: CognitoUser | null;
@@ -82,102 +97,155 @@ export const useCognitoAuth = () => {
   return context;
 };
 
+// Helper function to safely start background services
+const startBackgroundServices = () => {
+  try {
+    if (backgroundTokenRefreshService && typeof backgroundTokenRefreshService.start === 'function') {
+      backgroundTokenRefreshService.start({
+        refreshThresholdMinutes: 15,
+        backgroundRefreshIntervalMinutes: 5,
+        enableBackgroundRefresh: true,
+      });
+    }
+    
+    if (sessionExpirationService && typeof sessionExpirationService.start === 'function') {
+      sessionExpirationService.start({
+        warningThresholdMinutes: 10,
+        checkIntervalMinutes: 2,
+        enableWarnings: true,
+        autoRefreshEnabled: true,
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error starting background services:', error);
+  }
+};
+
+// Helper function to safely stop background services
+const stopBackgroundServices = () => {
+  try {
+    if (backgroundTokenRefreshService && typeof backgroundTokenRefreshService.stop === 'function') {
+      backgroundTokenRefreshService.stop();
+    }
+    
+    if (sessionExpirationService && typeof sessionExpirationService.stop === 'function') {
+      sessionExpirationService.stop();
+    }
+  } catch (error) {
+    console.error('❌ Error stopping background services:', error);
+  }
+};
+
 export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
   useEffect(() => {
     checkAuthStatus();
     
-    // Set up background token refresh service
+    // Set up background token refresh service with error handling
     const handleTokenRefresh = (result: TokenRefreshResult) => {
-      if (result.success && result.refreshed && result.newTokens) {
-        console.log('🔄 Background token refresh successful, updating context');
-        
-        // Update user context with new tokens
-        if (state.user) {
-          dispatch({ 
-            type: 'SET_USER', 
-            payload: { 
-              user: state.user, 
-              tokens: result.newTokens 
-            } 
-          });
+      try {
+        if (result.success && result.refreshed && result.newTokens) {
+          console.log('🔄 Background token refresh successful, updating context');
           
-          // Broadcast token refresh
-          broadcastAuthState(true, state.user);
-        }
-      } else if (!result.success && result.error) {
-        console.warn('⚠️ Background token refresh failed:', result.error);
-        
-        // If refresh failed due to invalid refresh token, logout user
-        if (result.error.includes('expirada') || result.error.includes('expired') || result.error.includes('NotAuthorizedException')) {
-          console.log('🔄 Refresh token expired, logging out user');
-          dispatch({ type: 'LOGOUT' });
-          broadcastAuthState(false, null);
-        }
-      }
-    };
-
-    // Set up session expiration service
-    const handleSessionExpiration = (event: ExpirationEvent) => {
-      console.log('⏰ Session expiration event:', event.type, event.message);
-      
-      switch (event.type) {
-        case 'expired':
-          if (event.action === 'reauth') {
-            // User needs to re-authenticate
-            console.log('🔄 Session expired, logging out user');
+          // Update user context with new tokens
+          if (state.user) {
+            dispatch({ 
+              type: 'SET_USER', 
+              payload: { 
+                user: state.user, 
+                tokens: result.newTokens 
+              } 
+            });
+            
+            // Broadcast token refresh
+            broadcastAuthState(true, state.user);
+          }
+        } else if (!result.success && result.error) {
+          console.warn('⚠️ Background token refresh failed:', result.error);
+          
+          // If refresh failed due to invalid refresh token, logout user
+          if (result.error.includes('expirada') || result.error.includes('expired') || result.error.includes('NotAuthorizedException')) {
+            console.log('🔄 Refresh token expired, logging out user');
             dispatch({ type: 'LOGOUT' });
             broadcastAuthState(false, null);
           }
-          break;
-          
-        case 'refreshed':
-          console.log('✅ Session refreshed automatically');
-          // Token refresh is handled by background service
-          break;
-          
-        case 'warning':
-          console.log('⚠️ Session expiration warning shown to user');
-          break;
-          
-        case 'reauth_required':
-          console.log('🔄 User chose to re-authenticate');
-          dispatch({ type: 'LOGOUT' });
-          broadcastAuthState(false, null);
-          break;
+        }
+      } catch (error) {
+        console.error('❌ Error handling token refresh:', error);
       }
     };
 
-    // Add listeners
-    backgroundTokenRefreshService.addRefreshListener(handleTokenRefresh);
-    sessionExpirationService.addExpirationListener(handleSessionExpiration);
-    
-    // Start services when user is authenticated
-    if (state.isAuthenticated) {
-      backgroundTokenRefreshService.start({
-        refreshThresholdMinutes: 15, // Refresh 15 minutes before expiry
-        backgroundRefreshIntervalMinutes: 5, // Check every 5 minutes
-        enableBackgroundRefresh: true,
-      });
+    // Set up session expiration service with error handling
+    const handleSessionExpiration = (event: ExpirationEvent) => {
+      try {
+        console.log('⏰ Session expiration event:', event.type, event.message);
+        
+        switch (event.type) {
+          case 'expired':
+            if (event.action === 'reauth') {
+              // User needs to re-authenticate
+              console.log('🔄 Session expired, logging out user');
+              dispatch({ type: 'LOGOUT' });
+              broadcastAuthState(false, null);
+            }
+            break;
+            
+          case 'refreshed':
+            console.log('✅ Session refreshed automatically');
+            // Token refresh is handled by background service
+            break;
+            
+          case 'warning':
+            console.log('⚠️ Session expiration warning shown to user');
+            break;
+            
+          case 'reauth_required':
+            console.log('🔄 User chose to re-authenticate');
+            dispatch({ type: 'LOGOUT' });
+            broadcastAuthState(false, null);
+            break;
+        }
+      } catch (error) {
+        console.error('❌ Error handling session expiration:', error);
+      }
+    };
+
+    // Add listeners with error handling
+    try {
+      if (backgroundTokenRefreshService && typeof backgroundTokenRefreshService.addRefreshListener === 'function') {
+        backgroundTokenRefreshService.addRefreshListener(handleTokenRefresh);
+      }
       
-      sessionExpirationService.start({
-        warningThresholdMinutes: 10, // Warn 10 minutes before expiry
-        checkIntervalMinutes: 2, // Check every 2 minutes
-        enableWarnings: true,
-        autoRefreshEnabled: true,
-      });
+      if (sessionExpirationService && typeof sessionExpirationService.addExpirationListener === 'function') {
+        sessionExpirationService.addExpirationListener(handleSessionExpiration);
+      }
+      
+      // Start services when user is authenticated
+      if (state.isAuthenticated) {
+        startBackgroundServices();
+      }
+    } catch (error) {
+      console.error('❌ Error setting up background services:', error);
     }
 
     return () => {
-      // Cleanup
-      backgroundTokenRefreshService.removeRefreshListener(handleTokenRefresh);
-      sessionExpirationService.removeExpirationListener(handleSessionExpiration);
-      
-      // Stop services when component unmounts or user logs out
-      if (!state.isAuthenticated) {
-        backgroundTokenRefreshService.stop();
-        sessionExpirationService.stop();
+      // Cleanup with error handling
+      try {
+        if (backgroundTokenRefreshService && typeof backgroundTokenRefreshService.removeRefreshListener === 'function') {
+          backgroundTokenRefreshService.removeRefreshListener(handleTokenRefresh);
+        }
+        
+        if (sessionExpirationService && typeof sessionExpirationService.removeExpirationListener === 'function') {
+          sessionExpirationService.removeExpirationListener(handleSessionExpiration);
+        }
+        
+        // Stop services when component unmounts or user logs out
+        if (!state.isAuthenticated) {
+          stopBackgroundServices();
+        }
+      } catch (error) {
+        console.error('❌ Error cleaning up background services:', error);
       }
     };
   }, [state.isAuthenticated, state.user]);
@@ -284,7 +352,7 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
       console.log('📡 Broadcasting auth state:', { isAuthenticated, hasUser: !!user });
       
       // Store current auth state for components that need immediate access
-      global.currentAuthState = { isAuthenticated, user };
+      (global as any).currentAuthState = { isAuthenticated, user };
       
     } catch (error) {
       console.warn('⚠️ Failed to broadcast auth state:', error);
@@ -317,18 +385,7 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
         broadcastAuthState(true, result.user);
         
         // Start background services
-        backgroundTokenRefreshService.start({
-          refreshThresholdMinutes: 15,
-          backgroundRefreshIntervalMinutes: 5,
-          enableBackgroundRefresh: true,
-        });
-        
-        sessionExpirationService.start({
-          warningThresholdMinutes: 10,
-          checkIntervalMinutes: 2,
-          enableWarnings: true,
-          autoRefreshEnabled: true,
-        });
+        startBackgroundServices();
         
         console.log('✅ Login successful with Cognito');
       } else {
@@ -393,18 +450,7 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
         broadcastAuthState(true, result.user);
         
         // Start background services
-        backgroundTokenRefreshService.start({
-          refreshThresholdMinutes: 15,
-          backgroundRefreshIntervalMinutes: 5,
-          enableBackgroundRefresh: true,
-        });
-        
-        sessionExpirationService.start({
-          warningThresholdMinutes: 10,
-          checkIntervalMinutes: 2,
-          enableWarnings: true,
-          autoRefreshEnabled: true,
-        });
+        startBackgroundServices();
         
         console.log('✅ Google Sign-In successful with Cognito');
       } else {
@@ -436,8 +482,7 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
   const logout = async () => {
     try {
       // Stop background services
-      backgroundTokenRefreshService.stop();
-      sessionExpirationService.stop();
+      stopBackgroundServices();
       
       // Use dual auth service for comprehensive sign out
       await dualAuthFlowService.signOutAll();
@@ -482,18 +527,7 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
         broadcastAuthState(true, result.user);
         
         // Start background services
-        backgroundTokenRefreshService.start({
-          refreshThresholdMinutes: 15,
-          backgroundRefreshIntervalMinutes: 5,
-          enableBackgroundRefresh: true,
-        });
-        
-        sessionExpirationService.start({
-          warningThresholdMinutes: 10,
-          checkIntervalMinutes: 2,
-          enableWarnings: true,
-          autoRefreshEnabled: true,
-        });
+        startBackgroundServices();
         
         console.log(`✅ Auto authentication successful with ${result.method}`);
       } else {
@@ -506,8 +540,8 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
   };
 
   const clearError = () => dispatch({ type: 'CLEAR_ERROR' });
+  
   const updateProfile = async (attributes: { name?: string; picture?: string }) => {
-
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'CLEAR_ERROR' });
 
@@ -535,10 +569,10 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
       if (result.success) {
         // Update local user state
         const updatedUser: CognitoUser = {
-          ...state.user,
-          name: attributes.name || state.user.name,
-          preferred_username: attributes.name || state.user.preferred_username,
-          picture: attributes.picture || state.user.picture,
+          ...state.user!,
+          name: attributes.name || state.user!.name,
+          preferred_username: attributes.name || state.user!.preferred_username,
+          picture: attributes.picture || state.user!.picture,
         };
 
         dispatch({ 
