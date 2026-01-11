@@ -37,7 +37,7 @@ class AppSyncService {
   }
 
   /**
-   * Get current authentication token dynamically with fallback strategy
+   * Get current authentication token dynamically with fallback strategy and retry mechanism
    */
   private async getCurrentAuthToken(): Promise<string> {
     try {
@@ -83,10 +83,27 @@ class AppSyncService {
         console.warn('⚠️ AppSyncService: CognitoAuthService failed:', cognitoError);
       }
       
-      // STRATEGY 2: Fallback to SecureTokenStorage direct access
+      // STRATEGY 2: Fallback to SecureTokenStorage direct access with retry mechanism
       try {
         console.log('🔍 AppSyncService: Trying SecureTokenStorage fallback...');
-        const storedTokens = await secureTokenStorage.retrieveTokens();
+        
+        // First attempt
+        let storedTokens = await secureTokenStorage.retrieveTokens();
+        
+        // If first attempt fails, wait and retry once (handles race condition)
+        if (!storedTokens) {
+          console.log('🔄 AppSyncService: First SecureTokenStorage attempt failed, retrying after 500ms...');
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Second attempt
+          storedTokens = await secureTokenStorage.retrieveTokens();
+          
+          if (!storedTokens) {
+            console.log('❌ AppSyncService: Second SecureTokenStorage attempt also failed');
+          } else {
+            console.log('✅ AppSyncService: SecureTokenStorage retry successful!');
+          }
+        }
         
         if (storedTokens && storedTokens.idToken) {
           console.log('✅ AppSyncService: Got token from SecureTokenStorage fallback');
@@ -102,13 +119,13 @@ class AppSyncService {
             console.warn('⚠️ AppSyncService: SecureTokenStorage token is expired');
           }
         } else {
-          console.log('❌ AppSyncService: No tokens in SecureTokenStorage');
+          console.log('❌ AppSyncService: No tokens in SecureTokenStorage after retry');
         }
       } catch (storageError) {
         console.warn('⚠️ AppSyncService: SecureTokenStorage failed:', storageError);
       }
       
-      // STRATEGY 3: Last resort - check if we have any token in global state
+      // STRATEGY 3: Last resort - check if we have any token in global state with extended retry
       try {
         console.log('🔍 AppSyncService: Checking global auth state...');
         const globalAuthState = (global as any).currentAuthState;
@@ -116,13 +133,29 @@ class AppSyncService {
         if (globalAuthState && globalAuthState.isAuthenticated && globalAuthState.user) {
           console.log('✅ AppSyncService: Found authenticated user in global state, retrying cognitoAuthService...');
           
-          // Wait a bit and retry cognitoAuthService
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Wait a bit longer and retry cognitoAuthService
+          await new Promise(resolve => setTimeout(resolve, 200));
           const retryAuthResult = await cognitoAuthService.checkStoredAuth();
           
           if (retryAuthResult.isAuthenticated && retryAuthResult.tokens && retryAuthResult.tokens.idToken) {
-            console.log('✅ AppSyncService: Retry successful, got token');
+            console.log('✅ AppSyncService: Global state retry successful, got token');
             return retryAuthResult.tokens.idToken;
+          }
+          
+          // If cognitoAuthService still fails, try SecureTokenStorage one more time with longer delay
+          console.log('🔄 AppSyncService: Final fallback - trying SecureTokenStorage with 1s delay...');
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          const finalStoredTokens = await secureTokenStorage.retrieveTokens();
+          if (finalStoredTokens && finalStoredTokens.idToken) {
+            console.log('✅ AppSyncService: Final SecureTokenStorage attempt successful!');
+            
+            const currentTime = Date.now();
+            const tokenExpiryTime = finalStoredTokens.expiresAt * 1000;
+            
+            if (tokenExpiryTime > currentTime) {
+              return finalStoredTokens.idToken;
+            }
           }
         }
       } catch (globalError) {
@@ -130,10 +163,10 @@ class AppSyncService {
       }
       
       // If all strategies fail, throw authentication error
-      throw new Error('No valid authentication tokens found. Please log in again.');
+      throw new Error('No valid authentication tokens found after all retry attempts. Please log in again.');
       
     } catch (error: any) {
-      console.error('❌ AppSyncService: Failed to get authentication token:', error);
+      console.error('❌ AppSyncService: Failed to get authentication token after all strategies:', error);
       throw new Error(`Authentication failed: ${error.message}`);
     }
   }

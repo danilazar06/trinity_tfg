@@ -118,9 +118,23 @@ class SecureTokenStorage {
         SecureStore.getItemAsync(this.STORAGE_KEYS.TOKEN_EXPIRY, this.STORAGE_OPTIONS),
       ]);
 
-      // Check if all required tokens exist
-      if (!accessToken || !idToken || !refreshToken || !expiryString) {
-        console.log('⚠️ SecureTokenStorage: Some tokens missing from secure storage');
+      // Detailed logging of what tokens are available
+      console.log('🔍 SecureTokenStorage: Token availability check:', {
+        hasAccessToken: !!accessToken,
+        hasIdToken: !!idToken,
+        hasRefreshToken: !!refreshToken,
+        hasExpiry: !!expiryString
+      });
+
+      // Check if all required tokens exist with specific missing token logging
+      const missingTokens: string[] = [];
+      if (!accessToken) missingTokens.push('accessToken');
+      if (!idToken) missingTokens.push('idToken');
+      if (!refreshToken) missingTokens.push('refreshToken');
+      if (!expiryString) missingTokens.push('expiryString');
+
+      if (missingTokens.length > 0) {
+        console.log(`⚠️ SecureTokenStorage: Missing tokens: ${missingTokens.join(', ')}`);
         return null;
       }
 
