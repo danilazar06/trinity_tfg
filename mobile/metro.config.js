@@ -9,4 +9,7 @@ config.resolver.platforms = ['ios', 'android', 'native', 'web'];
 // Ensure proper handling of Google Sign-In dependencies
 config.resolver.assetExts.push('plist', 'json');
 
+// Ensure TypeScript files are properly resolved
+config.resolver.sourceExts = [...config.resolver.sourceExts, 'ts', 'tsx'];
+
 module.exports = config;

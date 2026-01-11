@@ -46,7 +46,22 @@ export enum GoogleSignInError {
   NETWORK_ERROR = 'NETWORK_ERROR',
   PLAY_SERVICES_NOT_AVAILABLE = 'PLAY_SERVICES_NOT_AVAILABLE',
   CONFIGURATION_ERROR = 'CONFIGURATION_ERROR',
+  DEVELOPER_ERROR = 'DEVELOPER_ERROR',
+  TOKEN_EXPIRED = 'TOKEN_EXPIRED',
+  TOKEN_INVALID = 'TOKEN_INVALID',
+  SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
+  RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
   UNKNOWN_ERROR = 'UNKNOWN_ERROR',
+}
+
+export interface GoogleSignInErrorInfo {
+  code: GoogleSignInError;
+  message: string;
+  userMessage: string;
+  fallbackOptions: string[];
+  retryable: boolean;
+  retryDelay?: number;
+  context?: string;
 }
 
 export interface GoogleSignInCapabilities {

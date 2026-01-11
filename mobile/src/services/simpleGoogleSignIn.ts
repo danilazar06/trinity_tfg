@@ -6,6 +6,7 @@
 import Constants from 'expo-constants';
 import { Platform, Alert } from 'react-native';
 import { environmentDetectionService } from './environmentDetectionService';
+import { GoogleSignInError, GoogleSignInErrorInfo } from '../types/googleSignIn';
 
 // Import Google Sign-In conditionally
 let GoogleSignin: any = null;
@@ -33,7 +34,9 @@ export interface SimpleGoogleSignInResult {
   success: boolean;
   user?: SimpleGoogleUser;
   error?: string;
+  errorInfo?: GoogleSignInErrorInfo;
   canRetry?: boolean;
+  fallbackOptions?: string[];
 }
 
 class SimpleGoogleSignInService {
@@ -152,11 +155,13 @@ class SimpleGoogleSignInService {
       // Check availability first
       const available = await this.isAvailable();
       if (!available) {
-        return {
-          success: false,
-          error: 'Google Sign-In no está disponible en este entorno. Usa email y contraseña.',
-          canRetry: false,
-        };
+        return this.createErrorResult(
+          GoogleSignInError.CONFIGURATION_ERROR,
+          'Google Sign-In no está disponible en este entorno',
+          'Google Sign-In no está disponible. Usa email y contraseña para iniciar sesión.',
+          ['email_password'],
+          false
+        );
       }
 
       // Configure if not already configured
@@ -164,11 +169,13 @@ class SimpleGoogleSignInService {
         console.log('🔧 Configuring Google Sign-In...');
         const configured = await this.configure();
         if (!configured) {
-          return {
-            success: false,
-            error: 'No se pudo configurar Google Sign-In. Usa email y contraseña.',
-            canRetry: false,
-          };
+          return this.createErrorResult(
+            GoogleSignInError.CONFIGURATION_ERROR,
+            'No se pudo configurar Google Sign-In',
+            'Error de configuración. Usa email y contraseña para iniciar sesión.',
+            ['email_password'],
+            false
+          );
         }
       }
 
@@ -190,61 +197,37 @@ class SimpleGoogleSignInService {
           console.log('✅ Google Play Services available');
         } catch (playServicesError: any) {
           console.error('❌ Google Play Services error:', playServicesError);
-          return {
-            success: false,
-            error: 'Google Play Services no está disponible o actualizado.',
-            canRetry: true,
-          };
+          return this.createErrorResult(
+            GoogleSignInError.PLAY_SERVICES_NOT_AVAILABLE,
+            'Google Play Services no está disponible o actualizado',
+            'Google Play Services no está disponible. Actualiza Google Play Services o usa email y contraseña.',
+            ['email_password'],
+            true,
+            10000 // 10 seconds retry delay
+          );
         }
       }
 
-      // Perform sign-in - THIS IS WHERE DEVELOPER_ERROR OCCURS
-      console.log('🔍 Calling GoogleSignin.signIn() - DEVELOPER_ERROR may occur here...');
-      console.log('🔍 If DEVELOPER_ERROR occurs, it means:');
-      console.log('   1. SHA-1 fingerprint not configured in Google Cloud Console');
-      console.log('   2. Package name mismatch (should be com.trinity.app)');
-      console.log('   3. Wrong Client ID in google-services.json');
-      console.log('   4. google-services.json is outdated or incorrect');
+      // Perform sign-in with enhanced error handling
+      console.log('🔍 Calling GoogleSignin.signIn()...');
       
       let userInfo;
       try {
         userInfo = await GoogleSignin.signIn();
         console.log('✅ GoogleSignin.signIn() completed successfully');
       } catch (signInError: any) {
-        console.error('❌ DETAILED SIGN-IN ERROR:');
-        console.error('- Error code:', signInError.code);
-        console.error('- Error message:', signInError.message);
-        console.error('- Error name:', signInError.name);
-        console.error('- Full error object:', JSON.stringify(signInError, null, 2));
-        
-        // Special handling for DEVELOPER_ERROR
-        if (signInError.message && signInError.message.includes('DEVELOPER_ERROR')) {
-          console.error('🚨 DEVELOPER_ERROR DETECTED!');
-          console.error('🔍 This error means Google Cloud Console configuration is incorrect:');
-          console.error('   1. Go to: https://console.cloud.google.com/');
-          console.error('   2. Select project: trinity-app-production');
-          console.error('   3. Go to APIs & Services > Credentials');
-          console.error('   4. Create/Edit OAuth 2.0 Client ID for Android:');
-          console.error('      - Application type: Android');
-          console.error('      - Package name: com.trinity.app');
-          console.error('      - SHA-1 certificate fingerprint: [NEEDS TO BE CONFIGURED]');
-          console.error('   5. Download new google-services.json');
-          console.error('   6. Replace mobile/google-services.json');
-          console.error('   7. Rebuild APK');
-          
-          return {
-            success: false,
-            error: 'DEVELOPER_ERROR: Configuración de Google incorrecta. Revisa SHA-1 fingerprint en Google Cloud Console.',
-            canRetry: false,
-          };
-        }
-        
-        // Re-throw for other error handling
-        throw signInError;
+        return this.handleSignInError(signInError);
       }
       
       if (!userInfo?.data?.user || !userInfo?.data?.idToken) {
-        throw new Error('No se pudo obtener información del usuario de Google');
+        return this.createErrorResult(
+          GoogleSignInError.UNKNOWN_ERROR,
+          'No se pudo obtener información del usuario de Google',
+          'Error obteniendo información de tu cuenta. Intenta nuevamente o usa email y contraseña.',
+          ['retry_google', 'email_password'],
+          true,
+          3000
+        );
       }
 
       const user: SimpleGoogleUser = {
@@ -264,44 +247,177 @@ class SimpleGoogleSignInService {
       };
 
     } catch (error: any) {
-      console.error('❌ Google Sign-In error:', error);
-
-      // Handle specific error codes
-      if (statusCodes && error.code) {
-        console.log('🔍 Error code detected:', error.code);
-        switch (error.code) {
-          case statusCodes.SIGN_IN_CANCELLED:
-            return {
-              success: false,
-              error: 'Inicio de sesión cancelado por el usuario.',
-              canRetry: true,
-            };
-
-          case statusCodes.IN_PROGRESS:
-            return {
-              success: false,
-              error: 'Ya hay un inicio de sesión en progreso.',
-              canRetry: true,
-            };
-
-          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
-            return {
-              success: false,
-              error: 'Google Play Services no está disponible.',
-              canRetry: false,
-            };
-
-          default:
-            break;
-        }
-      }
-
-      return {
-        success: false,
-        error: error.message || 'Error desconocido durante Google Sign-In.',
-        canRetry: true,
-      };
+      console.error('❌ Google Sign-In unexpected error:', error);
+      return this.createErrorResult(
+        GoogleSignInError.UNKNOWN_ERROR,
+        error.message || 'Error desconocido durante Google Sign-In',
+        'Error inesperado. Intenta nuevamente o usa email y contraseña.',
+        ['retry_google', 'email_password'],
+        true,
+        5000
+      );
     }
+  }
+
+  /**
+   * Handle specific sign-in errors with detailed error information
+   */
+  private handleSignInError(signInError: any): SimpleGoogleSignInResult {
+    console.error('❌ DETAILED SIGN-IN ERROR:');
+    console.error('- Error code:', signInError.code);
+    console.error('- Error message:', signInError.message);
+    console.error('- Error name:', signInError.name);
+    console.error('- Full error object:', JSON.stringify(signInError, null, 2));
+    
+    // Handle DEVELOPER_ERROR specifically
+    if (signInError.message && signInError.message.includes('DEVELOPER_ERROR')) {
+      console.error('🚨 DEVELOPER_ERROR DETECTED!');
+      console.error('🔍 This error means Google Cloud Console configuration is incorrect:');
+      console.error('   1. Go to: https://console.cloud.google.com/');
+      console.error('   2. Select project: trinity-app-production');
+      console.error('   3. Go to APIs & Services > Credentials');
+      console.error('   4. Create/Edit OAuth 2.0 Client ID for Android:');
+      console.error('      - Application type: Android');
+      console.error('      - Package name: com.trinity.app');
+      console.error('      - SHA-1 certificate fingerprint: [NEEDS TO BE CONFIGURED]');
+      console.error('   5. Download new google-services.json');
+      console.error('   6. Replace mobile/google-services.json');
+      console.error('   7. Rebuild APK');
+      
+      return this.createErrorResult(
+        GoogleSignInError.DEVELOPER_ERROR,
+        'DEVELOPER_ERROR: Configuración de Google incorrecta',
+        'Error de configuración de Google. Contacta al soporte técnico o usa email y contraseña.',
+        ['email_password'],
+        false
+      );
+    }
+
+    // Handle network errors
+    if (signInError.message && (
+      signInError.message.includes('network') ||
+      signInError.message.includes('timeout') ||
+      signInError.message.includes('connection')
+    )) {
+      return this.createErrorResult(
+        GoogleSignInError.NETWORK_ERROR,
+        'Error de red durante Google Sign-In',
+        'Error de conexión. Verifica tu conexión a internet e intenta nuevamente.',
+        ['retry_google', 'email_password'],
+        true,
+        5000
+      );
+    }
+
+    // Handle service unavailable
+    if (signInError.message && (
+      signInError.message.includes('service unavailable') ||
+      signInError.message.includes('temporarily down') ||
+      signInError.message.includes('server error')
+    )) {
+      return this.createErrorResult(
+        GoogleSignInError.SERVICE_UNAVAILABLE,
+        'Servicio de Google temporalmente no disponible',
+        'El servicio de Google no está disponible temporalmente. Intenta en unos minutos o usa email y contraseña.',
+        ['email_password'],
+        true,
+        30000 // 30 seconds
+      );
+    }
+
+    // Handle rate limiting
+    if (signInError.message && (
+      signInError.message.includes('rate limit') ||
+      signInError.message.includes('quota') ||
+      signInError.message.includes('too many')
+    )) {
+      return this.createErrorResult(
+        GoogleSignInError.RATE_LIMIT_EXCEEDED,
+        'Demasiados intentos de Google Sign-In',
+        'Demasiados intentos. Espera unos minutos e intenta nuevamente o usa email y contraseña.',
+        ['email_password'],
+        true,
+        60000 // 1 minute
+      );
+    }
+
+    // Handle specific status codes
+    if (statusCodes && signInError.code) {
+      console.log('🔍 Error code detected:', signInError.code);
+      switch (signInError.code) {
+        case statusCodes.SIGN_IN_CANCELLED:
+          return this.createErrorResult(
+            GoogleSignInError.SIGN_IN_CANCELLED,
+            'Inicio de sesión cancelado por el usuario',
+            'Inicio de sesión cancelado. Intenta nuevamente o usa email y contraseña.',
+            ['retry_google', 'email_password'],
+            true
+          );
+
+        case statusCodes.IN_PROGRESS:
+          return this.createErrorResult(
+            GoogleSignInError.UNKNOWN_ERROR,
+            'Ya hay un inicio de sesión en progreso',
+            'Ya hay un inicio de sesión en progreso. Espera un momento e intenta nuevamente.',
+            ['retry_google', 'email_password'],
+            true,
+            3000
+          );
+
+        case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+          return this.createErrorResult(
+            GoogleSignInError.PLAY_SERVICES_NOT_AVAILABLE,
+            'Google Play Services no está disponible',
+            'Google Play Services no está disponible. Actualiza Google Play Services o usa email y contraseña.',
+            ['email_password'],
+            false
+          );
+
+        default:
+          break;
+      }
+    }
+
+    // Generic error
+    return this.createErrorResult(
+      GoogleSignInError.UNKNOWN_ERROR,
+      signInError.message || 'Error desconocido durante Google Sign-In',
+      'Error durante el inicio de sesión con Google. Intenta nuevamente o usa email y contraseña.',
+      ['retry_google', 'email_password'],
+      true,
+      3000
+    );
+  }
+
+  /**
+   * Create a structured error result
+   */
+  private createErrorResult(
+    code: GoogleSignInError,
+    message: string,
+    userMessage: string,
+    fallbackOptions: string[],
+    retryable: boolean,
+    retryDelay?: number,
+    context?: string
+  ): SimpleGoogleSignInResult {
+    const errorInfo: GoogleSignInErrorInfo = {
+      code,
+      message,
+      userMessage,
+      fallbackOptions,
+      retryable,
+      retryDelay,
+      context,
+    };
+
+    return {
+      success: false,
+      error: userMessage,
+      errorInfo,
+      canRetry: retryable,
+      fallbackOptions,
+    };
   }
 
   /**
@@ -363,19 +479,110 @@ class SimpleGoogleSignInService {
   }
 
   /**
-   * Show user-friendly error message
+   * Show user-friendly error message with fallback options
    */
-  showErrorMessage(error: string): void {
+  showErrorMessage(error: string, errorInfo?: GoogleSignInErrorInfo): void {
+    const buttons: any[] = [];
+
+    // Add retry button if retryable
+    if (errorInfo?.retryable) {
+      buttons.push({
+        text: 'Reintentar',
+        style: 'default',
+        onPress: () => {
+          // Caller should handle retry logic
+          console.log('User chose to retry Google Sign-In');
+        }
+      });
+    }
+
+    // Add fallback options
+    if (errorInfo?.fallbackOptions?.includes('email_password')) {
+      buttons.push({
+        text: 'Usar Email/Contraseña',
+        style: 'default',
+        onPress: () => {
+          console.log('User chose email/password fallback');
+        }
+      });
+    }
+
+    // Add cancel button
+    buttons.push({
+      text: 'Cancelar',
+      style: 'cancel'
+    });
+
     Alert.alert(
       'Google Sign-In',
       error,
-      [
-        {
-          text: 'Usar Email/Contraseña',
-          style: 'default'
-        }
-      ]
+      buttons
     );
+  }
+
+  /**
+   * Handle error with automatic retry if applicable
+   */
+  async handleErrorWithRetry(
+    errorInfo: GoogleSignInErrorInfo,
+    retryFunction: () => Promise<SimpleGoogleSignInResult>
+  ): Promise<SimpleGoogleSignInResult> {
+    if (!errorInfo.retryable) {
+      return {
+        success: false,
+        error: errorInfo.userMessage,
+        errorInfo,
+        canRetry: false,
+        fallbackOptions: errorInfo.fallbackOptions,
+      };
+    }
+
+    // Wait for retry delay if specified
+    if (errorInfo.retryDelay) {
+      console.log(`⏳ Waiting ${errorInfo.retryDelay}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, errorInfo.retryDelay));
+    }
+
+    try {
+      console.log('🔄 Retrying Google Sign-In...');
+      return await retryFunction();
+    } catch (retryError) {
+      console.error('❌ Retry also failed:', retryError);
+      return {
+        success: false,
+        error: errorInfo.userMessage,
+        errorInfo: {
+          ...errorInfo,
+          retryable: false, // Don't retry again
+        },
+        canRetry: false,
+        fallbackOptions: errorInfo.fallbackOptions,
+      };
+    }
+  }
+
+  /**
+   * Get user-friendly error message for display
+   */
+  getDisplayError(result: SimpleGoogleSignInResult): string {
+    if (result.errorInfo) {
+      return result.errorInfo.userMessage;
+    }
+    return result.error || 'Error desconocido durante Google Sign-In';
+  }
+
+  /**
+   * Check if error suggests using email/password fallback
+   */
+  shouldUseEmailPasswordFallback(result: SimpleGoogleSignInResult): boolean {
+    return result.fallbackOptions?.includes('email_password') || false;
+  }
+
+  /**
+   * Check if error is retryable
+   */
+  isRetryable(result: SimpleGoogleSignInResult): boolean {
+    return result.canRetry || false;
   }
 
   /**

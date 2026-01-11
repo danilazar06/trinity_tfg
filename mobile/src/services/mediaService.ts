@@ -1,5 +1,6 @@
 // Servicio para obtener películas y series usando AppSync con Circuit Breaker
 import { appSyncService } from './appSyncService';
+import { imageCacheService } from './imageCacheService';
 
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
 
@@ -174,6 +175,17 @@ class MediaService {
         director: null, // No disponible en GraphQL actual
       };
 
+      // Get cached poster image if available
+      if (movieDetails.posterPath) {
+        try {
+          const cachedPosterPath = await imageCacheService.getCachedImage(movieDetails.posterPath);
+          movieDetails.posterPath = cachedPosterPath;
+        } catch (error) {
+          console.warn(`⚠️ Failed to get cached poster for ${movieDetails.title}:`, error);
+          // Keep original posterPath as fallback
+        }
+      }
+
       console.log(`✅ Movie details loaded successfully: ${movieDetails.title}`);
       return movieDetails;
       
@@ -241,6 +253,17 @@ class MediaService {
         cast: [],
         creator: null,
       };
+
+      // Get cached poster image if available
+      if (tvDetails.posterPath) {
+        try {
+          const cachedPosterPath = await imageCacheService.getCachedImage(tvDetails.posterPath);
+          tvDetails.posterPath = cachedPosterPath;
+        } catch (error) {
+          console.warn(`⚠️ Failed to get cached poster for ${tvDetails.title}:`, error);
+          // Keep original posterPath as fallback
+        }
+      }
 
       console.log(`✅ TV details loaded successfully: ${tvDetails.title}`);
       return tvDetails;
@@ -364,6 +387,55 @@ class MediaService {
   async getStreamingProviders(tmdbId: number, mediaType: 'movie' | 'tv'): Promise<StreamingProvider[]> {
     // Devolver array vacío ya que no tenemos esta funcionalidad en AppSync aún
     return [];
+  }
+
+  /**
+   * Pre-cache images for offline viewing
+   */
+  async preCacheImages(imageUris: string[]): Promise<void> {
+    if (!imageUris || imageUris.length === 0) return;
+
+    console.log(`🖼️ Pre-caching ${imageUris.length} images via MediaService`);
+    
+    try {
+      await imageCacheService.preCacheImages(imageUris);
+      console.log(`✅ Successfully pre-cached ${imageUris.length} images`);
+    } catch (error) {
+      console.error('❌ Error pre-caching images:', error);
+    }
+  }
+
+  /**
+   * Get cached image or original URI
+   */
+  async getCachedImageUri(originalUri: string): Promise<string> {
+    if (!originalUri) return originalUri;
+    
+    try {
+      return await imageCacheService.getCachedImage(originalUri);
+    } catch (error) {
+      console.warn(`⚠️ Failed to get cached image for ${originalUri}:`, error);
+      return originalUri;
+    }
+  }
+
+  /**
+   * Clear image cache
+   */
+  async clearImageCache(): Promise<void> {
+    try {
+      await imageCacheService.clearCache();
+      console.log('✅ Image cache cleared successfully');
+    } catch (error) {
+      console.error('❌ Error clearing image cache:', error);
+    }
+  }
+
+  /**
+   * Get image cache statistics
+   */
+  getImageCacheStats() {
+    return imageCacheService.getCacheStats();
   }
 }
 

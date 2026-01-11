@@ -4,8 +4,20 @@ import { CognitoAuthProvider } from '../src/context/CognitoAuthContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import ErrorBoundary from '../src/components/ErrorBoundary';
+import { useEffect } from 'react';
+import { deepLinkService } from '../src/services/deepLinkService';
 
 export default function RootLayout() {
+  useEffect(() => {
+    // Initialize deep link service when app starts
+    deepLinkService.initialize();
+
+    // Cleanup on unmount
+    return () => {
+      deepLinkService.cleanup();
+    };
+  }, []);
+
   return (
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>

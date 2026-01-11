@@ -1,5 +1,7 @@
-// Servicio para gestionar salas conectando con el backend
 import { apiClient } from './apiClient';
+import { operationQueueService } from './operationQueueService';
+import { errorLoggingService } from './errorLoggingService';
+import { appSyncService } from './appSyncService';
 
 // Flag para usar mock o backend real
 const USE_MOCK = false; // Cambiar a false cuando el backend esté disponible
@@ -14,17 +16,30 @@ export interface ContentFilters {
 
 export interface CreateRoomDto {
   name: string;
+  description?: string;
+  isPrivate?: boolean;
+  maxMembers?: number;
+  genrePreferences?: string[]; // Enhanced: Support for genre preferences
   filters: ContentFilters;
 }
 
 export interface Room {
   id: string;
   name: string;
+  description?: string;
+  status: string;
+  hostId: string;
+  inviteCode: string;
+  inviteUrl?: string; // Enhanced: Support for invite URLs
+  genrePreferences?: string[]; // Enhanced: Support for genre preferences
   creatorId: string;
   filters: ContentFilters;
   masterList: string[];
-  inviteCode: string;
   isActive: boolean;
+  isPrivate?: boolean;
+  memberCount: number;
+  maxMembers?: number;
+  matchCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -75,25 +90,85 @@ export interface MemberProgress {
 
 class RoomService {
   /**
-   * Crear una nueva sala
+   * Crear una nueva sala con queue support para poor connectivity
+   * Enhanced: Now supports genre preferences and invite URLs
    */
   async createRoom(dto: CreateRoomDto): Promise<Room> {
-    try {
-      if (USE_MOCK) {
-        return this.mockCreateRoom(dto);
+    const result = await operationQueueService.executeOrQueue(
+      'CREATE_ROOM',
+      dto,
+      async () => {
+        if (USE_MOCK) {
+          return this.mockCreateRoom(dto);
+        }
+        
+        // Use GraphQL via AppSync for enhanced room creation
+        try {
+          const appSyncResult = await appSyncService.createRoom({
+            name: dto.name,
+            description: dto.description,
+            isPrivate: dto.isPrivate,
+            maxMembers: dto.maxMembers,
+            genrePreferences: dto.genrePreferences
+          });
+          
+          // Transform AppSync result to Room interface
+          const room = appSyncResult.createRoom;
+          return {
+            id: room.id,
+            name: room.name,
+            description: room.description,
+            status: room.status,
+            hostId: room.hostId,
+            inviteCode: room.inviteCode,
+            inviteUrl: room.inviteUrl,
+            genrePreferences: room.genrePreferences,
+            creatorId: room.hostId, // Map hostId to creatorId for compatibility
+            filters: dto.filters,
+            masterList: [],
+            isActive: room.isActive,
+            isPrivate: room.isPrivate,
+            memberCount: room.memberCount,
+            maxMembers: room.maxMembers,
+            matchCount: room.matchCount || 0,
+            createdAt: room.createdAt,
+            updatedAt: room.updatedAt || room.createdAt
+          };
+        } catch (error: any) {
+          // Enhanced error handling with context
+          errorLoggingService.logError(error, {
+            operation: 'createRoom',
+            metadata: { dto }
+          }, {
+            message: 'Unable to create room. Please check your connection and try again.',
+            canRetry: true
+          });
+          
+          // Fallback to REST API if GraphQL fails
+          return await apiClient.post<Room>('/rooms', dto);
+        }
+      },
+      {
+        priority: 'HIGH', // Room creation is high priority
+        maxRetries: 3,
+        expiresInMs: 10 * 60 * 1000 // 10 minutes expiration
       }
-      return await apiClient.post<Room>('/rooms', dto);
-    } catch (error) {
-      console.error('Error creating room:', error);
-      if (USE_MOCK) {
-        return this.mockCreateRoom(dto);
+    );
+
+    if (result.success) {
+      return result.data;
+    } else {
+      // If queued, return optimistic response
+      if (result.data?.queued) {
+        console.log('📝 Room creation queued for later execution');
+        return this.mockCreateRoom(dto); // Optimistic response
       }
-      throw error;
+      throw new Error(result.error || 'Failed to create room');
     }
   }
 
   /**
-   * Obtener salas del usuario
+   * Obtener salas del usuario con enhanced error handling
    */
   async getUserRooms(): Promise<RoomSummary[]> {
     console.log('🔄 RoomService: getUserRooms called');
@@ -102,12 +177,45 @@ class RoomService {
         console.log('📝 RoomService: Using mock data');
         return this.mockGetUserRooms();
       }
-      console.log('🌐 RoomService: Making REST API call to /rooms');
-      const result = await apiClient.get<RoomSummary[]>('/rooms');
-      console.log('✅ RoomService: REST API call successful', result);
-      return result;
+      
+      // Try GraphQL first for enhanced data
+      try {
+        console.log('🌐 RoomService: Making GraphQL call to getUserRooms');
+        const appSyncResult = await appSyncService.getUserRooms();
+        
+        // Transform GraphQL result to RoomSummary interface
+        const rooms = appSyncResult.getUserRooms.map(room => ({
+          id: room.id,
+          name: room.name,
+          creatorId: room.hostId || 'unknown',
+          memberCount: room.memberCount || 0,
+          matchCount: room.matchCount || 0,
+          isActive: room.isActive,
+          createdAt: room.createdAt
+        }));
+        
+        console.log('✅ RoomService: GraphQL call successful', rooms);
+        return rooms;
+      } catch (graphqlError: any) {
+        console.log('⚠️ RoomService: GraphQL failed, falling back to REST API', graphqlError.message);
+        
+        // Fallback to REST API
+        console.log('🌐 RoomService: Making REST API call to /rooms');
+        const result = await apiClient.get<RoomSummary[]>('/rooms');
+        console.log('✅ RoomService: REST API call successful', result);
+        return result;
+      }
     } catch (error: any) {
-      console.error('❌ RoomService: REST API call failed', error);
+      console.error('❌ RoomService: All API calls failed', error);
+      
+      // Enhanced error logging
+      errorLoggingService.logError(error, {
+        operation: 'getUserRooms'
+      }, {
+        message: 'Unable to load your rooms. Please check your connection.',
+        canRetry: true
+      });
+      
       console.log('🔍 RoomService: Error details:', {
         status: error.response?.status,
         data: error.response?.data,
@@ -131,16 +239,69 @@ class RoomService {
   }
 
   /**
-   * Obtener detalles de una sala
+   * Obtener detalles de una sala con enhanced fields
    */
   async getRoomDetails(roomId: string): Promise<RoomDetails> {
     try {
       if (USE_MOCK) {
         return this.mockGetRoomDetails(roomId);
       }
-      return await apiClient.get<RoomDetails>(`/rooms/${roomId}`);
-    } catch (error) {
+      
+      // Try GraphQL first for enhanced room details
+      try {
+        const appSyncResult = await appSyncService.getRoom(roomId);
+        const room = appSyncResult.getRoom;
+        
+        // Transform to RoomDetails interface
+        return {
+          room: {
+            id: room.id,
+            name: room.name,
+            description: room.description,
+            status: room.status,
+            hostId: room.hostId,
+            inviteCode: room.inviteCode,
+            inviteUrl: room.inviteUrl,
+            genrePreferences: room.genrePreferences,
+            creatorId: room.hostId,
+            filters: { contentTypes: ['movie'] }, // Default filters
+            masterList: [],
+            isActive: room.isActive,
+            isPrivate: room.isPrivate,
+            memberCount: room.memberCount,
+            maxMembers: room.maxMembers,
+            matchCount: room.matchCount,
+            createdAt: room.createdAt,
+            updatedAt: room.updatedAt
+          },
+          members: [], // Would need separate API call for members
+          matchCount: room.matchCount || 0,
+          userRole: 'member' // Would need to determine from user context
+        };
+      } catch (graphqlError: any) {
+        console.log('⚠️ RoomService: GraphQL getRoomDetails failed, falling back to REST API', graphqlError.message);
+        
+        // Enhanced error logging
+        errorLoggingService.logError(graphqlError, {
+          operation: 'getRoomDetails',
+          roomId
+        });
+        
+        // Fallback to REST API
+        return await apiClient.get<RoomDetails>(`/rooms/${roomId}`);
+      }
+    } catch (error: any) {
       console.error('Error getting room details:', error);
+      
+      // Enhanced error logging
+      errorLoggingService.logError(error, {
+        operation: 'getRoomDetails',
+        roomId
+      }, {
+        message: 'Unable to load room details. Please try again.',
+        canRetry: true
+      });
+      
       if (USE_MOCK) {
         return this.mockGetRoomDetails(roomId);
       }
@@ -197,52 +358,160 @@ class RoomService {
   }
 
   /**
-   * Unirse a una sala con código de invitación
+   * Unirse a una sala con código de invitación con queue support y enhanced error handling
    */
   async joinRoom(inviteCode: string): Promise<Room> {
-    try {
-      if (USE_MOCK) {
-        return this.mockJoinRoom(inviteCode);
+    const result = await operationQueueService.executeOrQueue(
+      'JOIN_ROOM',
+      { inviteCode },
+      async () => {
+        if (USE_MOCK) {
+          return this.mockJoinRoom(inviteCode);
+        }
+        
+        // Use GraphQL via AppSync for enhanced room joining
+        try {
+          const appSyncResult = await appSyncService.joinRoomByInvite(inviteCode);
+          const room = appSyncResult.joinRoomByInvite;
+          
+          // Transform AppSync result to Room interface
+          return {
+            id: room.id,
+            name: room.name,
+            description: room.description,
+            status: room.status,
+            hostId: room.hostId,
+            inviteCode: room.inviteCode,
+            inviteUrl: room.inviteUrl,
+            genrePreferences: room.genrePreferences,
+            creatorId: room.hostId,
+            filters: { contentTypes: ['movie'] }, // Default filters
+            masterList: [],
+            isActive: room.isActive,
+            isPrivate: room.isPrivate,
+            memberCount: room.memberCount,
+            maxMembers: room.maxMembers,
+            matchCount: room.matchCount,
+            createdAt: room.createdAt,
+            updatedAt: room.updatedAt
+          };
+        } catch (error: any) {
+          // Enhanced error handling with context
+          errorLoggingService.logError(error, {
+            operation: 'joinRoom',
+            metadata: { inviteCode }
+          });
+          
+          // Fallback to REST API if GraphQL fails
+          return await apiClient.post<Room>('/rooms/join', { inviteCode });
+        }
+      },
+      {
+        priority: 'HIGH', // Room joining is high priority
+        maxRetries: 3,
+        expiresInMs: 5 * 60 * 1000 // 5 minutes expiration
       }
-      return await apiClient.post<Room>('/rooms/join', { inviteCode });
-    } catch (error) {
-      console.error('Error joining room:', error);
-      if (USE_MOCK) {
-        return this.mockJoinRoom(inviteCode);
+    );
+
+    if (result.success) {
+      return result.data;
+    } else {
+      // If queued, return optimistic response
+      if (result.data?.queued) {
+        console.log('📝 Room join queued for later execution');
+        return this.mockJoinRoom(inviteCode); // Optimistic response
       }
-      throw error;
+      throw new Error(result.error || 'Failed to join room');
     }
   }
 
   /**
-   * Abandonar una sala
+   * Abandonar una sala con queue support
    */
   async leaveRoom(roomId: string): Promise<void> {
-    try {
-      if (USE_MOCK) {
-        console.log('Mock: Left room', roomId);
-        return;
+    const result = await operationQueueService.executeOrQueue(
+      'LEAVE_ROOM',
+      {},
+      async () => {
+        if (USE_MOCK) {
+          console.log('Mock: Left room', roomId);
+          return;
+        }
+        await apiClient.delete(`/rooms/${roomId}/leave`);
+      },
+      {
+        roomId,
+        priority: 'MEDIUM', // Leave room is medium priority
+        maxRetries: 2,
+        expiresInMs: 2 * 60 * 1000 // 2 minutes expiration
       }
-      await apiClient.delete(`/rooms/${roomId}/leave`);
-    } catch (error) {
-      console.error('Error leaving room:', error);
-      throw error;
+    );
+
+    if (!result.success && !result.data?.queued) {
+      throw new Error(result.error || 'Failed to leave room');
     }
+    // If queued, operation will complete later
   }
 
   /**
-   * Actualizar filtros de la sala (solo creador)
+   * Actualizar filtros de la sala (solo creador) con queue support y enhanced error handling
    */
   async updateRoomFilters(roomId: string, filters: ContentFilters): Promise<Room> {
-    try {
-      if (USE_MOCK) {
-        console.log('Mock: Updated filters for room', roomId);
-        return this.mockGetRoomDetails(roomId).then(d => d.room);
+    const result = await operationQueueService.executeOrQueue(
+      'UPDATE_FILTERS',
+      { filters },
+      async () => {
+        if (USE_MOCK) {
+          console.log('Mock: Updated filters for room', roomId);
+          return this.mockGetRoomDetails(roomId).then(d => d.room);
+        }
+        
+        try {
+          // Enhanced: Update both content filters and genre preferences
+          const genrePreferences = filters.genres || [];
+          
+          // Note: This would require a new GraphQL mutation for updating room filters
+          // For now, fallback to REST API
+          return await apiClient.put<Room>(`/rooms/${roomId}/filters`, { 
+            filters,
+            genrePreferences 
+          });
+        } catch (error: any) {
+          // Enhanced error handling
+          errorLoggingService.logError(error, {
+            operation: 'updateRoomFilters',
+            roomId,
+            metadata: { filters }
+          }, {
+            message: 'Unable to update room preferences. Please try again.',
+            canRetry: true
+          });
+          
+          throw error;
+        }
+      },
+      {
+        roomId,
+        priority: 'LOW', // Filter updates are low priority
+        maxRetries: 2,
+        expiresInMs: 10 * 60 * 1000 // 10 minutes expiration
       }
-      return await apiClient.put<Room>(`/rooms/${roomId}/filters`, { filters });
-    } catch (error) {
-      console.error('Error updating room filters:', error);
-      throw error;
+    );
+
+    if (result.success) {
+      return result.data;
+    } else {
+      // If queued, return optimistic response
+      if (result.data?.queued) {
+        console.log('📝 Filter update queued for later execution');
+        const roomDetails = await this.mockGetRoomDetails(roomId);
+        return { 
+          ...roomDetails.room, 
+          filters,
+          genrePreferences: filters.genres // Enhanced: Update genre preferences
+        };
+      }
+      throw new Error(result.error || 'Failed to update room filters');
     }
   }
 
@@ -285,11 +554,20 @@ class RoomService {
     return {
       id: `room-${Date.now()}`,
       name: dto.name,
+      description: dto.description,
+      status: 'ACTIVE',
+      hostId: 'mock-user-id',
+      inviteCode,
+      inviteUrl: `https://trinity.app/room/${inviteCode}`, // Enhanced: Generate invite URL
+      genrePreferences: dto.genrePreferences, // Enhanced: Include genre preferences
       creatorId: 'mock-user-id',
       filters: dto.filters,
       masterList: [],
-      inviteCode,
       isActive: true,
+      isPrivate: dto.isPrivate || false,
+      memberCount: 1,
+      maxMembers: dto.maxMembers || 10,
+      matchCount: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -332,14 +610,23 @@ class RoomService {
       room: {
         id: roomId,
         name: 'Noche de películas',
+        description: 'Una sala para ver películas con amigos',
+        status: 'ACTIVE',
+        hostId: 'mock-user-id',
+        inviteCode: 'ABC123',
+        inviteUrl: 'https://trinity.app/room/ABC123', // Enhanced: Include invite URL
+        genrePreferences: ['Action', 'Adventure', 'Comedy'], // Enhanced: Include genre preferences
         creatorId: 'mock-user-id',
         filters: {
-          genres: ['28', '12'],
+          genres: ['28', '12', '35'], // Action, Adventure, Comedy
           contentTypes: ['movie'],
         },
         masterList: ['550', '551', '552', '553', '554'],
-        inviteCode: 'ABC123',
         isActive: true,
+        isPrivate: false,
+        memberCount: 3,
+        maxMembers: 10,
+        matchCount: 5,
         createdAt: new Date(Date.now() - 86400000).toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -384,11 +671,23 @@ class RoomService {
     return {
       id: `room-joined-${Date.now()}`,
       name: `Sala ${inviteCode}`,
-      creatorId: 'other-user',
-      filters: { contentTypes: ['movie', 'tv'] },
-      masterList: [],
+      description: 'Sala unida por código de invitación',
+      status: 'ACTIVE',
+      hostId: 'other-user',
       inviteCode,
+      inviteUrl: `https://trinity.app/room/${inviteCode}`, // Enhanced: Include invite URL
+      genrePreferences: ['Drama', 'Thriller'], // Enhanced: Include genre preferences
+      creatorId: 'other-user',
+      filters: { 
+        genres: ['18', '53'], // Drama, Thriller
+        contentTypes: ['movie', 'tv'] 
+      },
+      masterList: [],
       isActive: true,
+      isPrivate: false,
+      memberCount: 2,
+      maxMembers: 8,
+      matchCount: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

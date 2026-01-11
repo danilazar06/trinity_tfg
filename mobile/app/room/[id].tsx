@@ -10,6 +10,7 @@ import {
   Animated,
   PanResponder,
   Alert,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,6 +21,8 @@ import { roomService, RoomDetails } from '../../src/services/roomService';
 import { appSyncService } from '../../src/services/appSyncService';
 import { matchService, Match } from '../../src/services/matchService';
 import { mediaService, MediaItem, MediaItemDetails } from '../../src/services/mediaService';
+import { moviePreloadService } from '../../src/services/moviePreloadService';
+import { useConnectionStatus, useRoomSubscriptions } from '../../src/hooks/useConnectionStatus';
 
 const { width, height } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.25;
@@ -45,720 +48,228 @@ interface MatchFound {
 interface RoomUpdate {
   id: string;
   status: string;
-  resultMovieId?: string;
   memberCount: number;
-  updatedAt: string;
+  currentMovieIndex: number;
+  totalMovies: number;
 }
 
-export default function RoomSwipeScreen() {
+export default function RoomScreen() {
   const { id: roomId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   
   const [loading, setLoading] = useState(true);
   const [roomDetails, setRoomDetails] = useState<RoomDetails | null>(null);
   const [currentMedia, setCurrentMedia] = useState<MediaItemDetails | null>(null);
-  const [nextMedia, setNextMedia] = useState<MediaItemDetails | null>(null);
-  const [moviesList, setMoviesList] = useState<any[]>([]);
-  const [progress, setProgress] = useState({ current: 0, total: 0, percentage: 0 });
   const [isVoting, setIsVoting] = useState(false);
-  const [showMatch, setShowMatch] = useState(false);
-  const [matchedMedia, setMatchedMedia] = useState<Match | null>(null);
-  const [isLoadingNextMovie, setIsLoadingNextMovie] = useState(false); // Track loading state
-  const [hasCompletedQueue, setHasCompletedQueue] = useState(false); // Track actual completion
-  
-  // Real-time subscription state
-  const [voteCount, setVoteCount] = useState(0);
   const [memberCount, setMemberCount] = useState(0);
-  const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
-  
-  // Subscription cleanup functions
-  const unsubscribeVotes = useRef<(() => void) | null>(null);
-  const unsubscribeMatches = useRef<(() => void) | null>(null);
-  const unsubscribeRoom = useRef<(() => void) | null>(null);
-  
-  // Animaciones
+  const [voteCount, setVoteCount] = useState(0);
+  const [matchFound, setMatchFound] = useState<MatchFound | null>(null);
+  const [votingComplete, setVotingComplete] = useState(false);
+  const [showMatch, setShowMatch] = useState(false);
+  const [matchedMedia, setMatchedMedia] = useState<MediaItemDetails | null>(null);
+
+  // Animation values
   const position = useRef(new Animated.ValueXY()).current;
-  const rotate = position.x.interpolate({
-    inputRange: [-width / 2, 0, width / 2],
-    outputRange: ['-15deg', '0deg', '15deg'],
-  });
-  const likeOpacity = position.x.interpolate({
-    inputRange: [0, width / 4],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-  const dislikeOpacity = position.x.interpolate({
-    inputRange: [-width / 4, 0],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
+  const opacity = useRef(new Animated.Value(1)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+  const progressAnimation = useRef(new Animated.Value(0)).current;
+  const matchAnimation = useRef(new Animated.Value(0)).current;
+  const loadingProgress = useRef(new Animated.Value(0)).current;
+  const matchOpacity = useRef(new Animated.Value(0)).current;
+  const matchScale = useRef(new Animated.Value(0.8)).current;
+
+  // Connection status
+  const { connectionInfo, isHealthy, forceReconnect } = useConnectionStatus();
+  const { subscribeToRoom, unsubscribeFromRoom } = useRoomSubscriptions();
+
+  // Progress tracking
+  const [progress, setProgress] = useState({
+    current: 0,
+    total: 0,
+    percentage: 0
   });
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, gesture) => {
-        position.setValue({ x: gesture.dx, y: gesture.dy });
-      },
-      onPanResponderRelease: (_, gesture) => {
-        if (gesture.dx > SWIPE_THRESHOLD) {
-          swipeRight();
-        } else if (gesture.dx < -SWIPE_THRESHOLD) {
-          swipeLeft();
-        } else {
-          resetPosition();
-        }
-      },
-    })
-  ).current;
+  const [preloadStatus, setPreloadStatus] = useState({
+    isPreloading: false,
+    nextMoviesReady: 0,
+    totalPreloaded: 0
+  });
 
-  // Real-time subscription setup
-  const setupSubscriptions = useCallback(async () => {
+  // Load room data
+  useEffect(() => {
     if (!roomId) return;
     
-    console.log('🔔 Setting up real-time subscriptions for room:', roomId);
-    setRealtimeStatus('connecting');
-    
-    try {
-      // Subscribe to vote updates
-      unsubscribeVotes.current = await appSyncService.subscribeToVoteUpdates(
-        roomId,
-        (voteUpdate: VoteUpdate) => {
-          console.log('📊 Vote update received:', voteUpdate);
-          
-          // Update vote count display
-          setVoteCount(voteUpdate.currentVotes);
-          setMemberCount(voteUpdate.totalMembers);
-          
-          // Show visual feedback for new votes
-          if (voteUpdate.voteType === 'LIKE' && voteUpdate.userId !== 'polling-update') {
-            // Could add a toast notification or animation here
-            console.log(`👍 ${voteUpdate.userId} voted LIKE for ${voteUpdate.movieId}`);
-          }
-        }
-      );
-      
-      // Subscribe to match found events
-      unsubscribeMatches.current = await appSyncService.subscribeToMatchFound(
-        roomId,
-        (matchData: MatchFound) => {
-          console.log('🎉 Match found via subscription:', matchData);
-          
-          // Show match immediately
-          setMatchedMedia({
-            id: `realtime-match-${Date.now()}`,
-            roomId: matchData.roomId,
-            mediaId: matchData.movieId,
-            mediaTitle: matchData.movieTitle,
-            mediaPosterPath: '', // Will be loaded from TMDB if needed
-            participantCount: matchData.participants.length,
-            createdAt: matchData.timestamp,
-            consensusType: 'unanimous_like',
-          });
-          
-          setShowMatch(true);
-          setCurrentMedia(null); // Stop showing content to vote on
-          
-          // Optional: Navigate to match result screen after a delay
-          setTimeout(() => {
-            router.push(`/room/${roomId}/matches`);
-          }, 3000); // Show match modal for 3 seconds, then navigate
-        }
-      );
-      
-      // Subscribe to room updates
-      unsubscribeRoom.current = await appSyncService.subscribeToRoomUpdates(
-        roomId,
-        (roomUpdate: RoomUpdate) => {
-          console.log('🏠 Room update received:', roomUpdate);
-          
-          // Update member count in real-time
-          setMemberCount(roomUpdate.memberCount);
-          
-          // Handle room status changes
-          if (roomUpdate.status === 'MATCHED' && roomUpdate.resultMovieId) {
-            // Room has been matched, load match details
-            mediaService.getMovieDetails(parseInt(roomUpdate.resultMovieId))
-              .then(movieDetails => {
-                setMatchedMedia({
-                  id: `existing-match-${roomId}`,
-                  roomId,
-                  mediaId: roomUpdate.resultMovieId!,
-                  mediaTitle: movieDetails.title,
-                  mediaPosterPath: movieDetails.posterPath || '',
-                  participantCount: roomUpdate.memberCount || 0,
-                  createdAt: new Date().toISOString(),
-                  consensusType: 'unanimous_like',
-                });
-                setShowMatch(true);
-                setCurrentMedia(null);
-              })
-              .catch(error => {
-                console.error('Error loading matched movie details:', error);
-              });
-          }
-          
-          // Update room details if available
-          setRoomDetails(prevDetails => {
-            if (prevDetails) {
-              return {
-                ...prevDetails,
-                room: {
-                  ...prevDetails.room,
-                  status: roomUpdate.status,
-                },
-              };
-            }
-            return prevDetails;
-          });
-          
-          // Handle different room states
-          switch (roomUpdate.status) {
-            case 'ACTIVE':
-              console.log('🟢 Room is active and ready for voting');
-              break;
-            case 'PAUSED':
-              console.log('⏸️ Room has been paused');
-              Alert.alert('Sala pausada', 'El host ha pausado la votación temporalmente.');
-              break;
-            case 'COMPLETED':
-              console.log('✅ Room voting completed');
-              setCurrentMedia(null); // Stop showing content to vote on
-              break;
-            case 'MATCHED':
-              console.log('🎉 Room has found a match');
-              // Match handling is done above
-              break;
-            default:
-              console.log(`🔄 Room status changed to: ${roomUpdate.status}`);
-          }
-        }
-      );
-      
-      setRealtimeStatus('connected');
-      console.log('✅ All subscriptions established successfully');
-      
-    } catch (error) {
-      console.error('❌ Failed to setup subscriptions:', error);
-      setRealtimeStatus('disconnected');
-      
-      // Show user-friendly error message
-      Alert.alert(
-        'Conexión en tiempo real',
-        'No se pudo establecer la conexión en tiempo real. Las actualizaciones pueden no aparecer inmediatamente.',
-        [{ text: 'Entendido' }]
-      );
-    }
-  }, [roomId]); // Solo roomId como dependencia
-
-  // Load matched movie details
-  const loadMatchedMovie = useCallback(async (movieId: string) => {
-    try {
-      const movieDetails = await mediaService.getMovieDetails(parseInt(movieId));
-      setMatchedMedia({
-        id: `existing-match-${roomId}`,
-        roomId: roomId!,
-        mediaId: movieId,
-        mediaTitle: movieDetails.title,
-        mediaPosterPath: movieDetails.posterPath || '',
-        participantCount: memberCount,
-        createdAt: new Date().toISOString(),
-        consensusType: 'unanimous_like',
-      });
-      setShowMatch(true);
-      setCurrentMedia(null);
-    } catch (error) {
-      console.error('Error loading matched movie details:', error);
-    }
-  }, [roomId, memberCount]);
-
-  const resetPosition = () => {
-    Animated.spring(position, {
-      toValue: { x: 0, y: 0 },
-      useNativeDriver: false,
-    }).start();
-  };
-
-  // Handle match found with automatic navigation
-  const handleMatchFound = useCallback((matchData: MatchFound) => {
-    console.log('🎉 Match found via subscription:', matchData);
-    
-    // Show match immediately
-    setMatchedMedia({
-      id: `realtime-match-${Date.now()}`,
-      roomId: matchData.roomId,
-      mediaId: matchData.movieId,
-      mediaTitle: matchData.movieTitle,
-      mediaPosterPath: '', // Will be loaded from TMDB if needed
-      participantCount: matchData.participants.length,
-      createdAt: matchData.timestamp,
-      consensusType: 'unanimous_like',
-    });
-    
-    setShowMatch(true);
-    setCurrentMedia(null); // Stop showing content to vote on
-    
-    // Optional: Navigate to match result screen after a delay
-    setTimeout(() => {
-      router.push(`/room/${roomId}/matches`);
-    }, 3000); // Show match modal for 3 seconds, then navigate
-  }, [roomId]);
-
-  // Cleanup subscriptions
-  const cleanupSubscriptions = useCallback(() => {
-    console.log('🧹 Cleaning up subscriptions');
-    
-    if (unsubscribeVotes.current) {
-      unsubscribeVotes.current();
-      unsubscribeVotes.current = null;
-    }
-    
-    if (unsubscribeMatches.current) {
-      unsubscribeMatches.current();
-      unsubscribeMatches.current = null;
-    }
-    
-    if (unsubscribeRoom.current) {
-      unsubscribeRoom.current();
-      unsubscribeRoom.current = null;
-    }
-    
-    setRealtimeStatus('disconnected');
-  }, []);
-
-  const swipeRight = async () => {
-    Animated.timing(position, {
-      toValue: { x: width + 100, y: 0 },
-      duration: 250,
-      useNativeDriver: false,
-    }).start(() => handleVote('like'));
-  };
-
-  const swipeLeft = async () => {
-    Animated.timing(position, {
-      toValue: { x: -width - 100, y: 0 },
-      duration: 250,
-      useNativeDriver: false,
-    }).start(() => handleVote('dislike'));
-  };
-
-  const loadRoomData = useCallback(async () => {
-    if (!roomId) return;
-    
-    try {
-      setLoading(true);
-      
-      console.log('🏠 Loading room data for ID:', roomId);
-      
-      // Cargar detalles de la sala usando AppSync
-      const roomResult = await appSyncService.getRoom(roomId);
-      
-      console.log('✅ Room data loaded:', roomResult);
-      
-      // Convertir formato GraphQL a formato esperado por el componente
-      if (roomResult.getRoom) {
-        const room = roomResult.getRoom;
-        setRoomDetails({
-          room: {
-            id: room.id,
-            name: room.name,
-            hostId: room.hostId,
-            status: room.status,
-            inviteCode: room.inviteCode,
-            createdAt: room.createdAt,
-          },
-          members: [], // Members list not available in GraphQL schema, using memberCount instead
+    const loadRoomData = async () => {
+      try {
+        setLoading(true);
+        const details = await roomService.getRoomDetails(roomId);
+        setRoomDetails(details);
+        setMemberCount(details.room.memberCount || 0);
+        
+        // Load current media
+        const media = await mediaService.getCurrentMedia(roomId);
+        setCurrentMedia(media);
+        
+        // Update progress
+        setProgress({
+          current: details.room.currentMovieIndex || 0,
+          total: details.room.totalMovies || 0,
+          percentage: Math.round(((details.room.currentMovieIndex || 0) / (details.room.totalMovies || 1)) * 100)
         });
         
-        // Set member count from GraphQL response
-        setMemberCount(room.memberCount || 0);
-        
-        // Verificar si la sala ya tiene un match
-        if (room.status === 'MATCHED' && room.resultMovieId) {
-          // Cargar detalles de la película que hizo match
-          try {
-            const movieDetails = await mediaService.getMovieDetails(parseInt(room.resultMovieId));
-            setMatchedMedia({
-              id: `existing-match-${room.id}`,
-              roomId,
-              mediaId: room.resultMovieId,
-              mediaTitle: movieDetails.title,
-              mediaPosterPath: movieDetails.posterPath || '',
-              participantCount: room.memberCount || 0,
-              createdAt: room.updatedAt || room.createdAt,
-              consensusType: 'unanimous_like',
-            });
-            setShowMatch(true);
-            setCurrentMedia(null); // No mostrar más contenido para votar
-            return;
-          } catch (error) {
-            console.error('Error loading matched movie details:', error);
-          }
-        }
-      } else {
-        throw new Error('No se encontraron datos de la sala');
+      } catch (error) {
+        console.error('Error loading room:', error);
+        Alert.alert('Error', 'No se pudo cargar la sala');
+      } finally {
+        setLoading(false);
       }
-      
-      // Si no hay match, cargar lista de películas y contenido actual para votar
-      await loadMoviesList();
-      
-      // Inicializar progreso
-      setProgress({
-        current: 0,
-        total: 0, // Se actualizará en loadMoviesList
-        percentage: 0,
-      });
-      
-    } catch (error: any) {
-      console.error('❌ Error loading room:', error);
-      
-      let errorMessage = 'No se pudo cargar la sala.';
-      
-      if (error.message) {
-        if (error.message.includes('No tienes acceso')) {
-          errorMessage = 'No tienes acceso a esta sala. Verifica que tengas permisos o que la sala exista.';
-        } else if (error.message.includes('Sala no encontrada')) {
-          errorMessage = 'Esta sala no existe o ha sido eliminada.';
-        } else if (error.message.includes('Unauthorized')) {
-          errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión de nuevo.';
-        } else {
-          errorMessage = error.message;
-        }
-      }
-      
-      Alert.alert(
-        'Error',
-        errorMessage,
-        [
-          { text: 'Reintentar', onPress: () => loadRoomData() },
-          { text: 'Volver', onPress: () => router.back() }
-        ]
-      );
-    } finally {
-      setLoading(false);
-    }
+    };
+
+    loadRoomData();
   }, [roomId]);
 
-  // Load movies list from backend
-  const loadMoviesList = useCallback(async () => {
-    try {
-      console.log('🎬 Loading movies list via AppSync...');
+  // Subscribe to real-time updates
+  useEffect(() => {
+    if (!roomId) return;
+
+    const handleVoteUpdate = (update: VoteUpdate) => {
+      setVoteCount(update.currentVotes);
+      setMemberCount(update.totalMembers);
+    };
+
+    const handleMatchFound = (match: MatchFound) => {
+      setMatchFound(match);
+      // Animate match overlay
+      Animated.spring(matchAnimation.current, {
+        toValue: 1,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    const handleRoomUpdate = (update: RoomUpdate) => {
+      setMemberCount(update.memberCount);
+      setProgress({
+        current: update.currentMovieIndex,
+        total: update.totalMovies,
+        percentage: Math.round((update.currentMovieIndex / update.totalMovies) * 100)
+      });
+    };
+
+    // Subscribe to room updates
+    subscribeToRoom(roomId, {
+      onVoteUpdate: handleVoteUpdate,
+      onMatchFound: handleMatchFound,
+      onRoomUpdate: handleRoomUpdate,
+    });
+
+    return () => {
+      unsubscribeFromRoom(roomId);
+    };
+  }, [roomId, subscribeToRoom, unsubscribeFromRoom]);
+
+  // Pan responder for swipe gestures
+  const panResponder = PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      return Math.abs(gestureState.dx) > 20 || Math.abs(gestureState.dy) > 20;
+    },
+    onPanResponderMove: (_, gestureState) => {
+      position.setValue({ x: gestureState.dx, y: gestureState.dy });
       
-      // Get movies from AppSync (you can pass a genre filter if needed)
-      const moviesResult = await appSyncService.getMovies();
-      const movies = moviesResult.getMovies || [];
+      // Update opacity and scale based on swipe distance
+      const swipeProgress = Math.abs(gestureState.dx) / SWIPE_THRESHOLD;
+      opacity.setValue(1 - swipeProgress * 0.5);
+      scale.setValue(1 - swipeProgress * 0.1);
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      const { dx } = gestureState;
       
-      console.log('✅ Movies loaded:', movies.length, 'movies');
-      
-      if (movies.length === 0) {
-        console.warn('⚠️ No movies found, using fallback');
-        // Fallback: use some default movie IDs if no movies are returned
-        const fallbackMovies = [
-          { id: '550' }, { id: '551' }, { id: '552' }, { id: '553' }, { id: '554' },
-          { id: '555' }, { id: '556' }, { id: '557' }, { id: '558' }, { id: '559' }
-        ];
-        setMoviesList(fallbackMovies);
-        setProgress(prev => ({ ...prev, total: fallbackMovies.length }));
+      if (Math.abs(dx) > SWIPE_THRESHOLD) {
+        // Complete the swipe
+        const direction = dx > 0 ? 'right' : 'left';
+        completeSwipe(direction);
       } else {
-        setMoviesList(movies);
-        setProgress(prev => ({ ...prev, total: movies.length }));
+        // Return to center
+        Animated.spring(position, {
+          toValue: { x: 0, y: 0 },
+          useNativeDriver: false,
+        }).start();
+        
+        Animated.spring(opacity, {
+          toValue: 1,
+          useNativeDriver: false,
+        }).start();
+        
+        Animated.spring(scale, {
+          toValue: 1,
+          useNativeDriver: false,
+        }).start();
       }
-      
-    } catch (error) {
-      console.error('❌ Error loading movies list:', error);
-      
-      // Fallback: use some default movie IDs
-      const fallbackMovies = [
-        { id: '550' }, { id: '551' }, { id: '552' }, { id: '553' }, { id: '554' },
-        { id: '555' }, { id: '556' }, { id: '557' }, { id: '558' }, { id: '559' }
-      ];
-      setMoviesList(fallbackMovies);
-      setProgress(prev => ({ ...prev, total: fallbackMovies.length }));
-      
-      console.log('🔄 Using fallback movies list');
-    }
-  }, []);
+    },
+  });
 
-  const loadCurrentMedia = useCallback(async () => {
-    if (!roomId || moviesList.length === 0) return;
-    
-    try {
-      // Get current movie from the list
-      const currentMovieIndex = progress.current;
-      
-      if (currentMovieIndex >= moviesList.length) {
-        console.log('🏁 Reached end of movies list');
-        setCurrentMedia(null);
-        setHasCompletedQueue(true); // Mark as actually completed
-        return;
-      }
-      
-      const currentMovie = moviesList[currentMovieIndex];
-      const movieId = currentMovie.id || currentMovie.tmdbId || currentMovie;
-      
-      console.log('🎬 Loading movie details for ID:', movieId, `(${currentMovieIndex + 1}/${moviesList.length})`);
-      
-      setIsLoadingNextMovie(true); // Start loading state
-      
-      try {
-        const mediaDetails = await mediaService.getMovieDetails(parseInt(movieId));
-        console.log('✅ Movie details loaded:', mediaDetails?.title);
-        setCurrentMedia(mediaDetails);
-        setIsLoadingNextMovie(false); // End loading state
-      } catch (error) {
-        console.error('❌ Error loading movie details for ID:', movieId, error);
-        
-        // Implement automatic movie skipping with retry logic
-        const maxSkips = 5; // Prevent infinite loops
-        let skippedCount = 0;
-        
-        const skipToNextMovie = async (): Promise<void> => {
-          if (skippedCount >= maxSkips) {
-            console.error('❌ Too many consecutive movie load failures');
-            setCurrentMedia(null);
-            setHasCompletedQueue(true);
-            setIsLoadingNextMovie(false);
-            return;
-          }
-          
-          skippedCount++;
-          const newProgress = {
-            current: progress.current + skippedCount,
-            total: progress.total,
-            percentage: Math.round(((progress.current + skippedCount) / progress.total) * 100),
-          };
-          
-          setProgress(newProgress);
-          
-          // Recursively try the next movie
-          if (newProgress.current < newProgress.total) {
-            const nextMovieIndex = newProgress.current;
-            const nextMovie = moviesList[nextMovieIndex];
-            
-            if (nextMovie) {
-              const nextMovieId = nextMovie.id || nextMovie.tmdbId || nextMovie;
-              
-              try {
-                console.log('🔄 Attempting to load next movie after skip:', nextMovieId);
-                const nextMediaDetails = await mediaService.getMovieDetails(parseInt(nextMovieId));
-                setCurrentMedia(nextMediaDetails);
-                setIsLoadingNextMovie(false);
-                console.log('✅ Successfully loaded movie after skip:', nextMediaDetails.title);
-              } catch (nextError) {
-                console.error('❌ Next movie also failed to load:', nextMovieId, nextError);
-                // Continue skipping
-                await skipToNextMovie();
-              }
-            } else {
-              setCurrentMedia(null);
-              setHasCompletedQueue(true);
-              setIsLoadingNextMovie(false);
-            }
-          } else {
-            setCurrentMedia(null);
-            setHasCompletedQueue(true);
-            setIsLoadingNextMovie(false);
-          }
-        };
-        
-        await skipToNextMovie();
-      }
-    } catch (error) {
-      console.error('❌ Error in loadCurrentMedia:', error);
-      setIsLoadingNextMovie(false);
-      Alert.alert(
-        'Error',
-        'Ocurrió un error inesperado al cargar el contenido.',
-        [{ text: 'Volver', onPress: () => router.back() }]
-      );
-    }
-  }, [roomId, progress.current, moviesList]);
-
-  const handleVote = async (voteType: 'like' | 'dislike') => {
-    if (!roomId || !currentMedia || isVoting) return;
+  const completeSwipe = async (direction: 'left' | 'right') => {
+    if (!currentMedia || isVoting) return;
     
     setIsVoting(true);
-    setIsLoadingNextMovie(true); // Start loading next movie immediately
     
+    // Animate card out
+    Animated.timing(position, {
+      toValue: { x: direction === 'right' ? width : -width, y: 0 },
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+    
+    Animated.timing(opacity, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+
     try {
-      // Solo procesar votos "like" - los "dislike" se ignoran en Stop-on-Match
-      if (voteType === 'like') {
-        const result = await appSyncService.vote(roomId, currentMedia.tmdbId.toString());
-        
-        console.log('🗳️ Vote result:', result);
-        
-        // Verificar si hay match inmediato (Stop-on-Match algorithm)
-        if (result.vote && result.vote.status === 'MATCHED' && result.vote.resultMovieId) {
-          // ¡Match encontrado localmente! Mostrar inmediatamente
-          console.log('🎉 Local match detected, showing match screen');
+      // Submit vote
+      const voteType = direction === 'right' ? 'LIKE' : 'DISLIKE';
+      await appSyncService.submitVote(roomId!, currentMedia.tmdbId, voteType);
+      
+      // Load next media
+      setTimeout(async () => {
+        try {
+          const nextMedia = await mediaService.getNextMedia(roomId!);
+          setCurrentMedia(nextMedia);
           
-          // Cargar detalles de la película que hizo match
-          try {
-            const movieDetails = await mediaService.getMovieDetails(parseInt(result.vote.resultMovieId));
-            setMatchedMedia({
-              id: `local-match-${Date.now()}`,
-              roomId,
-              mediaId: result.vote.resultMovieId,
-              mediaTitle: movieDetails.title,
-              mediaPosterPath: movieDetails.posterPath || '',
-              participantCount: memberCount || roomDetails?.members.length || 0,
-              createdAt: new Date().toISOString(),
-              consensusType: 'unanimous_like',
-            });
-          } catch (movieError) {
-            // Fallback si no se pueden cargar detalles
-            setMatchedMedia({
-              id: `local-match-${Date.now()}`,
-              roomId,
-              mediaId: result.vote.resultMovieId,
-              mediaTitle: currentMedia.title,
-              mediaPosterPath: currentMedia.posterPath || '',
-              participantCount: memberCount || roomDetails?.members.length || 0,
-              createdAt: new Date().toISOString(),
-              consensusType: 'unanimous_like',
-            });
-          }
-          
-          setShowMatch(true);
-          setCurrentMedia(null); // Detener votación
-          setIsLoadingNextMovie(false);
-          
-          // Reset posición
+          // Reset animations
           position.setValue({ x: 0, y: 0 });
-          return;
-        }
-        
-        // Si no hay match local, actualizar conteo de votos optimísticamente
-        setVoteCount(prev => prev + 1);
-      }
-      
-      // Avanzar al siguiente contenido (tanto para LIKE como DISLIKE)
-      const newProgress = {
-        current: progress.current + 1,
-        total: progress.total,
-        percentage: Math.round(((progress.current + 1) / progress.total) * 100),
-      };
-      setProgress(newProgress);
-      
-      // Cargar siguiente contenido si no hemos terminado
-      if (newProgress.current < newProgress.total) {
-        // Pre-cargar siguiente película antes de ocultar la actual
-        const nextMovieIndex = newProgress.current;
-        const nextMovie = moviesList[nextMovieIndex];
-        
-        if (nextMovie) {
-          const nextMovieId = nextMovie.id || nextMovie.tmdbId || nextMovie;
+          opacity.setValue(1);
+          scale.setValue(1);
           
-          try {
-            console.log('🎬 Pre-loading next movie:', nextMovieId);
-            const nextMediaDetails = await mediaService.getMovieDetails(parseInt(nextMovieId));
-            
-            // Solo actualizar si la carga fue exitosa
-            setCurrentMedia(nextMediaDetails);
-            setIsLoadingNextMovie(false);
-            console.log('✅ Next movie loaded successfully:', nextMediaDetails.title);
-          } catch (error) {
-            console.error('❌ Error loading next movie:', nextMovieId, error);
-            
-            // Skip this movie and try the next one recursively
-            const skipProgress = {
-              current: newProgress.current + 1,
-              total: newProgress.total,
-              percentage: Math.round(((newProgress.current + 1) / newProgress.total) * 100),
-            };
-            setProgress(skipProgress);
-            
-            if (skipProgress.current < skipProgress.total) {
-              // Recursively try next movie
-              setTimeout(() => {
-                handleVote('dislike'); // Use dislike to skip without voting
-              }, 100);
-            } else {
-              setCurrentMedia(null);
-              setHasCompletedQueue(true); // Mark as actually completed
-              setIsLoadingNextMovie(false);
-            }
-          }
-        } else {
+        } catch (error) {
+          console.error('Error loading next media:', error);
           setCurrentMedia(null);
-          setHasCompletedQueue(true); // Mark as actually completed
-          setIsLoadingNextMovie(false);
+        } finally {
+          setIsVoting(false);
         }
-      } else {
-        // Cola completada
-        setCurrentMedia(null);
-        setHasCompletedQueue(true); // Mark as actually completed
-        setIsLoadingNextMovie(false);
-      }
+      }, 300);
       
-      // Reset posición
-      position.setValue({ x: 0, y: 0 });
+    } catch (error) {
+      console.error('Error submitting vote:', error);
+      Alert.alert('Error', 'No se pudo enviar el voto');
       
-    } catch (error: any) {
-      console.error('Error voting:', error);
-      setIsLoadingNextMovie(false);
+      // Reset position on error
+      Animated.spring(position, {
+        toValue: { x: 0, y: 0 },
+        useNativeDriver: false,
+      }).start();
       
-      // Manejar errores específicos de GraphQL
-      const errorMessage = error?.message || error?.toString() || '';
+      Animated.spring(opacity, {
+        toValue: 1,
+        useNativeDriver: false,
+      }).start();
       
-      if (errorMessage.includes('duplicate') || errorMessage.includes('already voted')) {
-        Alert.alert(
-          'Voto duplicado', 
-          'Ya has votado por este contenido. Continuando con el siguiente...'
-        );
-        // Avanzar al siguiente contenido
-        const newProgress = {
-          current: progress.current + 1,
-          total: progress.total,
-          percentage: Math.round(((progress.current + 1) / progress.total) * 100),
-        };
-        setProgress(newProgress);
-        await loadCurrentMedia();
-      } else if (errorMessage.includes('MATCHED')) {
-        // El error indica que ya hay un match - esto podría venir de la suscripción
-        console.log('🎉 Match detected via error message, waiting for subscription update');
-        Alert.alert(
-          '¡Match encontrado!', 
-          'Esta sala ya tiene un match. La pantalla se actualizará automáticamente.'
-        );
-      } else {
-        Alert.alert('Error', 'No se pudo registrar el voto. Inténtalo de nuevo.');
-      }
-      
-      position.setValue({ x: 0, y: 0 });
-    } finally {
       setIsVoting(false);
     }
   };
 
-  useEffect(() => {
-    loadRoomData();
-    
-    // Setup real-time subscriptions after room data is loaded
-    const initializeSubscriptions = async () => {
-      await setupSubscriptions();
-    };
-    
-    initializeSubscriptions();
-    
-    // Cleanup subscriptions when component unmounts or roomId changes
-    return () => {
-      cleanupSubscriptions();
-    };
-  }, [roomId]); // Solo roomId como dependencia - las funciones useCallback son estables
-
-  // Load current media when movies list is ready
-  useEffect(() => {
-    if (moviesList.length > 0 && !currentMedia && !showMatch) {
-      loadCurrentMedia();
-    }
-  }, [moviesList, currentMedia, showMatch]);
-
-  // Additional useEffect to setup subscriptions when room details are loaded
-  useEffect(() => {
-    if (roomDetails && realtimeStatus === 'disconnected') {
-      setupSubscriptions();
-    }
-  }, [roomDetails, realtimeStatus]); // setupSubscriptions es estable por useCallback
+  const swipeLeft = () => completeSwipe('left');
+  const swipeRight = () => completeSwipe('right');
 
   if (loading) {
     return (
@@ -797,16 +308,35 @@ export default function RoomSwipeScreen() {
           </View>
         </View>
         <View style={styles.headerRight}>
-          {/* Real-time connection status */}
-          <View style={styles.connectionStatus}>
+          <TouchableOpacity 
+            style={styles.connectionStatus}
+            onPress={() => {
+              if (!isHealthy) {
+                Alert.alert(
+                  'Estado de conexión',
+                  `Estado: ${connectionInfo.status}\nEn línea: ${connectionInfo.isOnline ? 'Sí' : 'No'}\nIntentos de reconexión: ${connectionInfo.reconnectionAttempts}`,
+                  [
+                    { text: 'Reconectar', onPress: forceReconnect },
+                    { text: 'Cerrar', style: 'cancel' }
+                  ]
+                );
+              }
+            }}
+          >
             <View style={[
               styles.connectionDot,
               {
-                backgroundColor: realtimeStatus === 'connected' ? '#4ECDC4' :
-                                realtimeStatus === 'connecting' ? '#FFD93D' : '#FF6B6B'
+                backgroundColor: 
+                  connectionInfo.status === 'connected' && connectionInfo.isOnline ? '#4ECDC4' :
+                  connectionInfo.status === 'connecting' ? '#FFD93D' : '#FF6B6B'
               }
             ]} />
-          </View>
+            {connectionInfo.reconnectionAttempts > 0 && (
+              <Text style={styles.reconnectionText}>
+                {connectionInfo.reconnectionAttempts}
+              </Text>
+            )}
+          </TouchableOpacity>
           <TouchableOpacity style={styles.menuButton}>
             <Ionicons name="ellipsis-vertical" size={20} color={colors.textMuted} />
           </TouchableOpacity>
@@ -816,11 +346,43 @@ export default function RoomSwipeScreen() {
       {/* Progress Bar */}
       <View style={styles.progressContainer}>
         <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${progress.percentage}%` }]} />
+          <Animated.View style={[
+            styles.progressFill, 
+            { 
+              width: progressAnimation.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0%', '100%'],
+              })
+            }
+          ]} />
         </View>
-        <Text style={styles.progressText}>
-          {progress.current}/{progress.total} • {progress.percentage}%
-        </Text>
+        <View style={styles.progressInfo}>
+          <Text style={styles.progressText}>
+            {progress.current}/{progress.total} • {progress.percentage}%
+          </Text>
+          {preloadStatus.nextMoviesReady > 0 && (
+            <Animated.View style={[
+              styles.preloadIndicator,
+              {
+                opacity: loadingProgress.interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [0.7, 1, 0.7],
+                })
+              }
+            ]}>
+              <Ionicons name="flash" size={12} color={colors.success} />
+              <Text style={styles.preloadText}>
+                {preloadStatus.nextMoviesReady} listas
+              </Text>
+            </Animated.View>
+          )}
+          {preloadStatus.isPreloading && (
+            <View style={styles.preloadIndicator}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.preloadText}>Cargando...</Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* Card Area */}
@@ -834,76 +396,65 @@ export default function RoomSwipeScreen() {
                 transform: [
                   { translateX: position.x },
                   { translateY: position.y },
-                  { rotate },
+                  { scale: scale }
                 ],
-              },
+                opacity: opacity
+              }
             ]}
           >
             <Image
               source={{
-                uri: currentMedia.posterPath
-                  ? currentMedia.posterPath
-                  : 'https://via.placeholder.com/500x750?text=No+Image',
+                uri: currentMedia.mediaPosterPath
+                  ? `https://image.tmdb.org/t/p/w500${currentMedia.mediaPosterPath}`
+                  : 'https://via.placeholder.com/500x750',
               }}
               style={styles.cardImage}
             />
             
-            {/* Like/Dislike Overlays */}
-            <Animated.View style={[styles.likeOverlay, { opacity: likeOpacity }]}>
+            {/* Swipe Overlays */}
+            <Animated.View style={[
+              styles.likeOverlay,
+              {
+                opacity: position.x.interpolate({
+                  inputRange: [0, SWIPE_THRESHOLD],
+                  outputRange: [0, 1],
+                  extrapolate: 'clamp',
+                })
+              }
+            ]}>
               <Text style={styles.overlayText}>LIKE</Text>
             </Animated.View>
-            <Animated.View style={[styles.dislikeOverlay, { opacity: dislikeOpacity }]}>
+            
+            <Animated.View style={[
+              styles.dislikeOverlay,
+              {
+                opacity: position.x.interpolate({
+                  inputRange: [-SWIPE_THRESHOLD, 0],
+                  outputRange: [1, 0],
+                  extrapolate: 'clamp',
+                })
+              }
+            ]}>
               <Text style={styles.overlayText}>NOPE</Text>
             </Animated.View>
-            
+
             {/* Card Info */}
             <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.9)']}
+              colors={['transparent', 'rgba(0,0,0,0.8)']}
               style={styles.cardGradient}
             >
-              <Text style={styles.cardTitle}>{currentMedia.title}</Text>
+              <Text style={styles.cardTitle}>{currentMedia.mediaTitle}</Text>
               <View style={styles.cardMeta}>
-                <Text style={styles.cardYear}>
-                  {currentMedia.year || 'N/A'}
-                </Text>
-                <View style={styles.ratingBadge}>
-                  <Ionicons name="star" size={12} color="#FFD700" />
-                  <Text style={styles.ratingText}>
-                    {currentMedia.rating?.toFixed(1) || 'N/A'}
-                  </Text>
-                </View>
+                <Text style={styles.cardYear}>{currentMedia.mediaYear}</Text>
+                {currentMedia.mediaRating && (
+                  <View style={styles.ratingBadge}>
+                    <Ionicons name="star" size={12} color="#FFD700" />
+                    <Text style={styles.ratingText}>{currentMedia.mediaRating}</Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.cardOverview} numberOfLines={3}>
-                {currentMedia.overview || 'Sin descripción disponible.'}
-              </Text>
-            </LinearGradient>
-          </Animated.View>
-        ) : isLoadingNextMovie ? (
-          <View style={styles.loadingCard}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingCardText}>Cargando siguiente película...</Text>
-          </View>
-        ) : hasCompletedQueue ? (
-          <View style={styles.emptyCard}>
-            <Ionicons name="checkmark-circle" size={64} color={colors.success} />
-            <Text style={styles.emptyTitle}>¡Has terminado!</Text>
-            <Text style={styles.emptySubtitle}>
-              Has votado todo el contenido de esta sala
-            </Text>
-            <TouchableOpacity
-              style={styles.viewMatchesButton}
-              onPress={() => router.push(`/room/${roomId}/matches`)}
-            >
-              <Text style={styles.viewMatchesText}>Ver matches</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.loadingCard}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingCardText}>Preparando contenido...</Text>
-          </View>
-        )}
-      </View>ible'}
+                {currentMedia.mediaOverview}
               </Text>
             </LinearGradient>
           </Animated.View>
@@ -914,12 +465,23 @@ export default function RoomSwipeScreen() {
             <Text style={styles.emptySubtitle}>
               Has votado todo el contenido de esta sala
             </Text>
-            <TouchableOpacity
-              style={styles.viewMatchesButton}
-              onPress={() => router.push(`/room/${roomId}/matches`)}
-            >
-              <Text style={styles.viewMatchesText}>Ver matches</Text>
-            </TouchableOpacity>
+            <View style={styles.completionActions}>
+              <TouchableOpacity
+                style={styles.viewMatchesButton}
+                onPress={() => router.push(`/room/${roomId}/matches`)}
+              >
+                <Ionicons name="heart" size={20} color="#FFF" style={styles.buttonIcon} />
+                <Text style={styles.viewMatchesText}>Ver matches</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.returnToRoomsButton}
+                onPress={() => router.push('/(tabs)/rooms')}
+              >
+                <Ionicons name="arrow-back" size={20} color={colors.primary} style={styles.buttonIcon} />
+                <Text style={styles.returnToRoomsText}>Volver a salas</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </View>
@@ -952,31 +514,84 @@ export default function RoomSwipeScreen() {
         </View>
       )}
 
-      {/* Match Modal */}
-      {showMatch && matchedMedia && (
-        <View style={styles.matchOverlay}>
-          <View style={styles.matchContent}>
-            <Text style={styles.matchTitle}>🎉 ¡Es un Match!</Text>
+      {/* Match Found Overlay */}
+      {matchFound && (
+        <Animated.View
+          style={[
+            styles.matchOverlay,
+            {
+              opacity: matchAnimation,
+              transform: [
+                {
+                  scale: matchAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1],
+                  })
+                }
+              ]
+            }
+          ]}
+        >
+          <LinearGradient
+            colors={['rgba(78, 205, 196, 0.95)', 'rgba(255, 107, 107, 0.95)']}
+            style={styles.matchContent}
+          >
+            <Ionicons name="heart" size={64} color="#FFF" />
+            <Text style={styles.matchTitle}>¡Es un Match!</Text>
             <Text style={styles.matchSubtitle}>
-              Todos han votado por esta película
+              Ambos eligieron: {matchFound.movieTitle}
             </Text>
-            <Image
-              source={{
-                uri: matchedMedia.mediaPosterPath
-                  ? `https://image.tmdb.org/t/p/w300${matchedMedia.mediaPosterPath}`
-                  : 'https://via.placeholder.com/300x450',
-              }}
-              style={styles.matchPoster}
-            />
-            <Text style={styles.matchMediaTitle}>{matchedMedia.mediaTitle}</Text>
             <TouchableOpacity
               style={styles.matchButton}
-              onPress={() => setShowMatch(false)}
+              onPress={() => {
+                setMatchFound(null);
+                router.push(`/room/${roomId}/matches`);
+              }}
+            >
+              <Text style={styles.matchButtonText}>Ver detalles</Text>
+            </TouchableOpacity>
+          </LinearGradient>
+        </Animated.View>
+      )}
+
+      {/* Voting Complete Overlay */}
+      {votingComplete && (
+        <Animated.View
+          style={[
+            styles.matchOverlay,
+            {
+              opacity: matchAnimation,
+              transform: [
+                {
+                  scale: matchAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1],
+                  })
+                }
+              ]
+            }
+          ]}
+        >
+          <LinearGradient
+            colors={['rgba(78, 205, 196, 0.95)', 'rgba(255, 217, 61, 0.95)']}
+            style={styles.matchContent}
+          >
+            <Ionicons name="checkmark-circle" size={64} color="#FFF" />
+            <Text style={styles.matchTitle}>¡Votación Completa!</Text>
+            <Text style={styles.matchSubtitle}>
+              Todos han votado. Revisa los resultados.
+            </Text>
+            <TouchableOpacity
+              style={styles.matchButton}
+              onPress={() => {
+                setVotingComplete(false);
+                router.push(`/room/${roomId}/matches`);
+              }}
             >
               <Text style={styles.matchButtonText}>Continuar</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+          </LinearGradient>
+        </Animated.View>
       )}
     </SafeAreaView>
   );
@@ -1024,6 +639,39 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textMuted,
   },
+  separator: {
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+    marginHorizontal: 4,
+  },
+  voteCountText: {
+    fontSize: fontSize.xs,
+    color: colors.primary,
+    fontWeight: '600',
+    marginLeft: 2,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  connectionStatus: {
+    padding: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  connectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF6B6B',
+  },
+  reconnectionText: {
+    fontSize: 10,
+    color: colors.textMuted,
+    fontWeight: '600',
+  },
   menuButton: {
     padding: spacing.xs,
   },
@@ -1042,11 +690,25 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: 2,
   },
+  progressInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
   progressText: {
     fontSize: fontSize.xs,
     color: colors.textMuted,
-    textAlign: 'right',
-    marginTop: 4,
+  },
+  preloadIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  preloadText: {
+    fontSize: fontSize.xs,
+    color: colors.success,
+    fontWeight: '500',
   },
   cardContainer: {
     flex: 1,
@@ -1154,30 +816,44 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
     marginTop: spacing.sm,
+    marginBottom: spacing.xl,
   },
-  loadingCard: {
-    alignItems: 'center',
-    padding: spacing.xxl,
-    justifyContent: 'center',
-    height: height * 0.4,
-  },
-  loadingCardText: {
-    fontSize: fontSize.md,
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginTop: spacing.lg,
+  completionActions: {
+    width: '100%',
+    gap: spacing.md,
   },
   viewMatchesButton: {
-    marginTop: spacing.xl,
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     borderRadius: borderRadius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   viewMatchesText: {
     fontSize: fontSize.md,
     fontWeight: '600',
     color: '#FFF',
+  },
+  returnToRoomsButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: colors.primary,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  returnToRoomsText: {
+    fontSize: fontSize.md,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  buttonIcon: {
+    marginRight: spacing.sm,
   },
   actionsContainer: {
     flexDirection: 'row',
@@ -1232,19 +908,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.7)',
     marginBottom: spacing.xl,
   },
-  matchPoster: {
-    width: 200,
-    height: 300,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.lg,
-  },
-  matchMediaTitle: {
-    fontSize: fontSize.xl,
-    fontWeight: 'bold',
-    color: '#FFF',
-    marginBottom: spacing.xl,
-    textAlign: 'center',
-  },
   matchButton: {
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.xxl,
@@ -1255,31 +918,5 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     fontWeight: '600',
     color: '#FFF',
-  },
-  // Real-time UI styles
-  separator: {
-    fontSize: fontSize.xs,
-    color: colors.textMuted,
-    marginHorizontal: 4,
-  },
-  voteCountText: {
-    fontSize: fontSize.xs,
-    color: colors.primary,
-    fontWeight: '600',
-    marginLeft: 2,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  connectionStatus: {
-    padding: 4,
-  },
-  connectionDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FF6B6B',
   },
 });

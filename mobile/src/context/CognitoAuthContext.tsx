@@ -1,11 +1,12 @@
 /**
  * AWS Cognito Authentication Context
  * Manages authentication state using AWS Cognito User Pool
+ * TEMPORARY: Background services disabled for EAS Build compatibility
  */
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { cognitoAuthService, CognitoUser, CognitoTokens } from '../services/cognitoAuthService';
-import { federatedAuthService } from '../services/federatedAuthService';
+import { dualAuthFlowService, AuthenticationResult } from '../services/dualAuthFlowService';
 import { migrationService } from '../services/migrationService';
 
 interface AuthState {
@@ -25,6 +26,9 @@ interface AuthContextType extends AuthState {
   updateProfile: (attributes: { name?: string; picture?: string }) => Promise<void>;
   forgotPassword: (email: string) => Promise<{ success: boolean; message?: string }>;
   confirmForgotPassword: (email: string, code: string, newPassword: string) => Promise<{ success: boolean; message?: string }>;
+  // New dual auth methods
+  getAvailableAuthMethods: () => Promise<{ email: boolean; google: boolean; googleMessage?: string }>;
+  authenticateAuto: (credentials?: { email?: string; password?: string }) => Promise<void>;
 }
 
 type AuthAction =
@@ -83,7 +87,100 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   useEffect(() => {
     checkAuthStatus();
-  }, []);
+    
+    // Set up background token refresh service
+    const handleTokenRefresh = (result: TokenRefreshResult) => {
+      if (result.success && result.refreshed && result.newTokens) {
+        console.log('🔄 Background token refresh successful, updating context');
+        
+        // Update user context with new tokens
+        if (state.user) {
+          dispatch({ 
+            type: 'SET_USER', 
+            payload: { 
+              user: state.user, 
+              tokens: result.newTokens 
+            } 
+          });
+          
+          // Broadcast token refresh
+          broadcastAuthState(true, state.user);
+        }
+      } else if (!result.success && result.error) {
+        console.warn('⚠️ Background token refresh failed:', result.error);
+        
+        // If refresh failed due to invalid refresh token, logout user
+        if (result.error.includes('expirada') || result.error.includes('expired') || result.error.includes('NotAuthorizedException')) {
+          console.log('🔄 Refresh token expired, logging out user');
+          dispatch({ type: 'LOGOUT' });
+          broadcastAuthState(false, null);
+        }
+      }
+    };
+
+    // Set up session expiration service
+    const handleSessionExpiration = (event: ExpirationEvent) => {
+      console.log('⏰ Session expiration event:', event.type, event.message);
+      
+      switch (event.type) {
+        case 'expired':
+          if (event.action === 'reauth') {
+            // User needs to re-authenticate
+            console.log('🔄 Session expired, logging out user');
+            dispatch({ type: 'LOGOUT' });
+            broadcastAuthState(false, null);
+          }
+          break;
+          
+        case 'refreshed':
+          console.log('✅ Session refreshed automatically');
+          // Token refresh is handled by background service
+          break;
+          
+        case 'warning':
+          console.log('⚠️ Session expiration warning shown to user');
+          break;
+          
+        case 'reauth_required':
+          console.log('🔄 User chose to re-authenticate');
+          dispatch({ type: 'LOGOUT' });
+          broadcastAuthState(false, null);
+          break;
+      }
+    };
+
+    // Add listeners
+    backgroundTokenRefreshService.addRefreshListener(handleTokenRefresh);
+    sessionExpirationService.addExpirationListener(handleSessionExpiration);
+    
+    // Start services when user is authenticated
+    if (state.isAuthenticated) {
+      backgroundTokenRefreshService.start({
+        refreshThresholdMinutes: 15, // Refresh 15 minutes before expiry
+        backgroundRefreshIntervalMinutes: 5, // Check every 5 minutes
+        enableBackgroundRefresh: true,
+      });
+      
+      sessionExpirationService.start({
+        warningThresholdMinutes: 10, // Warn 10 minutes before expiry
+        checkIntervalMinutes: 2, // Check every 2 minutes
+        enableWarnings: true,
+        autoRefreshEnabled: true,
+      });
+    }
+
+    return () => {
+      // Cleanup
+      backgroundTokenRefreshService.removeRefreshListener(handleTokenRefresh);
+      sessionExpirationService.removeExpirationListener(handleSessionExpiration);
+      
+      // Stop services when component unmounts or user logs out
+      if (!state.isAuthenticated) {
+        backgroundTokenRefreshService.stop();
+        sessionExpirationService.stop();
+      }
+    };
+  }, [state.isAuthenticated, state.user]);
 
   const checkAuthStatus = async () => {
     try {
@@ -157,15 +254,40 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
             tokens: authResult.tokens 
           } 
         });
+        
+        // Broadcast authentication state change
+        broadcastAuthState(true, authResult.user);
       } else {
         console.log('❌ CognitoAuth: No valid auth found, setting null user');
         dispatch({ type: 'SET_USER', payload: null });
+        broadcastAuthState(false, null);
       }
     } catch (error) {
       console.error('❌ CognitoAuth: Check auth status error:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Error verificando autenticación' });
       dispatch({ type: 'SET_USER', payload: null });
       dispatch({ type: 'SET_MIGRATION_STATUS', payload: 'completed' });
+      broadcastAuthState(false, null);
+    }
+  };
+
+  // Broadcast authentication state changes to all components
+  const broadcastAuthState = (isAuthenticated: boolean, user: CognitoUser | null) => {
+    try {
+      // Create custom event for auth state changes
+      const authEvent = new CustomEvent('authStateChange', {
+        detail: { isAuthenticated, user }
+      });
+      
+      // In React Native, we can use a simple event emitter pattern
+      // This will be picked up by components that need to react to auth changes
+      console.log('📡 Broadcasting auth state:', { isAuthenticated, hasUser: !!user });
+      
+      // Store current auth state for components that need immediate access
+      global.currentAuthState = { isAuthenticated, user };
+      
+    } catch (error) {
+      console.warn('⚠️ Failed to broadcast auth state:', error);
     }
   };
 
@@ -174,22 +296,39 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
     dispatch({ type: 'CLEAR_ERROR' });
 
     try {
-      const result = await cognitoAuthService.login(email, password);
+      const result = await dualAuthFlowService.authenticateWithEmail(email, password);
       
-      if (result.success && result.data) {
+      if (result.success && result.user && result.tokens) {
         // Store tokens
-        await cognitoAuthService.storeTokens(result.data.tokens);
+        await cognitoAuthService.storeTokens(result.tokens);
         
         dispatch({ 
           type: 'SET_USER', 
           payload: { 
-            user: result.data.user, 
-            tokens: result.data.tokens 
+            user: result.user, 
+            tokens: result.tokens 
           } 
         });
         
         // Mark migration as completed after successful login
         dispatch({ type: 'SET_MIGRATION_STATUS', payload: 'completed' });
+        
+        // Broadcast authentication state change
+        broadcastAuthState(true, result.user);
+        
+        // Start background services
+        backgroundTokenRefreshService.start({
+          refreshThresholdMinutes: 15,
+          backgroundRefreshIntervalMinutes: 5,
+          enableBackgroundRefresh: true,
+        });
+        
+        sessionExpirationService.start({
+          warningThresholdMinutes: 10,
+          checkIntervalMinutes: 2,
+          enableWarnings: true,
+          autoRefreshEnabled: true,
+        });
         
         console.log('✅ Login successful with Cognito');
       } else {
@@ -206,18 +345,18 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
     dispatch({ type: 'CLEAR_ERROR' });
 
     try {
-      const result = await cognitoAuthService.register(email, password, name);
+      const result = await dualAuthFlowService.registerWithEmail(email, password, name);
       
       dispatch({ type: 'SET_LOADING', payload: false });
       
       if (result.success) {
         return { 
           success: true, 
-          message: result.message || 'Cuenta creada exitosamente. Ya puedes iniciar sesión.' 
+          message: 'Cuenta creada exitosamente. Ya puedes iniciar sesión.' 
         };
       } else {
-        dispatch({ type: 'SET_ERROR', payload: result.message || 'Error al registrarse' });
-        return { success: false, message: result.message };
+        dispatch({ type: 'SET_ERROR', payload: result.error || 'Error al registrarse' });
+        return { success: false, message: result.error };
       }
     } catch (error: any) {
       console.error('Register error:', error);
@@ -233,22 +372,39 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
     try {
       console.log('🔍 Starting Google Sign-In process...');
       
-      const result = await federatedAuthService.signInWithGoogle();
+      const result = await dualAuthFlowService.authenticateWithGoogle({ allowFallback: false });
       
-      if (result.success && result.data) {
+      if (result.success && result.user && result.tokens) {
         // Store tokens
-        await cognitoAuthService.storeTokens(result.data.tokens);
+        await cognitoAuthService.storeTokens(result.tokens);
         
         dispatch({ 
           type: 'SET_USER', 
           payload: { 
-            user: result.data.user, 
-            tokens: result.data.tokens 
+            user: result.user, 
+            tokens: result.tokens 
           } 
         });
         
         // Mark migration as completed after successful login
         dispatch({ type: 'SET_MIGRATION_STATUS', payload: 'completed' });
+        
+        // Broadcast authentication state change
+        broadcastAuthState(true, result.user);
+        
+        // Start background services
+        backgroundTokenRefreshService.start({
+          refreshThresholdMinutes: 15,
+          backgroundRefreshIntervalMinutes: 5,
+          enableBackgroundRefresh: true,
+        });
+        
+        sessionExpirationService.start({
+          warningThresholdMinutes: 10,
+          checkIntervalMinutes: 2,
+          enableWarnings: true,
+          autoRefreshEnabled: true,
+        });
         
         console.log('✅ Google Sign-In successful with Cognito');
       } else {
@@ -279,25 +435,78 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   const logout = async () => {
     try {
-      // Get current tokens to sign out from Cognito
-      const storedTokens = await cognitoAuthService.checkStoredAuth();
-      if (storedTokens.isAuthenticated && storedTokens.tokens) {
-        // Sign out from both Cognito and Google
-        await federatedAuthService.signOut(storedTokens.tokens.accessToken);
-      }
+      // Stop background services
+      backgroundTokenRefreshService.stop();
+      sessionExpirationService.stop();
+      
+      // Use dual auth service for comprehensive sign out
+      await dualAuthFlowService.signOutAll();
     } catch (error) {
       console.warn('Error signing out:', error);
     } finally {
-      // Always clear local tokens and state
-      await cognitoAuthService.clearTokens();
+      // Always clear local state
       dispatch({ type: 'LOGOUT' });
+      
+      // Broadcast logout state
+      broadcastAuthState(false, null);
+    }
+  };
+
+  const getAvailableAuthMethods = async () => {
+    return await dualAuthFlowService.getAvailableAuthMethods();
+  };
+
+  const authenticateAuto = async (credentials: { email?: string; password?: string } = {}) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'CLEAR_ERROR' });
+
+    try {
+      const result = await dualAuthFlowService.authenticateAuto(credentials, { allowFallback: true });
+      
+      if (result.success && result.user && result.tokens) {
+        // Store tokens
+        await cognitoAuthService.storeTokens(result.tokens);
+        
+        dispatch({ 
+          type: 'SET_USER', 
+          payload: { 
+            user: result.user, 
+            tokens: result.tokens 
+          } 
+        });
+        
+        // Mark migration as completed after successful login
+        dispatch({ type: 'SET_MIGRATION_STATUS', payload: 'completed' });
+        
+        // Broadcast authentication state change
+        broadcastAuthState(true, result.user);
+        
+        // Start background services
+        backgroundTokenRefreshService.start({
+          refreshThresholdMinutes: 15,
+          backgroundRefreshIntervalMinutes: 5,
+          enableBackgroundRefresh: true,
+        });
+        
+        sessionExpirationService.start({
+          warningThresholdMinutes: 10,
+          checkIntervalMinutes: 2,
+          enableWarnings: true,
+          autoRefreshEnabled: true,
+        });
+        
+        console.log(`✅ Auto authentication successful with ${result.method}`);
+      } else {
+        dispatch({ type: 'SET_ERROR', payload: result.error || 'Error en autenticación automática' });
+      }
+    } catch (error: any) {
+      console.error('Auto authentication error:', error);
+      dispatch({ type: 'SET_ERROR', payload: error.message || 'Error de conexión' });
     }
   };
 
   const clearError = () => dispatch({ type: 'CLEAR_ERROR' });
-
   const updateProfile = async (attributes: { name?: string; picture?: string }) => {
-    if (!state.user) return;
 
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'CLEAR_ERROR' });
@@ -400,6 +609,8 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
         updateProfile,
         forgotPassword,
         confirmForgotPassword,
+        getAvailableAuthMethods,
+        authenticateAuto,
       }}
     >
       {children}

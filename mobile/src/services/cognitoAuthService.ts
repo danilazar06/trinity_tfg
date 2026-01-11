@@ -6,7 +6,7 @@
 import { getAWSConfig } from '../config/aws-config';
 import { networkService } from './networkService';
 import { loggingService } from './loggingService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { secureTokenStorage } from './secureTokenStorage';
 
 export interface CognitoUser {
   sub: string;
@@ -558,21 +558,19 @@ class CognitoAuthService {
    */
   async checkStoredAuth(): Promise<{ isAuthenticated: boolean; user?: CognitoUser; tokens?: CognitoTokens }> {
     try {
-      const storedTokens = await AsyncStorage.getItem('cognitoTokens');
+      const storedTokens = await secureTokenStorage.retrieveTokens();
       if (!storedTokens) {
         return { isAuthenticated: false };
       }
 
-      const tokens: CognitoTokens = JSON.parse(storedTokens);
-      
       // Check if access token is expired
-      const accessTokenPayload = this.parseJWT(tokens.accessToken);
+      const accessTokenPayload = this.parseJWT(storedTokens.accessToken);
       if (!accessTokenPayload || accessTokenPayload.exp * 1000 < Date.now()) {
         // Try to refresh token
-        const refreshResult = await this.refreshToken(tokens.refreshToken);
+        const refreshResult = await this.refreshToken(storedTokens.refreshToken);
         if (refreshResult.success && refreshResult.tokens) {
           const newTokens = refreshResult.tokens;
-          await AsyncStorage.setItem('cognitoTokens', JSON.stringify(newTokens));
+          await secureTokenStorage.storeTokens(newTokens);
           
           // Get user info with new token
           const userResult = await this.getUser(newTokens.accessToken);
@@ -586,42 +584,44 @@ class CognitoAuthService {
         }
         
         // If refresh failed, clear stored tokens
-        await AsyncStorage.removeItem('cognitoTokens');
+        await secureTokenStorage.clearTokens();
         return { isAuthenticated: false };
       }
 
       // Get user info
-      const userResult = await this.getUser(tokens.accessToken);
+      const userResult = await this.getUser(storedTokens.accessToken);
       if (userResult.success && userResult.user) {
         return {
           isAuthenticated: true,
           user: userResult.user,
-          tokens,
+          tokens: storedTokens,
         };
       }
 
       return { isAuthenticated: false };
     } catch (error) {
       console.error('Check stored auth error:', error);
-      await AsyncStorage.removeItem('cognitoTokens');
+      await secureTokenStorage.clearTokens();
       return { isAuthenticated: false };
     }
   }
 
   /**
-   * Store tokens securely
+   * Store tokens securely using device keychain/keystore
    */
   async storeTokens(tokens: CognitoTokens): Promise<void> {
-    await AsyncStorage.setItem('cognitoTokens', JSON.stringify(tokens));
+    await secureTokenStorage.storeTokens(tokens, {
+      requireAuthentication: false, // Set to true for biometric protection
+      keychainService: 'trinity-cognito-auth',
+    });
   }
 
   /**
-   * Clear stored tokens
+   * Clear stored tokens securely
    */
   async clearTokens(): Promise<void> {
-    await AsyncStorage.removeItem('cognitoTokens');
+    await secureTokenStorage.clearTokens();
   }
 }
 
 export const cognitoAuthService = new CognitoAuthService();
-export type { CognitoUser, CognitoTokens, AuthResponse };

@@ -1,5 +1,8 @@
 // Servicio para gestionar votos/swipes conectando con el backend
 import { apiClient } from './apiClient';
+import { operationQueueService, OperationResult } from './operationQueueService';
+import { errorLoggingService } from './errorLoggingService';
+import { appSyncService } from './appSyncService';
 
 // Flag para usar mock o backend real
 const USE_MOCK = false; // Cambiar a false cuando el backend esté disponible
@@ -77,20 +80,66 @@ export interface SwipeSession {
 
 class VoteService {
   /**
-   * Registrar un voto (swipe)
+   * Registrar un voto (swipe) con queue support para poor connectivity
+   * Enhanced: Now uses GraphQL via AppSync with enhanced error handling
    */
   async registerVote(roomId: string, dto: CreateVoteDto): Promise<VoteResponse> {
-    try {
-      if (USE_MOCK) {
-        return this.mockRegisterVote(dto);
+    const result = await operationQueueService.executeOrQueue(
+      'VOTE',
+      dto,
+      async () => {
+        if (USE_MOCK) {
+          return this.mockRegisterVote(dto);
+        }
+        
+        // Use GraphQL via AppSync for enhanced voting
+        try {
+          const appSyncResult = await appSyncService.vote(roomId, dto.mediaId);
+          const room = appSyncResult.vote;
+          
+          // Transform AppSync result to VoteResponse interface
+          // Note: This would need to be enhanced based on actual GraphQL response structure
+          return {
+            voteRegistered: true,
+            nextMediaId: null, // Would need to be determined from room state
+            queueCompleted: room.status === 'MATCHED',
+            currentProgress: {
+              currentIndex: 0, // Would need to be calculated
+              totalItems: 20, // Would need to come from room data
+              remainingItems: 20, // Would need to be calculated
+              progressPercentage: 0 // Would need to be calculated
+            }
+          };
+        } catch (error: any) {
+          // Enhanced error handling with context
+          errorLoggingService.logError(error, {
+            operation: 'registerVote',
+            roomId,
+            mediaId: dto.mediaId,
+            metadata: { voteType: dto.voteType }
+          });
+          
+          // Fallback to REST API if GraphQL fails
+          return await apiClient.post<VoteResponse>(`/rooms/${roomId}/interactions/vote`, dto);
+        }
+      },
+      {
+        roomId,
+        priority: 'HIGH', // Votes are high priority for user experience
+        maxRetries: 3,
+        expiresInMs: 5 * 60 * 1000 // 5 minutes expiration
       }
-      return await apiClient.post<VoteResponse>(`/rooms/${roomId}/interactions/vote`, dto);
-    } catch (error) {
-      console.error('Error registering vote:', error);
-      if (USE_MOCK) {
-        return this.mockRegisterVote(dto);
+    );
+
+    if (result.success) {
+      return result.data;
+    } else {
+      // If queued, return optimistic response for better UX
+      if (result.data?.queued) {
+        console.log('📝 Vote queued for later execution');
+        return this.mockRegisterVote(dto); // Optimistic response
       }
-      throw error;
+      throw new Error(result.error || 'Failed to register vote');
     }
   }
 
@@ -104,7 +153,19 @@ class VoteService {
       }
       return await apiClient.get<QueueStatus>(`/rooms/${roomId}/interactions/queue/status`);
     } catch (error) {
-      console.error('Error getting queue status:', error);
+      errorLoggingService.logError(
+        error instanceof Error ? error : new Error('Failed to get queue status'),
+        {
+          operation: 'GET_QUEUE_STATUS',
+          roomId,
+          metadata: { useMock: USE_MOCK }
+        },
+        {
+          message: 'Unable to check queue status',
+          action: 'Status will update automatically',
+          canRetry: false
+        }
+      );
       if (USE_MOCK) {
         return this.mockGetQueueStatus(roomId);
       }
@@ -122,7 +183,19 @@ class VoteService {
       }
       return await apiClient.get(`/rooms/${roomId}/interactions/current-media`);
     } catch (error) {
-      console.error('Error getting current media:', error);
+      errorLoggingService.logError(
+        error instanceof Error ? error : new Error('Failed to get current media'),
+        {
+          operation: 'GET_CURRENT_MEDIA',
+          roomId,
+          metadata: { useMock: USE_MOCK }
+        },
+        {
+          message: 'Having trouble loading content',
+          action: 'We\'ll try loading the next item',
+          canRetry: false
+        }
+      );
       if (USE_MOCK) {
         return this.mockGetCurrentMedia();
       }
@@ -318,6 +391,219 @@ class VoteService {
   }
 
   /**
+   * Subscribe to real-time vote updates for a room
+   * Enhanced: Uses new GraphQL subscriptions with detailed progress information
+   */
+  async subscribeToVoteUpdates(
+    roomId: string, 
+    callback: (voteUpdate: any) => void
+  ): Promise<(() => void) | null> {
+    try {
+      // Use enhanced vote updates subscription for detailed progress
+      return await appSyncService.subscribeToVoteUpdatesEnhanced(roomId, (voteUpdate) => {
+        console.log('📊 Enhanced vote update received:', voteUpdate);
+        
+        // Transform to expected format and call callback
+        callback({
+          roomId: voteUpdate.roomId,
+          progress: voteUpdate.progress,
+          movieInfo: voteUpdate.movieInfo,
+          votingDuration: voteUpdate.votingDuration,
+          timestamp: voteUpdate.timestamp
+        });
+      });
+    } catch (error: any) {
+      errorLoggingService.logError(error, {
+        operation: 'subscribeToVoteUpdates',
+        roomId
+      }, {
+        message: 'Unable to connect to live updates',
+        action: 'Updates will sync when connection improves',
+        canRetry: false
+      });
+      
+      return null;
+    }
+  }
+
+  /**
+   * Subscribe to match found events for a room
+   * Enhanced: Uses new GraphQL subscriptions with participant details
+   */
+  async subscribeToMatchFound(
+    roomId: string, 
+    callback: (matchData: any) => void
+  ): Promise<(() => void) | null> {
+    try {
+      // Use enhanced match found subscription for detailed participant info
+      return await appSyncService.subscribeToMatchFoundEnhanced(roomId, (matchData) => {
+        console.log('🎉 Enhanced match found:', matchData);
+        
+        // Transform to expected format and call callback
+        callback({
+          roomId: matchData.roomId,
+          matchId: matchData.matchId,
+          movieInfo: matchData.movieInfo,
+          participants: matchData.participants,
+          votingDuration: matchData.votingDuration,
+          consensusType: matchData.consensusType,
+          timestamp: matchData.timestamp
+        });
+      });
+    } catch (error: any) {
+      errorLoggingService.logError(error, {
+        operation: 'subscribeToMatchFound',
+        roomId
+      }, {
+        message: 'Unable to connect to match notifications',
+        action: 'You\'ll be notified when connection improves',
+        canRetry: false
+      });
+      
+      return null;
+    }
+  }
+
+  /**
+   * Subscribe to connection status changes for a room
+   * Enhanced: Monitor connection status and reconnection attempts
+   */
+  async subscribeToConnectionStatus(
+    roomId: string, 
+    callback: (statusData: any) => void
+  ): Promise<(() => void) | null> {
+    try {
+      return await appSyncService.subscribeToConnectionStatusChange(roomId, (statusData) => {
+        console.log('🔄 Connection status update:', statusData);
+        
+        // Transform to expected format and call callback
+        callback({
+          roomId: statusData.roomId,
+          userId: statusData.userId,
+          connectionStatus: statusData.connectionStatus,
+          reconnectionAttempts: statusData.reconnectionAttempts,
+          lastSeenAt: statusData.lastSeenAt,
+          timestamp: statusData.timestamp
+        });
+      });
+    } catch (error: any) {
+      errorLoggingService.logError(error, {
+        operation: 'subscribeToConnectionStatus',
+        roomId
+      });
+      
+      return null;
+    }
+  }
+
+  /**
+   * Subscribe to room state synchronization events
+   * Enhanced: Get full room state updates for reconnection scenarios
+   */
+  async subscribeToRoomStateSync(
+    roomId: string, 
+    callback: (stateData: any) => void
+  ): Promise<(() => void) | null> {
+    try {
+      return await appSyncService.subscribeToRoomStateSync(roomId, (stateData) => {
+        console.log('🏠 Room state sync update:', stateData);
+        
+        // Transform to expected format and call callback
+        callback({
+          roomId: stateData.roomId,
+          roomState: stateData.roomState,
+          syncReason: stateData.syncReason,
+          timestamp: stateData.timestamp
+        });
+      });
+    } catch (error: any) {
+      errorLoggingService.logError(error, {
+        operation: 'subscribeToRoomStateSync',
+        roomId
+      });
+      
+      return null;
+    }
+  }
+
+  /**
+   * Subscribe to all room events with automatic reconnection
+   * Enhanced: Comprehensive subscription management with reconnection logic
+   */
+  async subscribeToAllRoomEvents(
+    roomId: string,
+    callbacks: {
+      onVoteUpdate?: (voteUpdate: any) => void;
+      onMatchFound?: (matchData: any) => void;
+      onConnectionStatus?: (statusData: any) => void;
+      onRoomStateSync?: (stateData: any) => void;
+    }
+  ): Promise<(() => void) | null> {
+    const cleanupFunctions: (() => void)[] = [];
+    
+    try {
+      // Subscribe to vote updates if callback provided
+      if (callbacks.onVoteUpdate) {
+        const voteCleanup = await appSyncService.subscribeWithReconnection(
+          roomId, 
+          'enhanced-votes', 
+          callbacks.onVoteUpdate
+        );
+        if (voteCleanup) cleanupFunctions.push(voteCleanup);
+      }
+      
+      // Subscribe to match found events if callback provided
+      if (callbacks.onMatchFound) {
+        const matchCleanup = await appSyncService.subscribeWithReconnection(
+          roomId, 
+          'enhanced-matches', 
+          callbacks.onMatchFound
+        );
+        if (matchCleanup) cleanupFunctions.push(matchCleanup);
+      }
+      
+      // Subscribe to connection status if callback provided
+      if (callbacks.onConnectionStatus) {
+        const connectionCleanup = await appSyncService.subscribeWithReconnection(
+          roomId, 
+          'connection-status', 
+          callbacks.onConnectionStatus
+        );
+        if (connectionCleanup) cleanupFunctions.push(connectionCleanup);
+      }
+      
+      // Subscribe to room state sync if callback provided
+      if (callbacks.onRoomStateSync) {
+        const stateCleanup = await appSyncService.subscribeWithReconnection(
+          roomId, 
+          'room-state', 
+          callbacks.onRoomStateSync
+        );
+        if (stateCleanup) cleanupFunctions.push(stateCleanup);
+      }
+      
+      // Return master cleanup function
+      return () => {
+        console.log(`🧹 Cleaning up all room subscriptions for room ${roomId}`);
+        cleanupFunctions.forEach(cleanup => cleanup());
+      };
+    } catch (error: any) {
+      errorLoggingService.logError(error, {
+        operation: 'subscribeToAllRoomEvents',
+        roomId
+      }, {
+        message: 'Unable to connect to live updates',
+        action: 'Updates will sync when connection improves',
+        canRetry: false
+      });
+      
+      // Cleanup any successful subscriptions
+      cleanupFunctions.forEach(cleanup => cleanup());
+      return null;
+    }
+  }
+
+  /**
    * Reset mock state (útil para testing)
    */
   resetMockState(): void {
@@ -326,6 +612,7 @@ class VoteService {
 
   /**
    * Sincronizar índice del miembro (útil cuando hay desincronización)
+   * Enhanced: Better error handling and logging
    */
   async syncMemberIndex(roomId: string): Promise<{
     previousIndex: number;
@@ -336,7 +623,19 @@ class VoteService {
     try {
       return await apiClient.post(`/rooms/${roomId}/shuffle-sync/sync-index`);
     } catch (error) {
-      console.error('Error syncing member index:', error);
+      errorLoggingService.logError(
+        error instanceof Error ? error : new Error('Failed to sync member index'),
+        {
+          operation: 'SYNC_MEMBER_INDEX',
+          roomId,
+          metadata: { useMock: USE_MOCK }
+        },
+        {
+          message: 'Sync issue detected',
+          action: 'Your progress will sync automatically',
+          canRetry: true
+        }
+      );
       throw error;
     }
   }

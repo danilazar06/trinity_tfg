@@ -11,9 +11,13 @@
         "buildType": "apk"
       },
       "env": {
-        "GOOGLE_SIGNIN_ENABLED": "false",
+        "GOOGLE_SIGNIN_ENABLED": "true",
         "NODE_ENV": "development"
-      }
+      },
+      "cache": {
+        "disabled": false
+      },
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
@@ -21,36 +25,20 @@
         "buildType": "apk"
       },
       "env": {
-        "GOOGLE_SIGNIN_ENABLED": "false",
+        "GOOGLE_SIGNIN_ENABLED": "true",
         "NODE_ENV": "preview"
-      }
-    },
-    "minimal": {
-      "android": {
-        "buildType": "apk"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
       "android": {
         "buildType": "apk"
       },
       "env": {
-        "GOOGLE_SIGNIN_ENABLED": "false",
+        "GOOGLE_SIGNIN_ENABLED": "true",
         "NODE_ENV": "production"
-      }
-    }
-  },
-  "submit": {
-    "production": {
-      "android": {
-        "serviceAccountKeyPath": "./google-play-service-account.json",
-        "track": "internal"
       },
-      "ios": {
-        "appleId": "your-apple-id@example.com",
-        "ascAppId": "your-app-store-connect-app-id",
-        "appleTeamId": "your-apple-team-id"
-      }
+      "channel": "production"
     }
   }
 }
