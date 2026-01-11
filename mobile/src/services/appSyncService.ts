@@ -36,65 +36,153 @@ class AppSyncService {
   }
 
   /**
+   * Get current authentication token dynamically
+   */
+  private async getCurrentAuthToken(): Promise<string> {
+    try {
+      // First, try to get tokens from the current auth service
+      const authResult = await cognitoAuthService.checkStoredAuth();
+      
+      if (authResult.isAuthenticated && authResult.tokens) {
+        // Check if token is still valid (not expired)
+        const currentTime = Date.now();
+        const tokenExpiryTime = authResult.tokens.expiresAt * 1000; // Convert to milliseconds
+        
+        // If token expires in less than 5 minutes, try to refresh it
+        if (tokenExpiryTime - currentTime < 5 * 60 * 1000) {
+          console.log('🔄 Token expires soon, attempting refresh...');
+          
+          try {
+            // Try to refresh the token
+            const refreshResult = await cognitoAuthService.refreshTokens(authResult.tokens.refreshToken);
+            
+            if (refreshResult.success && refreshResult.tokens) {
+              console.log('✅ Token refreshed successfully');
+              return refreshResult.tokens.idToken;
+            } else {
+              console.warn('⚠️ Token refresh failed, using existing token');
+            }
+          } catch (refreshError) {
+            console.warn('⚠️ Token refresh error:', refreshError);
+            // Continue with existing token
+          }
+        }
+        
+        console.log('✅ Using existing valid token');
+        return authResult.tokens.idToken;
+      }
+      
+      // If no valid tokens, throw authentication error
+      throw new Error('No valid authentication tokens found. Please log in again.');
+      
+    } catch (error: any) {
+      console.error('❌ Failed to get authentication token:', error);
+      throw new Error(`Authentication failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Make authenticated GraphQL request to AppSync
    */
   private async graphqlRequest<T>(request: GraphQLRequest): Promise<T> {
     try {
-      // Check network connectivity
+      // Check network connectivity first
       if (!networkService.isConnected()) {
-        throw new Error('No network connection available');
+        throw new Error('No network connection available. Please check your internet connection.');
       }
 
-      // Get authentication tokens
-      const authResult = await cognitoAuthService.checkStoredAuth();
-      if (!authResult.isAuthenticated || !authResult.tokens) {
-        throw new Error('User not authenticated');
+      // Get current authentication token dynamically
+      let authToken: string;
+      try {
+        authToken = await this.getCurrentAuthToken();
+      } catch (authError: any) {
+        console.error('❌ Authentication error:', authError);
+        throw new Error(`Authentication required: ${authError.message}`);
       }
 
       loggingService.debug('AppSyncService', 'Making GraphQL request', {
         query: request.query.substring(0, 100) + '...',
         hasVariables: !!request.variables,
-        variables: request.variables
+        hasToken: !!authToken,
+        endpoint: this.graphqlEndpoint
       });
 
-      console.log('🔍 AppSyncService.graphqlRequest - Full request:', JSON.stringify(request, null, 2));
+      console.log('🔍 AppSyncService.graphqlRequest - Making authenticated request');
+      console.log('🔍 AppSyncService.graphqlRequest - Endpoint:', this.graphqlEndpoint);
+      console.log('🔍 AppSyncService.graphqlRequest - Has auth token:', !!authToken);
 
-      console.log('🚨 AppSyncService.graphqlRequest - About to make fetch request to:', this.graphqlEndpoint);
+      // Prepare headers with authentication
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      };
+
+      // Add additional headers if needed
+      if (this.config.region) {
+        headers['x-amz-region'] = this.config.region;
+      }
+
+      console.log('🔍 AppSyncService.graphqlRequest - Headers prepared (token masked)');
 
       const response = await fetch(this.graphqlEndpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authResult.tokens.idToken}`,
-        },
+        headers,
         body: JSON.stringify(request),
       });
 
-      console.log('🚨 AppSyncService.graphqlRequest - Response status:', response.status, response.statusText);
+      console.log('🔍 AppSyncService.graphqlRequest - Response status:', response.status, response.statusText);
+
+      if (!response.ok) {
+        // Handle specific HTTP errors
+        if (response.status === 401) {
+          throw new Error('Authentication failed. Please log in again.');
+        } else if (response.status === 403) {
+          throw new Error('Access denied. You do not have permission to perform this action.');
+        } else if (response.status === 429) {
+          throw new Error('Too many requests. Please try again later.');
+        } else if (response.status >= 500) {
+          throw new Error('Server error. Please try again later.');
+        }
+        
+        throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+      }
 
       const result: GraphQLResponse<T> = await response.json();
 
-      console.log('🚨 AppSyncService.graphqlRequest - Response body:', JSON.stringify(result, null, 2));
+      console.log('🔍 AppSyncService.graphqlRequest - Response received');
 
-      if (!response.ok) {
-        loggingService.error('AppSyncService', 'GraphQL request failed', {
-          status: response.status,
-          statusText: response.statusText,
-          errors: result.errors
-        });
-        throw new Error(`GraphQL request failed: ${response.status} ${response.statusText}`);
+      // Check for GraphQL errors
+      if (result.errors && result.errors.length > 0) {
+        const errorMessages = result.errors.map(e => e.message).join(', ');
+        
+        loggingService.error('AppSyncService', 'GraphQL errors', { errors: result.errors });
+        
+        // Handle specific GraphQL errors
+        if (errorMessages.includes('Unauthorized') || errorMessages.includes('not authenticated')) {
+          throw new Error('Authentication expired. Please log in again.');
+        }
+        
+        throw new Error(`GraphQL errors: ${errorMessages}`);
       }
 
-      if (result.errors && result.errors.length > 0) {
-        loggingService.error('AppSyncService', 'GraphQL errors', { errors: result.errors });
-        throw new Error(`GraphQL errors: ${result.errors.map(e => e.message).join(', ')}`);
+      // Check if we have data
+      if (!result.data) {
+        throw new Error('No data received from server');
       }
 
       loggingService.debug('AppSyncService', 'GraphQL request successful');
+      console.log('✅ AppSyncService.graphqlRequest - Request completed successfully');
+      
       return result.data as T;
 
     } catch (error: any) {
-      loggingService.error('AppSyncService', 'GraphQL request error', { error: error.message });
+      loggingService.error('AppSyncService', 'GraphQL request error', { 
+        error: error.message,
+        endpoint: this.graphqlEndpoint,
+        query: request.query.substring(0, 100) + '...'
+      });
+      
+      console.error('❌ AppSyncService.graphqlRequest - Error:', error.message);
       throw error;
     }
   }

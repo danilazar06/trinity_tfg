@@ -24,6 +24,7 @@ export interface CognitoTokens {
   accessToken: string;
   idToken: string;
   refreshToken: string;
+  expiresAt: number; // Unix timestamp
 }
 
 interface AuthResponse {
@@ -610,10 +611,54 @@ class CognitoAuthService {
    * Store tokens securely using device keychain/keystore
    */
   async storeTokens(tokens: CognitoTokens): Promise<void> {
-    await secureTokenStorage.storeTokens(tokens, {
-      requireAuthentication: false, // Set to true for biometric protection
-      keychainService: 'trinity-cognito-auth',
-    });
+    await secureTokenStorage.storeTokens(tokens);
+  }
+
+  /**
+   * Refresh authentication tokens using refresh token
+   */
+  async refreshTokens(refreshToken: string): Promise<{ success: boolean; tokens?: CognitoTokens; error?: string }> {
+    try {
+      loggingService.info('CognitoAuthService', 'Refreshing authentication tokens');
+
+      const response = await this.cognitoRequest('InitiateAuth', {
+        AuthFlow: 'REFRESH_TOKEN_AUTH',
+        ClientId: this.config.clientId,
+        AuthParameters: {
+          REFRESH_TOKEN: refreshToken,
+        },
+      });
+
+      if (response.AuthenticationResult) {
+        const tokens: CognitoTokens = {
+          accessToken: response.AuthenticationResult.AccessToken,
+          idToken: response.AuthenticationResult.IdToken,
+          refreshToken: response.AuthenticationResult.RefreshToken || refreshToken, // Use new refresh token if provided, otherwise keep the old one
+          expiresAt: Math.floor(Date.now() / 1000) + response.AuthenticationResult.ExpiresIn,
+        };
+
+        // Store the new tokens
+        await this.storeTokens(tokens);
+
+        loggingService.info('CognitoAuthService', 'Tokens refreshed successfully');
+        return { success: true, tokens };
+      } else {
+        loggingService.error('CognitoAuthService', 'Token refresh failed: No authentication result');
+        return { success: false, error: 'No authentication result received' };
+      }
+
+    } catch (error: any) {
+      loggingService.error('CognitoAuthService', 'Token refresh error', { error: error.message });
+      
+      // Handle specific refresh token errors
+      if (error.name === 'NotAuthorizedException' || error.message?.includes('Refresh Token has expired')) {
+        return { success: false, error: 'Refresh token has expired. Please log in again.' };
+      } else if (error.name === 'InvalidParameterException') {
+        return { success: false, error: 'Invalid refresh token. Please log in again.' };
+      }
+      
+      return { success: false, error: error.message || 'Token refresh failed' };
+    }
   }
 
   /**
