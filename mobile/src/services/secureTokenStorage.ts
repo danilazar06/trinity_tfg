@@ -39,18 +39,68 @@ class SecureTokenStorage {
     try {
       console.log('🔐 SecureTokenStorage: Storing tokens securely');
 
-      // Store each token separately for better security
-      await Promise.all([
-        SecureStore.setItemAsync(this.STORAGE_KEYS.ACCESS_TOKEN, tokens.accessToken, this.STORAGE_OPTIONS),
-        SecureStore.setItemAsync(this.STORAGE_KEYS.ID_TOKEN, tokens.idToken, this.STORAGE_OPTIONS),
-        SecureStore.setItemAsync(this.STORAGE_KEYS.REFRESH_TOKEN, tokens.refreshToken, this.STORAGE_OPTIONS),
-        SecureStore.setItemAsync(this.STORAGE_KEYS.TOKEN_EXPIRY, tokens.expiresAt.toString(), this.STORAGE_OPTIONS),
-      ]);
+      // Validate tokens before storing
+      if (!tokens) {
+        throw new Error('Tokens object is null or undefined');
+      }
+
+      const storePromises: Promise<void>[] = [];
+
+      // Store access token if it exists
+      if (tokens.accessToken && typeof tokens.accessToken === 'string') {
+        storePromises.push(
+          SecureStore.setItemAsync(this.STORAGE_KEYS.ACCESS_TOKEN, tokens.accessToken, this.STORAGE_OPTIONS)
+        );
+        console.log('✅ SecureTokenStorage: Access token will be stored');
+      } else {
+        console.warn('⚠️ SecureTokenStorage: Skipping undefined/invalid access token');
+        // Remove existing access token if it's invalid
+        storePromises.push(SecureStore.deleteItemAsync(this.STORAGE_KEYS.ACCESS_TOKEN).catch(() => {}));
+      }
+
+      // Store ID token if it exists
+      if (tokens.idToken && typeof tokens.idToken === 'string') {
+        storePromises.push(
+          SecureStore.setItemAsync(this.STORAGE_KEYS.ID_TOKEN, tokens.idToken, this.STORAGE_OPTIONS)
+        );
+        console.log('✅ SecureTokenStorage: ID token will be stored');
+      } else {
+        console.warn('⚠️ SecureTokenStorage: Skipping undefined/invalid ID token');
+        // Remove existing ID token if it's invalid
+        storePromises.push(SecureStore.deleteItemAsync(this.STORAGE_KEYS.ID_TOKEN).catch(() => {}));
+      }
+
+      // Store refresh token if it exists (refresh token can be optional in some flows)
+      if (tokens.refreshToken && typeof tokens.refreshToken === 'string') {
+        storePromises.push(
+          SecureStore.setItemAsync(this.STORAGE_KEYS.REFRESH_TOKEN, tokens.refreshToken, this.STORAGE_OPTIONS)
+        );
+        console.log('✅ SecureTokenStorage: Refresh token will be stored');
+      } else {
+        console.warn('⚠️ SecureTokenStorage: Skipping undefined/invalid refresh token');
+        // Remove existing refresh token if it's invalid
+        storePromises.push(SecureStore.deleteItemAsync(this.STORAGE_KEYS.REFRESH_TOKEN).catch(() => {}));
+      }
+
+      // Store expiry time if it exists and is valid
+      if (tokens.expiresAt && typeof tokens.expiresAt === 'number' && !isNaN(tokens.expiresAt)) {
+        storePromises.push(
+          SecureStore.setItemAsync(this.STORAGE_KEYS.TOKEN_EXPIRY, tokens.expiresAt.toString(), this.STORAGE_OPTIONS)
+        );
+        console.log('✅ SecureTokenStorage: Token expiry will be stored');
+      } else {
+        console.warn('⚠️ SecureTokenStorage: Skipping undefined/invalid token expiry');
+        // Remove existing expiry if it's invalid
+        storePromises.push(SecureStore.deleteItemAsync(this.STORAGE_KEYS.TOKEN_EXPIRY).catch(() => {}));
+      }
+
+      // Execute all storage operations
+      await Promise.all(storePromises);
 
       console.log('✅ SecureTokenStorage: Tokens stored successfully');
     } catch (error) {
       console.error('❌ SecureTokenStorage: Failed to store tokens:', error);
-      throw new Error('Failed to store authentication tokens securely');
+      throw new Error(`Failed to store authentication tokens securely: ${error.message}`);
     }
   }
 
@@ -101,12 +151,19 @@ class SecureTokenStorage {
    */
   async storeUserData(userData: any): Promise<void> {
     try {
+      if (!userData) {
+        console.warn('⚠️ SecureTokenStorage: Skipping undefined/null user data');
+        // Remove existing user data if it's invalid
+        await SecureStore.deleteItemAsync(this.STORAGE_KEYS.USER_DATA).catch(() => {});
+        return;
+      }
+
       const userDataString = JSON.stringify(userData);
       await SecureStore.setItemAsync(this.STORAGE_KEYS.USER_DATA, userDataString, this.STORAGE_OPTIONS);
       console.log('✅ SecureTokenStorage: User data stored successfully');
     } catch (error) {
       console.error('❌ SecureTokenStorage: Failed to store user data:', error);
-      throw new Error('Failed to store user data securely');
+      throw new Error(`Failed to store user data securely: ${error.message}`);
     }
   }
 
@@ -168,12 +225,19 @@ class SecureTokenStorage {
    */
   async storeLegacyTokens(tokens: any): Promise<void> {
     try {
+      if (!tokens) {
+        console.warn('⚠️ SecureTokenStorage: Skipping undefined/null legacy tokens');
+        // Remove existing legacy tokens if they're invalid
+        await SecureStore.deleteItemAsync(this.STORAGE_KEYS.LEGACY_TOKENS).catch(() => {});
+        return;
+      }
+
       const tokensString = JSON.stringify(tokens);
       await SecureStore.setItemAsync(this.STORAGE_KEYS.LEGACY_TOKENS, tokensString, this.STORAGE_OPTIONS);
       console.log('✅ SecureTokenStorage: Legacy tokens stored for migration');
     } catch (error) {
       console.error('❌ SecureTokenStorage: Failed to store legacy tokens:', error);
-      throw new Error('Failed to store legacy tokens');
+      throw new Error(`Failed to store legacy tokens: ${error.message}`);
     }
   }
 
