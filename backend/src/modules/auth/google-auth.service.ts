@@ -38,14 +38,15 @@ export class GoogleAuthService {
     private multiTableService: MultiTableService,
     private cognitoService: CognitoService,
   ) {
-    this.googleClientId = this.configService.get('GOOGLE_CLIENT_ID');
+    // Use GOOGLE_WEB_CLIENT_ID to match backend .env configuration
+    this.googleClientId = this.configService.get('GOOGLE_WEB_CLIENT_ID', '230498169556-cqb6dv3o58oeblrfrk49o0a6l7ecjtrn.apps.googleusercontent.com');
     
     if (!this.googleClientId || this.googleClientId === 'your_google_web_client_id_here') {
       this.logger.warn('⚠️ Google Client ID no configurado - Google Auth deshabilitado');
       this.googleClient = null;
     } else {
       this.googleClient = new OAuth2Client(this.googleClientId);
-      this.logger.log('✅ Google OAuth Client inicializado');
+      this.logger.log(`✅ Google OAuth Client inicializado con Client ID: ${this.googleClientId}`);
     }
   }
 
@@ -55,25 +56,49 @@ export class GoogleAuthService {
   async verifyGoogleToken(idToken: string): Promise<GoogleUserInfo> {
     if (!this.googleClient) {
       this.logger.error('🔒 Intento de verificación de token sin Google Client configurado');
-      throw new UnauthorizedException('Google Auth no está configurado');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_AUTH_NOT_CONFIGURED',
+        message: 'Google Auth no está configurado',
+        userMessage: 'El servicio de Google Sign-In no está disponible temporalmente. Intenta con email y contraseña.',
+        fallbackOptions: ['email_password'],
+        retryable: false,
+      });
     }
 
     // Validaciones de seguridad del token
     if (!idToken || typeof idToken !== 'string' || idToken.trim() === '') {
       this.logger.error('🔒 Token de Google vacío o inválido recibido');
-      throw new UnauthorizedException('Token de Google requerido');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_TOKEN_MISSING',
+        message: 'Token de Google requerido',
+        userMessage: 'No se recibió el token de Google. Intenta iniciar sesión nuevamente.',
+        fallbackOptions: ['retry_google', 'email_password'],
+        retryable: true,
+      });
     }
 
     if (idToken === 'null' || idToken === 'undefined') {
       this.logger.error('🔒 Token de Google con valor literal null/undefined');
-      throw new UnauthorizedException('Token de Google inválido');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_TOKEN_INVALID_FORMAT',
+        message: 'Token de Google inválido',
+        userMessage: 'El token de Google no es válido. Intenta iniciar sesión nuevamente.',
+        fallbackOptions: ['retry_google', 'email_password'],
+        retryable: true,
+      });
     }
 
     // Validar formato básico de JWT
     const tokenParts = idToken.split('.');
     if (tokenParts.length !== 3) {
       this.logger.error('🔒 Token de Google no tiene formato JWT válido');
-      throw new UnauthorizedException('Formato de token inválido');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_TOKEN_MALFORMED',
+        message: 'Formato de token inválido',
+        userMessage: 'El token de Google está malformado. Intenta iniciar sesión nuevamente.',
+        fallbackOptions: ['retry_google', 'email_password'],
+        retryable: true,
+      });
     }
 
     try {
@@ -90,7 +115,13 @@ export class GoogleAuthService {
       
       if (!payload) {
         this.logger.error('🔒 Payload vacío en token de Google');
-        throw new UnauthorizedException('Token de Google inválido - payload vacío');
+        throw new UnauthorizedException({
+          code: 'GOOGLE_TOKEN_EMPTY_PAYLOAD',
+          message: 'Token de Google inválido - payload vacío',
+          userMessage: 'El token de Google no contiene información válida. Intenta iniciar sesión nuevamente.',
+          fallbackOptions: ['retry_google', 'email_password'],
+          retryable: true,
+        });
       }
 
       // Validaciones de seguridad del payload
@@ -120,33 +151,122 @@ export class GoogleAuthService {
         hd: payload.hd,
       };
     } catch (error) {
-      // Log detallado del error de seguridad
-      this.logger.error(`🔒 Error verificando token de Google: ${error.message}`);
-      
-      // Log de evento de seguridad fallido
-      this.logSecurityEvent('GOOGLE_TOKEN_VERIFICATION_FAILED', {
-        error: error.message,
-        tokenPrefix: idToken.substring(0, 20) + '...',
-        timestamp: new Date().toISOString(),
-      });
-
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      
-      // Clasificar tipos de errores para mejor logging
-      if (error.message.includes('Token used too late') || error.message.includes('expired')) {
-        this.logger.error('🔒 Token de Google expirado detectado');
-        throw new UnauthorizedException('Token de Google ha expirado');
-      }
-      
-      if (error.message.includes('Wrong recipient') || error.message.includes('audience')) {
-        this.logger.error('🔒 Audience inválida en token de Google');
-        throw new UnauthorizedException('Token de Google no es para esta aplicación');
-      }
-      
-      throw new UnauthorizedException('Token de Google inválido');
+      return this.handleGoogleAuthError(error, idToken);
     }
+  }
+
+  /**
+   * Manejar errores de autenticación de Google con mensajes específicos y opciones de fallback
+   */
+  private handleGoogleAuthError(error: any, idToken: string): never {
+    // Log detallado del error de seguridad
+    this.logger.error(`🔒 Error verificando token de Google: ${error.message}`);
+    
+    // Log de evento de seguridad fallido
+    this.logSecurityEvent('GOOGLE_TOKEN_VERIFICATION_FAILED', {
+      error: error.message,
+      errorCode: error.code || 'UNKNOWN',
+      tokenPrefix: idToken.substring(0, 20) + '...',
+      timestamp: new Date().toISOString(),
+    });
+
+    // Si ya es un error estructurado, re-lanzarlo
+    if (error instanceof UnauthorizedException && error.message && typeof error.message === 'object') {
+      throw error;
+    }
+
+    // Clasificar tipos de errores específicos con mensajes amigables y opciones de fallback
+    if (error.message.includes('Token used too late') || error.message.includes('expired')) {
+      this.logger.error('🔒 Token de Google expirado detectado');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_TOKEN_EXPIRED',
+        message: 'Token de Google ha expirado',
+        userMessage: 'Tu sesión de Google ha expirado. Inicia sesión nuevamente con Google o usa tu email y contraseña.',
+        fallbackOptions: ['retry_google', 'email_password'],
+        retryable: true,
+        retryDelay: 0,
+      });
+    }
+    
+    if (error.message.includes('Wrong recipient') || error.message.includes('audience')) {
+      this.logger.error('🔒 Audience inválida en token de Google');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_TOKEN_WRONG_AUDIENCE',
+        message: 'Token de Google no es para esta aplicación',
+        userMessage: 'El token de Google no es válido para esta aplicación. Intenta iniciar sesión nuevamente.',
+        fallbackOptions: ['retry_google', 'email_password'],
+        retryable: true,
+      });
+    }
+
+    if (error.message.includes('Invalid token signature') || error.message.includes('signature')) {
+      this.logger.error('🔒 Firma de token de Google inválida');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_TOKEN_INVALID_SIGNATURE',
+        message: 'Firma de token de Google inválida',
+        userMessage: 'El token de Google no es auténtico. Intenta iniciar sesión nuevamente.',
+        fallbackOptions: ['retry_google', 'email_password'],
+        retryable: true,
+      });
+    }
+
+    if (error.message.includes('network') || error.message.includes('timeout') || error.message.includes('ENOTFOUND')) {
+      this.logger.error('🔒 Error de red verificando token de Google');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_VERIFICATION_NETWORK_ERROR',
+        message: 'Error de red verificando token de Google',
+        userMessage: 'Error de conexión al verificar con Google. Verifica tu conexión a internet e intenta nuevamente.',
+        fallbackOptions: ['retry_google', 'email_password'],
+        retryable: true,
+        retryDelay: 3000,
+      });
+    }
+
+    if (error.message.includes('rate limit') || error.message.includes('quota') || error.message.includes('too many')) {
+      this.logger.error('🔒 Rate limit alcanzado en verificación de Google');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_RATE_LIMIT_EXCEEDED',
+        message: 'Rate limit de Google excedido',
+        userMessage: 'Demasiados intentos de verificación. Espera unos minutos e intenta nuevamente.',
+        fallbackOptions: ['email_password'],
+        retryable: true,
+        retryDelay: 60000, // 1 minuto
+      });
+    }
+
+    if (error.message.includes('service unavailable') || error.message.includes('temporarily down')) {
+      this.logger.error('🔒 Servicio de Google temporalmente no disponible');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_SERVICE_UNAVAILABLE',
+        message: 'Servicio de Google no disponible',
+        userMessage: 'El servicio de Google no está disponible temporalmente. Intenta con email y contraseña o espera unos minutos.',
+        fallbackOptions: ['email_password'],
+        retryable: true,
+        retryDelay: 30000, // 30 segundos
+      });
+    }
+
+    if (error.message.includes('Invalid issuer') || error.message.includes('iss')) {
+      this.logger.error('🔒 Issuer inválido en token de Google');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_TOKEN_INVALID_ISSUER',
+        message: 'Issuer de token de Google inválido',
+        userMessage: 'El token de Google no proviene de una fuente válida. Intenta iniciar sesión nuevamente.',
+        fallbackOptions: ['retry_google', 'email_password'],
+        retryable: true,
+      });
+    }
+
+    // Error genérico con opciones de fallback
+    this.logger.error('🔒 Error genérico de verificación de Google');
+    throw new UnauthorizedException({
+      code: 'GOOGLE_TOKEN_VERIFICATION_FAILED',
+      message: 'Token de Google inválido',
+      userMessage: 'Error verificando tu cuenta de Google. Intenta iniciar sesión nuevamente o usa tu email y contraseña.',
+      fallbackOptions: ['retry_google', 'email_password'],
+      retryable: true,
+      originalError: error.message,
+    });
   }
 
   /**
@@ -156,14 +276,26 @@ export class GoogleAuthService {
     // Validar audience (destinatario del token)
     if (payload.aud !== this.googleClientId!) {
       this.logger.error(`🔒 Audience inválida: esperada=${this.googleClientId}, recibida=${payload.aud}`);
-      throw new UnauthorizedException('Token de Google no es para esta aplicación');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_TOKEN_WRONG_AUDIENCE',
+        message: 'Token de Google no es para esta aplicación',
+        userMessage: 'El token de Google no es válido para esta aplicación. Intenta iniciar sesión nuevamente.',
+        fallbackOptions: ['retry_google', 'email_password'],
+        retryable: true,
+      });
     }
 
     // Validar issuer (emisor del token)
     const validIssuers = ['accounts.google.com', 'https://accounts.google.com'];
     if (!validIssuers.includes(payload.iss)) {
       this.logger.error(`🔒 Issuer inválido: ${payload.iss}`);
-      throw new UnauthorizedException('Token de Google de issuer no válido');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_TOKEN_INVALID_ISSUER',
+        message: 'Token de Google de issuer no válido',
+        userMessage: 'El token de Google no proviene de una fuente válida. Intenta iniciar sesión nuevamente.',
+        fallbackOptions: ['retry_google', 'email_password'],
+        retryable: true,
+      });
     }
 
     // Validar expiración con margen de seguridad
@@ -173,32 +305,63 @@ export class GoogleAuthService {
     if (payload.exp && payload.exp < (now + securityMargin)) {
       const expirationTime = new Date(payload.exp * 1000).toISOString();
       this.logger.error(`🔒 Token expirado o próximo a expirar: exp=${expirationTime}, now=${new Date().toISOString()}`);
-      throw new UnauthorizedException('Token de Google ha expirado');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_TOKEN_EXPIRED',
+        message: 'Token de Google ha expirado',
+        userMessage: 'Tu sesión de Google ha expirado. Inicia sesión nuevamente con Google o usa tu email y contraseña.',
+        fallbackOptions: ['retry_google', 'email_password'],
+        retryable: true,
+        retryDelay: 0,
+      });
     }
 
     // Validar issued at (iat) - no debe ser futuro
     if (payload.iat && payload.iat > (now + securityMargin)) {
       this.logger.error(`🔒 Token emitido en el futuro: iat=${payload.iat}, now=${now}`);
-      throw new UnauthorizedException('Token de Google con timestamp inválido');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_TOKEN_INVALID_TIMESTAMP',
+        message: 'Token de Google con timestamp inválido',
+        userMessage: 'El token de Google tiene una fecha inválida. Intenta iniciar sesión nuevamente.',
+        fallbackOptions: ['retry_google', 'email_password'],
+        retryable: true,
+      });
     }
 
     // Validar campos requeridos
     if (!payload.sub || !payload.email) {
       this.logger.error('🔒 Token de Google sin campos requeridos (sub, email)');
-      throw new UnauthorizedException('Token de Google incompleto');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_TOKEN_INCOMPLETE',
+        message: 'Token de Google incompleto',
+        userMessage: 'El token de Google no contiene la información necesaria. Intenta iniciar sesión nuevamente.',
+        fallbackOptions: ['retry_google', 'email_password'],
+        retryable: true,
+      });
     }
 
     // Validar formato de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(payload.email)) {
       this.logger.error(`🔒 Email inválido en token: ${payload.email}`);
-      throw new UnauthorizedException('Email inválido en token de Google');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_TOKEN_INVALID_EMAIL',
+        message: 'Email inválido en token de Google',
+        userMessage: 'El email en tu cuenta de Google no es válido. Verifica tu cuenta de Google.',
+        fallbackOptions: ['retry_google', 'email_password'],
+        retryable: true,
+      });
     }
 
     // Validar longitud de campos críticos
     if (payload.sub.length < 10 || payload.sub.length > 50) {
       this.logger.error(`🔒 Google ID (sub) con longitud inválida: ${payload.sub.length}`);
-      throw new UnauthorizedException('Google ID inválido');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_TOKEN_INVALID_ID',
+        message: 'Google ID inválido',
+        userMessage: 'El identificador de Google no es válido. Intenta iniciar sesión nuevamente.',
+        fallbackOptions: ['retry_google', 'email_password'],
+        retryable: true,
+      });
     }
 
     // Log de validación exitosa
@@ -489,16 +652,91 @@ export class GoogleAuthService {
       };
       
     } catch (error) {
-      // Log de evento de seguridad fallido
-      this.logSecurityEvent('FEDERATED_AUTH_FAILED', {
-        error: error.message,
-        errorType: error.constructor.name,
-        timestamp: new Date().toISOString(),
-      });
-      
-      this.logger.error(`🔒 Error en autenticación federada: ${error.message}`);
-      throw error;
+      return this.handleFederatedAuthError(error, idToken);
     }
+  }
+
+  /**
+   * Manejar errores de autenticación federada con opciones de fallback
+   */
+  private handleFederatedAuthError(error: any, idToken: string): never {
+    // Log de evento de seguridad fallido
+    this.logSecurityEvent('FEDERATED_AUTH_FAILED', {
+      error: error.message,
+      errorType: error.constructor.name,
+      errorCode: error.code || 'UNKNOWN',
+      timestamp: new Date().toISOString(),
+    });
+    
+    this.logger.error(`🔒 Error en autenticación federada: ${error.message}`);
+
+    // Si ya es un error estructurado de Google Auth, re-lanzarlo con contexto federado
+    if (error instanceof UnauthorizedException && error.message && typeof error.message === 'object') {
+      const googleError = error.message;
+      throw new UnauthorizedException({
+        ...googleError,
+        context: 'federated_auth',
+        fallbackOptions: [...(googleError.fallbackOptions || []), 'legacy_google_auth'],
+      });
+    }
+
+    // Errores específicos de federación
+    if (error.message.includes('Identity Pool') || error.message.includes('IdentityPoolId')) {
+      throw new UnauthorizedException({
+        code: 'COGNITO_IDENTITY_POOL_ERROR',
+        message: 'Error de configuración de Identity Pool',
+        userMessage: 'Error de configuración del servicio. Intenta con email y contraseña.',
+        fallbackOptions: ['email_password', 'legacy_google_auth'],
+        retryable: false,
+        context: 'federated_auth',
+      });
+    }
+
+    if (error.message.includes('Cognito Identity authentication failed')) {
+      throw new UnauthorizedException({
+        code: 'COGNITO_IDENTITY_AUTH_FAILED',
+        message: 'Autenticación con Cognito Identity falló',
+        userMessage: 'Error conectando con el servicio de autenticación. Intenta nuevamente o usa email y contraseña.',
+        fallbackOptions: ['retry_federated', 'legacy_google_auth', 'email_password'],
+        retryable: true,
+        retryDelay: 5000,
+        context: 'federated_auth',
+      });
+    }
+
+    if (error.message.includes('AWS credentials')) {
+      throw new UnauthorizedException({
+        code: 'AWS_CREDENTIALS_ERROR',
+        message: 'Error de credenciales AWS',
+        userMessage: 'Error de configuración del servicio. Intenta con email y contraseña.',
+        fallbackOptions: ['email_password', 'legacy_google_auth'],
+        retryable: false,
+        context: 'federated_auth',
+      });
+    }
+
+    if (error.message.includes('ResourceNotFoundException')) {
+      throw new UnauthorizedException({
+        code: 'COGNITO_RESOURCE_NOT_FOUND',
+        message: 'Recurso de Cognito no encontrado',
+        userMessage: 'Servicio de autenticación no disponible. Intenta con email y contraseña.',
+        fallbackOptions: ['email_password', 'legacy_google_auth'],
+        retryable: false,
+        context: 'federated_auth',
+      });
+    }
+
+    // Error genérico de federación
+    throw new UnauthorizedException({
+      code: 'FEDERATED_AUTH_GENERIC_ERROR',
+      message: 'Error en autenticación federada',
+      userMessage: 'Error en la autenticación con Google. Intenta nuevamente o usa email y contraseña.',
+      fallbackOptions: ['retry_federated', 'legacy_google_auth', 'email_password'],
+      retryable: true,
+      retryDelay: 3000,
+      context: 'federated_auth',
+      originalError: error.message,
+    });
   }
 
   /**
@@ -508,7 +746,14 @@ export class GoogleAuthService {
     // Validar que el email esté verificado por Google
     if (!googleUser.email_verified) {
       this.logger.error(`🔒 Email no verificado en Google para: ${googleUser.email}`);
-      throw new UnauthorizedException('Email no verificado por Google');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_EMAIL_NOT_VERIFIED',
+        message: 'Email no verificado por Google',
+        userMessage: 'Tu email no está verificado en Google. Verifica tu email en Google e intenta nuevamente.',
+        fallbackOptions: ['email_password'],
+        retryable: false,
+        context: 'federated_auth_security',
+      });
     }
 
     // Validar dominio si está configurado (para organizaciones)
@@ -519,14 +764,28 @@ export class GoogleAuthService {
       
       if (!domains.includes(emailDomain)) {
         this.logger.error(`🔒 Dominio no permitido: ${emailDomain}`);
-        throw new UnauthorizedException('Dominio de email no permitido');
+        throw new UnauthorizedException({
+          code: 'GOOGLE_DOMAIN_NOT_ALLOWED',
+          message: 'Dominio de email no permitido',
+          userMessage: `El dominio ${emailDomain} no está permitido. Usa una cuenta de los dominios autorizados o email y contraseña.`,
+          fallbackOptions: ['email_password'],
+          retryable: false,
+          context: 'federated_auth_security',
+        });
       }
     }
 
     // Validar que no sea una cuenta de servicio o bot
     if (googleUser.email.includes('noreply') || googleUser.email.includes('service-account')) {
       this.logger.error(`🔒 Intento de login con cuenta de servicio: ${googleUser.email}`);
-      throw new UnauthorizedException('Cuentas de servicio no permitidas');
+      throw new UnauthorizedException({
+        code: 'GOOGLE_SERVICE_ACCOUNT_NOT_ALLOWED',
+        message: 'Cuentas de servicio no permitidas',
+        userMessage: 'Las cuentas de servicio no están permitidas. Usa una cuenta personal de Google o email y contraseña.',
+        fallbackOptions: ['email_password'],
+        retryable: false,
+        context: 'federated_auth_security',
+      });
     }
 
     // Validar límites de rate limiting por usuario
@@ -542,7 +801,14 @@ export class GoogleAuthService {
     try {
       // Validar que Cognito esté configurado correctamente
       if (!this.cognitoService.validateProviderConfiguration()) {
-        throw new Error('Cognito federated authentication not properly configured');
+        throw new UnauthorizedException({
+          code: 'COGNITO_FEDERATION_NOT_CONFIGURED',
+          message: 'Cognito federated authentication not properly configured',
+          userMessage: 'El servicio de Google Sign-In no está configurado correctamente. Intenta con email y contraseña.',
+          fallbackOptions: ['email_password', 'legacy_google_auth'],
+          retryable: false,
+          context: 'token_exchange',
+        });
       }
 
       // Intercambiar token
@@ -550,23 +816,97 @@ export class GoogleAuthService {
       
       // Validar que los tokens de Cognito sean válidos
       if (!cognitoTokens.accessToken || !cognitoTokens.idToken) {
-        throw new Error('Invalid Cognito tokens received');
+        throw new UnauthorizedException({
+          code: 'COGNITO_INVALID_TOKENS_RECEIVED',
+          message: 'Invalid Cognito tokens received',
+          userMessage: 'Error generando tokens de sesión. Intenta nuevamente.',
+          fallbackOptions: ['retry_federated', 'legacy_google_auth', 'email_password'],
+          retryable: true,
+          retryDelay: 3000,
+          context: 'token_exchange',
+        });
       }
 
       // Validar consistencia entre tokens
       const isConsistent = await this.validateTokenConsistency(googleToken, cognitoTokens);
       if (!isConsistent) {
         this.logger.error(`🔒 Inconsistencia detectada entre tokens Google y Cognito para: ${googleUser.email}`);
-        throw new UnauthorizedException('Token consistency validation failed');
+        throw new UnauthorizedException({
+          code: 'TOKEN_CONSISTENCY_VALIDATION_FAILED',
+          message: 'Token consistency validation failed',
+          userMessage: 'Error de validación de tokens. Intenta iniciar sesión nuevamente.',
+          fallbackOptions: ['retry_federated', 'legacy_google_auth', 'email_password'],
+          retryable: true,
+          retryDelay: 2000,
+          context: 'token_exchange',
+        });
       }
 
       this.logger.log(`🔐 Intercambio de tokens validado exitosamente para: ${googleUser.email}`);
       return cognitoTokens;
       
     } catch (error) {
-      this.logger.error(`🔒 Error en intercambio de tokens: ${error.message}`);
+      return this.handleTokenExchangeError(error, googleUser);
+    }
+  }
+
+  /**
+   * Manejar errores específicos del intercambio de tokens
+   */
+  private handleTokenExchangeError(error: any, googleUser: GoogleUserInfo): never {
+    this.logger.error(`🔒 Error en intercambio de tokens: ${error.message}`);
+
+    // Si ya es un error estructurado, re-lanzarlo
+    if (error instanceof UnauthorizedException && error.message && typeof error.message === 'object') {
       throw error;
     }
+
+    // Errores específicos de Cognito
+    if (error.message.includes('InvalidParameterException')) {
+      throw new UnauthorizedException({
+        code: 'COGNITO_INVALID_PARAMETER',
+        message: 'Parámetro inválido en Cognito',
+        userMessage: 'Error de configuración del servicio. Intenta con email y contraseña.',
+        fallbackOptions: ['email_password', 'legacy_google_auth'],
+        retryable: false,
+        context: 'token_exchange',
+      });
+    }
+
+    if (error.message.includes('NotAuthorizedException')) {
+      throw new UnauthorizedException({
+        code: 'COGNITO_NOT_AUTHORIZED',
+        message: 'No autorizado por Cognito',
+        userMessage: 'Tu cuenta de Google no está autorizada para esta aplicación. Contacta al soporte.',
+        fallbackOptions: ['email_password'],
+        retryable: false,
+        context: 'token_exchange',
+      });
+    }
+
+    if (error.message.includes('network') || error.message.includes('timeout')) {
+      throw new UnauthorizedException({
+        code: 'COGNITO_NETWORK_ERROR',
+        message: 'Error de red con Cognito',
+        userMessage: 'Error de conexión con el servicio de autenticación. Verifica tu conexión e intenta nuevamente.',
+        fallbackOptions: ['retry_federated', 'email_password'],
+        retryable: true,
+        retryDelay: 5000,
+        context: 'token_exchange',
+      });
+    }
+
+    // Error genérico de intercambio
+    throw new UnauthorizedException({
+      code: 'TOKEN_EXCHANGE_FAILED',
+      message: 'Error en intercambio de tokens',
+      userMessage: 'Error procesando la autenticación con Google. Intenta nuevamente o usa email y contraseña.',
+      fallbackOptions: ['retry_federated', 'legacy_google_auth', 'email_password'],
+      retryable: true,
+      retryDelay: 3000,
+      context: 'token_exchange',
+      originalError: error.message,
+    });
   }
 
   /**

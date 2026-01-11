@@ -3,6 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  UnauthorizedException,
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -36,12 +37,14 @@ export class PermissionGuard implements CanActivate {
     const user = request.user;
     const roomId = request.params.id || request.params.roomId || request.body.roomId;
 
+    // 401 Unauthorized: Authentication required
     if (!user) {
-      throw new ForbiddenException('Usuario no autenticado');
+      throw new UnauthorizedException('Authentication required');
     }
 
+    // 400 Bad Request: Missing required parameter
     if (!roomId) {
-      throw new ForbiddenException('ID de sala requerido');
+      throw new ForbiddenException('Room ID required for permission check');
     }
 
     try {
@@ -62,7 +65,8 @@ export class PermissionGuard implements CanActivate {
       this.logger.warn(
         `Acceso denegado para usuario ${user.sub} en sala ${roomId}: ${error.message}`,
       );
-      throw new ForbiddenException(`Permisos insuficientes: ${error.message}`);
+      // 403 Forbidden: Authenticated but insufficient permissions
+      throw new ForbiddenException(`Insufficient permissions: ${error.message}`);
     }
   }
 }

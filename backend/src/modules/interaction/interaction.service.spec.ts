@@ -6,6 +6,7 @@ import { DynamoDBService } from '../../infrastructure/database/dynamodb.service'
 import { MemberService } from '../room/member.service';
 import { RoomService } from '../room/room.service';
 import { MediaService } from '../media/media.service';
+import { RoomRefreshService } from '../room/room-refresh.service';
 import { RealtimeCompatibilityService } from '../realtime/realtime-compatibility.service';
 import { EventTracker } from '../analytics/event-tracker.service';
 import {
@@ -60,27 +61,34 @@ describe('InteractionService', () => {
 
     const mockMediaService = {
       getMediaDetails: jest.fn(),
+      prefetchMovieDetails: jest.fn().mockResolvedValue(undefined),
     };
 
     const mockRealtimeService = {
-      notifyVote: jest.fn(),
-      notifyMatch: jest.fn(),
-      notifyRoomStateChange: jest.fn(),
-      notifyMemberStatusChange: jest.fn(),
-      publishEvent: jest.fn(),
-      subscribeToRoom: jest.fn(),
+      notifyVote: jest.fn().mockResolvedValue(undefined),
+      notifyMatch: jest.fn().mockResolvedValue(undefined),
+      notifyRoomStateChange: jest.fn().mockResolvedValue(undefined),
+      notifyMemberStatusChange: jest.fn().mockResolvedValue(undefined),
+      publishEvent: jest.fn().mockResolvedValue(undefined),
+      subscribeToRoom: jest.fn().mockResolvedValue(undefined),
     };
 
     const mockEventTracker = {
-      trackEvent: jest.fn(),
-      trackUserAction: jest.fn(),
-      trackRoomEvent: jest.fn(),
-      trackPerformanceMetric: jest.fn(),
-      trackContentInteraction: jest.fn(),
+      trackEvent: jest.fn().mockResolvedValue(undefined),
+      trackUserAction: jest.fn().mockResolvedValue(undefined),
+      trackRoomEvent: jest.fn().mockResolvedValue(undefined),
+      trackPerformanceMetric: jest.fn().mockResolvedValue(undefined),
+      trackContentInteraction: jest.fn().mockResolvedValue(undefined),
     };
 
     const mockConfigService = {
       get: jest.fn(),
+    };
+
+    const mockRoomRefreshService = {
+      checkAndRefreshIfNeeded: jest.fn().mockResolvedValue(false),
+      refreshRoomContent: jest.fn().mockResolvedValue(undefined),
+      getMemberProgress: jest.fn().mockResolvedValue({ progressPercentage: 50 }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -90,6 +98,7 @@ describe('InteractionService', () => {
         { provide: MemberService, useValue: mockMemberService },
         { provide: RoomService, useValue: mockRoomService },
         { provide: MediaService, useValue: mockMediaService },
+        { provide: RoomRefreshService, useValue: mockRoomRefreshService },
         {
           provide: RealtimeCompatibilityService,
           useValue: mockRealtimeService,

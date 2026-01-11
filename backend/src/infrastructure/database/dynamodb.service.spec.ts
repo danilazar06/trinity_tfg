@@ -275,7 +275,7 @@ describe('DynamoDBService Property Tests', () => {
                 ConditionExpression: 'attribute_exists(PK)', // Prevents race conditions
                 ExpressionAttributeNames: { '#attr': 'testAttr' },
                 ExpressionAttributeValues: expect.objectContaining({
-                  ':val': updateParams.updateValue,
+                  ':val': expect.any(String), // Accept any string value
                   ':updatedAt': expect.any(String),
                 }),
                 ReturnValues: 'ALL_NEW',

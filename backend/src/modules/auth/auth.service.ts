@@ -5,6 +5,7 @@ import { GoogleAuthService, GoogleUserInfo } from './google-auth.service';
 import { FederatedUserManagementService } from './federated-user-management.service';
 import { FederatedSessionManagementService } from './federated-session-management.service';
 import { GoogleAuthAnalyticsService } from './google-auth-analytics.service';
+import { AuthStatusCodeService } from './services/auth-status-code.service';
 import { EventTracker } from '../analytics/event-tracker.service';
 import { EventType } from '../analytics/interfaces/analytics.interfaces';
 import {
@@ -31,6 +32,7 @@ export class AuthService {
     private federatedUserService: FederatedUserManagementService,
     private federatedSessionService: FederatedSessionManagementService,
     private googleAnalyticsService: GoogleAuthAnalyticsService,
+    private authStatusCodeService: AuthStatusCodeService,
     private eventTracker: EventTracker,
   ) {}
 
@@ -537,21 +539,77 @@ export class AuthService {
       return await this.loginWithGoogleLegacy(idToken);
       
     } catch (error) {
-      this.logger.error(`❌ Error en login con Google: ${error.message}`);
+      return this.handleGoogleLoginError(error, idToken);
+    }
+  }
+
+  /**
+   * Manejar errores de login con Google con fallbacks automáticos
+   */
+  private async handleGoogleLoginError(error: any, idToken: string): Promise<{ user: UserProfile; tokens: CognitoTokens }> {
+    this.logger.error(`❌ Error en login con Google: ${error.message}`);
+    
+    // Si es un error estructurado con opciones de fallback
+    if (error instanceof UnauthorizedException && error.message && typeof error.message === 'object') {
+      const structuredError = error.message;
       
-      // Intentar fallback si el error es de configuración
-      if (this.isConfigurationError(error)) {
-        this.logger.warn('⚠️ Error de configuración detectado, intentando fallback...');
+      // Intentar fallbacks automáticos según las opciones disponibles
+      if (structuredError.fallbackOptions?.includes('legacy_google_auth') && 
+          !structuredError.context?.includes('legacy')) {
+        this.logger.warn('⚠️ Intentando fallback a método legacy de Google Auth...');
         try {
           return await this.loginWithGoogleLegacy(idToken);
         } catch (fallbackError) {
-          this.logger.error(`❌ Fallback también falló: ${fallbackError.message}`);
-          throw this.createUserFriendlyError(fallbackError);
+          this.logger.error(`❌ Fallback legacy también falló: ${fallbackError.message}`);
+          // Continuar con el error original estructurado
         }
       }
-      
-      throw this.createUserFriendlyError(error);
+
+      // Si el error es retryable y es el primer intento, intentar una vez más
+      if (structuredError.retryable && !structuredError.retryAttempted) {
+        this.logger.warn('⚠️ Error retryable detectado, intentando nuevamente...');
+        
+        // Marcar como reintentado para evitar loops infinitos
+        const retryError = {
+          ...structuredError,
+          retryAttempted: true,
+        };
+        
+        // Esperar el delay si está especificado
+        if (structuredError.retryDelay) {
+          await new Promise(resolve => setTimeout(resolve, structuredError.retryDelay));
+        }
+        
+        try {
+          // Reintentar la operación original
+          if (structuredError.context === 'federated_auth') {
+            const federatedResult = await this.loginWithGoogleFederated(idToken);
+            return { user: federatedResult.user, tokens: federatedResult.cognitoTokens };
+          } else {
+            return await this.loginWithGoogleLegacy(idToken);
+          }
+        } catch (retryError) {
+          this.logger.error(`❌ Reintento también falló: ${retryError.message}`);
+          // Continuar con el error original
+        }
+      }
+
+      // Re-lanzar el error estructurado para que el cliente pueda manejarlo
+      throw new UnauthorizedException(structuredError);
     }
+    
+    // Para errores no estructurados, intentar fallback si es de configuración
+    if (this.isConfigurationError(error)) {
+      this.logger.warn('⚠️ Error de configuración detectado, intentando fallback...');
+      try {
+        return await this.loginWithGoogleLegacy(idToken);
+      } catch (fallbackError) {
+        this.logger.error(`❌ Fallback también falló: ${fallbackError.message}`);
+        throw this.createUserFriendlyError(fallbackError);
+      }
+    }
+    
+    throw this.createUserFriendlyError(error);
   }
 
   /**
@@ -1171,5 +1229,260 @@ export class AuthService {
    */
   isGoogleAuthAvailable(): boolean {
     return this.googleAuthService.isGoogleAuthAvailable();
+  }
+
+  /**
+   * Refrescar tokens automáticamente
+   */
+  async refreshTokens(refreshToken: string): Promise<CognitoTokens> {
+    try {
+      // Intentar refresh con Cognito estándar primero
+      return await this.cognitoService.refreshTokens(refreshToken);
+    } catch (error) {
+      this.logger.error(`Error refrescando tokens estándar: ${error.message}`);
+      
+      // Si falla el refresh estándar, intentar con tokens federados
+      if (this.isFederatedToken(refreshToken)) {
+        this.logger.log('Intentando refresh de tokens federados...');
+        try {
+          return await this.cognitoService.refreshFederatedTokens(refreshToken);
+        } catch (federatedError) {
+          this.logger.error(`Error refrescando tokens federados: ${federatedError.message}`);
+          // Use proper status code handling
+          this.authStatusCodeService.handleAuthError(federatedError, 'token_refresh');
+        }
+      }
+      
+      // Use proper status code handling for standard refresh failures
+      this.authStatusCodeService.handleAuthError(error, 'token_refresh');
+    }
+  }
+
+  /**
+   * Validar y refrescar token automáticamente si es necesario
+   */
+  async validateAndRefreshToken(accessToken: string, refreshToken?: string): Promise<{
+    user: UserProfile | null;
+    newTokens?: CognitoTokens;
+    tokenRefreshed: boolean;
+  }> {
+    try {
+      // Intentar validar el token actual
+      const user = await this.validateUserByToken(accessToken);
+      
+      if (user) {
+        return {
+          user,
+          tokenRefreshed: false,
+        };
+      }
+      
+      // Si el token no es válido y tenemos refresh token, intentar refrescar
+      if (refreshToken) {
+        this.logger.log('Token de acceso inválido, intentando refresh automático...');
+        
+        try {
+          const newTokens = await this.refreshTokens(refreshToken);
+          
+          // Validar el nuevo token de acceso
+          const refreshedUser = await this.validateUserByToken(newTokens.accessToken);
+          
+          if (refreshedUser) {
+            this.logger.log(`✅ Token refrescado exitosamente para usuario: ${refreshedUser.id}`);
+            return {
+              user: refreshedUser,
+              newTokens,
+              tokenRefreshed: true,
+            };
+          }
+        } catch (refreshError) {
+          this.logger.error(`❌ Error en refresh automático: ${refreshError.message}`);
+        }
+      }
+      
+      return {
+        user: null,
+        tokenRefreshed: false,
+      };
+      
+    } catch (error) {
+      this.logger.error(`Error en validación y refresh de token: ${error.message}`);
+      return {
+        user: null,
+        tokenRefreshed: false,
+      };
+    }
+  }
+
+  /**
+   * Determinar si un token es federado
+   */
+  private isFederatedToken(token: string): boolean {
+    // Trim whitespace and check for federated token patterns
+    const trimmedToken = token.trim();
+    return trimmedToken.includes('cognito_federated_') || 
+           trimmedToken.includes('cognito_refresh_') ||
+           trimmedToken.includes('google_refresh_');
+  }
+
+  /**
+   * Obtener estado de salud de la configuración de autenticación
+   */
+  async getConfigurationHealthStatus(): Promise<{
+    status: 'healthy' | 'warning' | 'critical';
+    score: number;
+    issues: string[];
+    recommendations: string[];
+    cognito: {
+      configured: boolean;
+      userPoolId: string;
+      clientId: string;
+      region: string;
+      jwtVerifierReady: boolean;
+      federationEnabled: boolean;
+    };
+    google: {
+      configured: boolean;
+      clientId: string;
+      federationReady: boolean;
+    };
+    overall: {
+      ready: boolean;
+      message: string;
+    };
+  }> {
+    const issues: string[] = [];
+    const recommendations: string[] = [];
+    let score = 100;
+
+    // Verificar configuración de Cognito
+    const cognitoConfig = {
+      configured: false,
+      userPoolId: 'NOT_CONFIGURED',
+      clientId: 'NOT_CONFIGURED',
+      region: 'NOT_CONFIGURED',
+      jwtVerifierReady: false,
+      federationEnabled: false,
+    };
+
+    try {
+      // Verificar configuración básica de Cognito
+      const userPoolId = this.cognitoService['userPoolId'];
+      const clientId = this.cognitoService['clientId'];
+      const region = this.cognitoService['configService'].get('COGNITO_REGION', 'eu-west-1');
+      const jwtVerifier = this.cognitoService['jwtVerifier'];
+
+      cognitoConfig.userPoolId = userPoolId || 'NOT_CONFIGURED';
+      cognitoConfig.clientId = clientId || 'NOT_CONFIGURED';
+      cognitoConfig.region = region;
+      cognitoConfig.jwtVerifierReady = !!jwtVerifier;
+
+      // Verificar que las credenciales son las correctas
+      if (userPoolId === 'eu-west-1_6UxioIj4z' && clientId === '59dpqsm580j14ulkcha19shl64') {
+        cognitoConfig.configured = true;
+      } else {
+        issues.push('Cognito credentials do not match expected values');
+        recommendations.push('Update COGNITO_USER_POOL_ID and COGNITO_CLIENT_ID to correct values');
+        score -= 30;
+      }
+
+      // Verificar JWT Verifier
+      if (!jwtVerifier) {
+        issues.push('JWT Verifier is not configured');
+        recommendations.push('Ensure Cognito User Pool ID is valid and accessible');
+        score -= 20;
+      }
+
+      // Verificar configuración de federación
+      const federationEnabled = this.cognitoService.validateProviderConfiguration();
+      cognitoConfig.federationEnabled = federationEnabled;
+
+      if (!federationEnabled) {
+        issues.push('Cognito federated authentication is not configured');
+        recommendations.push('Configure COGNITO_IDENTITY_POOL_ID for Google Sign-In support');
+        score -= 15;
+      }
+
+    } catch (error) {
+      issues.push(`Cognito configuration error: ${error.message}`);
+      recommendations.push('Check Cognito service configuration and AWS credentials');
+      score -= 40;
+    }
+
+    // Verificar configuración de Google
+    const googleConfig = {
+      configured: false,
+      clientId: 'NOT_CONFIGURED',
+      federationReady: false,
+    };
+
+    try {
+      const googleClientId = this.cognitoService['configService'].get('GOOGLE_WEB_CLIENT_ID');
+      googleConfig.clientId = googleClientId || 'NOT_CONFIGURED';
+
+      // Verificar que el Google Client ID es el correcto
+      if (googleClientId === '230498169556-cqb6dv3o58oeblrfrk49o0a6l7ecjtrn.apps.googleusercontent.com') {
+        googleConfig.configured = true;
+      } else {
+        issues.push('Google Client ID does not match expected value');
+        recommendations.push('Update GOOGLE_WEB_CLIENT_ID to correct value');
+        score -= 20;
+      }
+
+      // Verificar si Google Auth está disponible
+      const googleAuthAvailable = this.isGoogleAuthAvailable();
+      googleConfig.federationReady = googleAuthAvailable && cognitoConfig.federationEnabled;
+
+      if (!googleAuthAvailable) {
+        issues.push('Google Auth service is not available');
+        recommendations.push('Check Google Auth service configuration');
+        score -= 15;
+      }
+
+    } catch (error) {
+      issues.push(`Google configuration error: ${error.message}`);
+      recommendations.push('Check Google OAuth configuration');
+      score -= 25;
+    }
+
+    // Determinar estado general
+    let status: 'healthy' | 'warning' | 'critical';
+    let overallReady = false;
+    let overallMessage = '';
+
+    if (score >= 80) {
+      status = 'healthy';
+      overallReady = true;
+      overallMessage = 'Authentication system is properly configured and ready';
+    } else if (score >= 60) {
+      status = 'warning';
+      overallReady = true;
+      overallMessage = 'Authentication system is functional but has configuration issues';
+    } else {
+      status = 'critical';
+      overallReady = false;
+      overallMessage = 'Authentication system has critical configuration issues';
+    }
+
+    // Agregar recomendaciones generales
+    if (issues.length === 0) {
+      recommendations.push('Configuration is healthy - no actions needed');
+    } else {
+      recommendations.push('Review and fix the identified configuration issues');
+      recommendations.push('Test authentication flows after making changes');
+    }
+
+    return {
+      status,
+      score,
+      issues,
+      recommendations,
+      cognito: cognitoConfig,
+      google: googleConfig,
+      overall: {
+        ready: overallReady,
+        message: overallMessage,
+      },
+    };
   }
 }

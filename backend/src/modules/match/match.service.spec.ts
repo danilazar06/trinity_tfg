@@ -62,18 +62,18 @@ describe('MatchService', () => {
     };
 
     const mockRealtimeService = {
-      notifyVote: jest.fn(),
-      notifyMatch: jest.fn(),
-      notifyRoomStateChange: jest.fn(),
-      notifyMemberStatusChange: jest.fn(),
+      notifyVote: jest.fn().mockResolvedValue(undefined),
+      notifyMatch: jest.fn().mockResolvedValue(undefined),
+      notifyRoomStateChange: jest.fn().mockResolvedValue(undefined),
+      notifyMemberStatusChange: jest.fn().mockResolvedValue(undefined),
     };
 
     const mockEventTracker = {
-      trackEvent: jest.fn(),
-      trackUserAction: jest.fn(),
-      trackRoomEvent: jest.fn(),
-      trackPerformanceMetric: jest.fn(),
-      trackContentInteraction: jest.fn(),
+      trackEvent: jest.fn().mockResolvedValue(undefined),
+      trackUserAction: jest.fn().mockResolvedValue(undefined),
+      trackRoomEvent: jest.fn().mockResolvedValue(undefined),
+      trackPerformanceMetric: jest.fn().mockResolvedValue(undefined),
+      trackContentInteraction: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -556,8 +556,8 @@ describe('MatchService', () => {
       dynamoDBService.putItem.mockResolvedValue();
       dynamoDBService.conditionalUpdate.mockResolvedValue();
 
-      // Mock getMatchById
-      dynamoDBService.query.mockResolvedValue([mockMatch]);
+      // Mock getMatchByMediaId (second call to getItem)
+      dynamoDBService.getItem.mockResolvedValueOnce(mockMatch);
 
       // Act
       const result = await service.checkPendingMatches(roomId, mediaId);

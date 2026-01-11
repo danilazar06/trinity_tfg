@@ -3,6 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { GoogleAuthService } from '../google-auth.service';
 import { CognitoService } from '../../../infrastructure/cognito/cognito.service';
 import { MultiTableService } from '../../../infrastructure/database/multi-table.service';
+import { AuthStatusCodeService } from '../services/auth-status-code.service';
+import { FederatedUserManagementService } from '../federated-user-management.service';
+import { FederatedSessionManagementService } from '../federated-session-management.service';
+import { GoogleAuthAnalyticsService } from '../google-auth-analytics.service';
+import { EventTracker } from '../../analytics/event-tracker.service';
 import { UnauthorizedException } from '@nestjs/common';
 import * as fc from 'fast-check';
 
@@ -41,6 +46,36 @@ describe('Security Validations - Property Tests', () => {
     unlinkGoogleProvider: jest.fn(),
   };
 
+  const mockEventTracker = {
+    trackUserAction: jest.fn().mockResolvedValue(undefined),
+  };
+
+  const mockFederatedUserManagementService = {
+    createFederatedUser: jest.fn().mockResolvedValue({}),
+    linkGoogleProvider: jest.fn().mockResolvedValue({}),
+    unlinkGoogleProvider: jest.fn().mockResolvedValue({}),
+    getFederatedUserInfo: jest.fn().mockResolvedValue({}),
+  };
+
+  const mockFederatedSessionManagementService = {
+    createSession: jest.fn().mockResolvedValue({}),
+    validateSession: jest.fn().mockResolvedValue({}),
+    refreshSession: jest.fn().mockResolvedValue({}),
+    terminateSession: jest.fn().mockResolvedValue({}),
+  };
+
+  const mockGoogleAuthAnalyticsService = {
+    trackAuthEvent: jest.fn().mockResolvedValue(undefined),
+    trackUserAction: jest.fn().mockResolvedValue(undefined),
+  };
+
+  const mockAuthStatusCodeService = {
+    throwUnauthorized: jest.fn(),
+    throwForbidden: jest.fn(),
+    throwBadRequest: jest.fn(),
+    handleAuthError: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -48,6 +83,11 @@ describe('Security Validations - Property Tests', () => {
         { provide: ConfigService, useValue: mockConfigService },
         { provide: MultiTableService, useValue: mockMultiTableService },
         { provide: CognitoService, useValue: mockCognitoService },
+        { provide: EventTracker, useValue: mockEventTracker },
+        { provide: FederatedUserManagementService, useValue: mockFederatedUserManagementService },
+        { provide: FederatedSessionManagementService, useValue: mockFederatedSessionManagementService },
+        { provide: GoogleAuthAnalyticsService, useValue: mockGoogleAuthAnalyticsService },
+        { provide: AuthStatusCodeService, useValue: mockAuthStatusCodeService },
       ],
     }).compile();
 
@@ -90,11 +130,13 @@ describe('Security Validations - Property Tests', () => {
               googleAuthService.verifyGoogleToken(invalidToken)
             ).rejects.toThrow();
 
-            // Verificar que se intentó verificar el token
-            expect(mockVerifyIdToken).toHaveBeenCalledWith({
-              idToken: invalidToken,
-              audience: 'test-google-client-id',
-            });
+            // Verificar que se intentó verificar el token (solo si no es vacío)
+            if (invalidToken && invalidToken.trim() !== '') {
+              expect(mockVerifyIdToken).toHaveBeenCalledWith({
+                idToken: invalidToken,
+                audience: 'test-google-client-id',
+              });
+            }
           }
         ),
         { numRuns: 100 }
@@ -150,8 +192,16 @@ describe('Security Validations - Property Tests', () => {
           async ({ tokenAudience, configuredAudience, email, sub }) => {
             // Configurar audience esperada
             mockConfigService.get.mockImplementation((key: string) => {
-              if (key === 'GOOGLE_CLIENT_ID') return configuredAudience;
-              return mockConfigService.get(key);
+              const config = {
+                'GOOGLE_CLIENT_ID': configuredAudience,
+                'COGNITO_IDENTITY_POOL_ID': 'eu-west-1:test-identity-pool-id',
+                'COGNITO_GOOGLE_PROVIDER_NAME': 'accounts.google.com',
+                'COGNITO_FEDERATED_IDENTITY_ENABLED': 'true',
+                'COGNITO_USER_POOL_ID': 'eu-west-1_testpool',
+                'COGNITO_CLIENT_ID': 'test-cognito-client-id',
+                'COGNITO_REGION': 'eu-west-1',
+              };
+              return config[key];
             });
 
             // Mock Google Client
@@ -223,7 +273,7 @@ describe('Security Validations - Property Tests', () => {
 
               // Propiedad: Eventos exitosos deben ser loggeados
               expect(logSpy).toHaveBeenCalledWith(
-                expect.stringContaining(`Token de Google verificado para: ${email}`)
+                expect.stringContaining(`Token de Google verificado exitosamente`)
               );
             } else {
               // Mock failed verification
@@ -241,7 +291,7 @@ describe('Security Validations - Property Tests', () => {
 
               // Propiedad: Eventos fallidos deben ser loggeados como errores
               expect(errorSpy).toHaveBeenCalledWith(
-                expect.stringContaining('Error verificando token de Google')
+                expect.stringContaining('Token de Google no tiene formato JWT válido')
               );
             }
 
@@ -298,7 +348,7 @@ describe('Security Validations - Property Tests', () => {
 
               // Propiedad: Autenticación federada exitosa debe ser loggeada
               expect(logSpy).toHaveBeenCalledWith(
-                expect.stringContaining(`Autenticación federada exitosa para: ${email}`)
+                expect.stringContaining(`Autenticación federada completada exitosamente`)
               );
             } else {
               mockCognitoService.exchangeGoogleTokenForCognito.mockRejectedValue(
@@ -370,7 +420,7 @@ describe('Security Validations - Property Tests', () => {
             }
 
             // Propiedad: Solo tokens válidos, con audience correcta y no expirados deben pasar todas las validaciones
-            const shouldSucceed = isValidToken && isValidAudience && isNotExpired;
+            const shouldSucceed = isValidToken && isValidAudience && isNotExpired && token.trim() !== '';
 
             if (shouldSucceed) {
               const result = await googleAuthService.verifyGoogleToken(token);

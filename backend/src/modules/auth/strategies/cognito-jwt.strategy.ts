@@ -23,20 +23,32 @@ export class CognitoJwtStrategy extends PassportStrategy(Strategy, 'cognito-jwt'
       throw new UnauthorizedException('Invalid authorization format');
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    if (!token) {
+    const accessToken = authHeader.replace('Bearer ', '');
+    if (!accessToken) {
       throw new UnauthorizedException('Token vacío');
     }
 
     try {
-      // Validar token con Cognito
-      const user = await this.authService.validateUserByToken(token);
+      // Extraer refresh token del header si está disponible
+      const refreshToken = req.headers['x-refresh-token'];
       
-      if (!user) {
+      // Intentar validación con refresh automático si es necesario
+      const result = await this.authService.validateAndRefreshToken(accessToken, refreshToken);
+      
+      if (!result.user) {
         throw new UnauthorizedException('Token inválido');
       }
 
-      return user;
+      // Si el token fue refrescado, agregar los nuevos tokens a la respuesta
+      if (result.tokenRefreshed && result.newTokens) {
+        // Agregar nuevos tokens al request para que el controlador pueda acceder a ellos
+        req.newTokens = result.newTokens;
+        req.tokenRefreshed = true;
+        
+        this.logger.log(`✅ Token refrescado automáticamente para usuario: ${result.user.id}`);
+      }
+
+      return result.user;
     } catch (error) {
       this.logger.warn(`Error validando token: ${error.message}`);
       throw new UnauthorizedException('Token inválido');

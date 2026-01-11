@@ -106,7 +106,7 @@ export function logCircuitBreakerMetric(
  * Business metrics for Trinity
  */
 export function logBusinessMetric(
-  eventType: 'ROOM_CREATED' | 'ROOM_JOINED' | 'VOTE_CAST' | 'MATCH_FOUND' | 'AI_RECOMMENDATION',
+  eventType: 'ROOM_CREATED' | 'ROOM_JOINED' | 'ROOM_JOINED_BY_INVITE' | 'VOTE_CAST' | 'MATCH_FOUND' | 'AI_RECOMMENDATION' | 'MOVIES_CACHED' | 'INVITE_LINK_CREATED' | 'WEB_INVITE_VALIDATED' | 'USER_DISCONNECTED' | 'ROOM_STATE_SYNCED' | 'CONNECTION_CLEANED_UP' | 'CONNECTION_HANDLED' | 'DISCONNECTION_HANDLED' | 'STATE_SYNC_REQUESTED' | 'CONNECTION_STATUS_CHECKED',
   roomId?: string,
   userId?: string,
   metadata?: { [key: string]: any }

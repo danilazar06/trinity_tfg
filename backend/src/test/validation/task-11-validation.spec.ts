@@ -4,6 +4,7 @@ import * as request from 'supertest';
 import { RoomController } from '../../modules/room/room.controller';
 import { RoomService } from '../../modules/room/room.service';
 import { MemberService } from '../../modules/room/member.service';
+import { ShuffleSyncService } from '../../modules/room/shuffle-sync.service';
 import { RoomModerationService } from '../../modules/room-moderation/room-moderation.service';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
 import { ConfigService } from '@nestjs/config';
@@ -40,6 +41,23 @@ describe('Task 11: Integration Testing and Validation', () => {
               id: 'test-member',
               userId: 'test-user',
               roomId: 'test-room',
+            }),
+          },
+        },
+        {
+          provide: ShuffleSyncService,
+          useValue: {
+            generateMasterListAndShuffledLists: jest.fn().mockResolvedValue({
+              masterListUpdated: true,
+              shuffledListsGenerated: 2,
+              totalMediaItems: 10,
+            }),
+            verifyShuffleSyncConsistency: jest.fn().mockResolvedValue({
+              isConsistent: true,
+              masterListSize: 10,
+              memberListSizes: [10, 10],
+              uniqueOrderings: true,
+              issues: [],
             }),
           },
         },

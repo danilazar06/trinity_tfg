@@ -11,6 +11,12 @@ process.env.AWS_ACCESS_KEY_ID = 'test-access-key';
 process.env.AWS_SECRET_ACCESS_KEY = 'test-secret-key';
 process.env.DYNAMODB_TABLE_NAME = 'trinity-test';
 process.env.TMDB_API_KEY = 'dc4dbcd2404c1ca852f8eb964add267d';
+process.env.GOOGLE_CLIENT_ID = 'test-google-client-id';
+process.env.GOOGLE_CLIENT_SECRET = 'test-google-client-secret';
+process.env.COGNITO_IDENTITY_POOL_ID = 'us-east-1:12345678-1234-1234-1234-123456789012';
+process.env.COGNITO_GOOGLE_PROVIDER_NAME = 'accounts.google.com';
+process.env.COGNITO_FEDERATED_IDENTITY_ENABLED = 'false';
+process.env.APPSYNC_API_KEY = 'test-appsync-api-key';
 
 // Configurar timeouts globales
 jest.setTimeout(15000);
@@ -40,6 +46,22 @@ jest.mock('aws-sdk', () => ({
   config: {
     update: jest.fn(),
   },
+  CognitoIdentity: jest.fn().mockImplementation(() => ({
+    getId: jest.fn().mockReturnValue({
+      promise: jest.fn().mockResolvedValue({
+        IdentityId: 'mock-identity-id',
+      }),
+    }),
+    getCredentialsForIdentity: jest.fn().mockReturnValue({
+      promise: jest.fn().mockResolvedValue({
+        Credentials: {
+          AccessKeyId: 'mock-access-key',
+          SecretKey: 'mock-secret-key',
+          SessionToken: 'mock-session-token',
+        },
+      }),
+    }),
+  })),
   CognitoIdentityServiceProvider: jest.fn().mockImplementation(() => ({
     adminCreateUser: jest.fn().mockReturnValue({
       promise: jest.fn().mockResolvedValue({

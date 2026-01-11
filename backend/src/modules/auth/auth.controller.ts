@@ -25,6 +25,8 @@ import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UserContext, UserId } from './decorators/user-context.decorator';
+import { EnhancedUserContext } from './middleware/user-context.middleware';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -144,8 +146,8 @@ export class AuthController {
   @ApiOperation({ summary: 'Obtener perfil del usuario autenticado' })
   @ApiResponse({ status: 200, description: 'Perfil del usuario' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  async getProfile(@Request() req) {
-    return req.user;
+  async getProfile(@UserContext() user: EnhancedUserContext) {
+    return user;
   }
 
   @Put('profile')
@@ -154,8 +156,74 @@ export class AuthController {
   @ApiOperation({ summary: 'Actualizar perfil del usuario autenticado' })
   @ApiResponse({ status: 200, description: 'Perfil actualizado exitosamente' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  async updateProfile(@Request() req, @Body() updateProfileDto: UpdateProfileDto) {
-    return this.authService.updateProfile(req.user.id, updateProfileDto);
+  async updateProfile(
+    @UserId() userId: string,
+    @Body() updateProfileDto: UpdateProfileDto
+  ) {
+    return this.authService.updateProfile(userId, updateProfileDto);
+  }
+
+  @Post('refresh-token')
+  @ApiOperation({ summary: 'Refrescar tokens de autenticación' })
+  @ApiResponse({ status: 200, description: 'Tokens refrescados exitosamente' })
+  @ApiResponse({ status: 401, description: 'Refresh token inválido o expirado' })
+  async refreshToken(@Body() body: { refreshToken: string }) {
+    try {
+      const newTokens = await this.authService.refreshTokens(body.refreshToken);
+      
+      this.logger.log('✅ Tokens refrescados exitosamente');
+      
+      return {
+        message: 'Tokens refrescados exitosamente',
+        tokens: newTokens,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      this.logger.error(`❌ Error refrescando tokens: ${error.message}`);
+      throw error;
+    }
+  }
+
+  @Get('config-health')
+  @ApiOperation({ summary: 'Verificar estado de configuración de autenticación' })
+  @ApiResponse({ status: 200, description: 'Estado de configuración de autenticación' })
+  async getConfigHealth() {
+    this.logger.log('🔍 Configuration health check requested');
+    
+    try {
+      const healthStatus = await this.authService.getConfigurationHealthStatus();
+      
+      this.logger.log(`✅ Configuration health check completed - Status: ${healthStatus.status}`);
+      
+      return {
+        timestamp: new Date().toISOString(),
+        ...healthStatus,
+      };
+    } catch (error) {
+      this.logger.error(`❌ Configuration health check failed: ${error.message}`);
+      
+      return {
+        timestamp: new Date().toISOString(),
+        status: 'critical',
+        score: 0,
+        issues: [`Configuration health check failed: ${error.message}`],
+        recommendations: ['Check server logs for detailed error information'],
+        cognito: {
+          configured: false,
+          userPoolId: 'ERROR',
+          clientId: 'ERROR',
+          region: 'ERROR',
+        },
+        google: {
+          configured: false,
+          clientId: 'ERROR',
+        },
+        overall: {
+          ready: false,
+          message: 'Authentication system configuration is not healthy',
+        },
+      };
+    }
   }
 
   @Get('debug-env')

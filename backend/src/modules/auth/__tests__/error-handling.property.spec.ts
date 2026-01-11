@@ -47,6 +47,25 @@ describe('Error Handling and Edge Cases - Property Tests', () => {
     trackUserAction: jest.fn(),
   };
 
+  const mockFederatedUserManagementService = {
+    createFederatedUser: jest.fn(),
+    linkGoogleProvider: jest.fn(),
+    unlinkGoogleProvider: jest.fn(),
+    getFederatedUserInfo: jest.fn(),
+  };
+
+  const mockFederatedSessionManagementService = {
+    createSession: jest.fn(),
+    validateSession: jest.fn(),
+    refreshSession: jest.fn(),
+    terminateSession: jest.fn(),
+  };
+
+  const mockGoogleAuthAnalyticsService = {
+    trackAuthEvent: jest.fn(),
+    trackUserAction: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -56,6 +75,9 @@ describe('Error Handling and Edge Cases - Property Tests', () => {
         { provide: MultiTableService, useValue: mockMultiTableService },
         { provide: CognitoService, useValue: mockCognitoService },
         { provide: 'EventTracker', useValue: mockEventTracker },
+        { provide: 'FederatedUserManagementService', useValue: mockFederatedUserManagementService },
+        { provide: 'FederatedSessionManagementService', useValue: mockFederatedSessionManagementService },
+        { provide: 'GoogleAuthAnalyticsService', useValue: mockGoogleAuthAnalyticsService },
       ],
     }).compile();
 

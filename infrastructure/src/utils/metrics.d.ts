@@ -35,7 +35,7 @@ export declare function logCircuitBreakerMetric(service: string, state: string, 
 /**
  * Business metrics for Trinity
  */
-export declare function logBusinessMetric(eventType: 'ROOM_CREATED' | 'ROOM_JOINED' | 'VOTE_CAST' | 'MATCH_FOUND' | 'AI_RECOMMENDATION', roomId?: string, userId?: string, metadata?: {
+export declare function logBusinessMetric(eventType: 'ROOM_CREATED' | 'ROOM_JOINED' | 'ROOM_JOINED_BY_INVITE' | 'VOTE_CAST' | 'MATCH_FOUND' | 'AI_RECOMMENDATION' | 'MOVIES_CACHED' | 'INVITE_LINK_CREATED' | 'WEB_INVITE_VALIDATED', roomId?: string, userId?: string, metadata?: {
     [key: string]: any;
 }): void;
 /**

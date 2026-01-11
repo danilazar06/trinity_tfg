@@ -1,10 +1,10 @@
 /**
- * AppSync Real-time Event Publisher
- * Publishes events to AppSync subscriptions for real-time updates
+ * Enhanced AppSync Real-time Event Publisher
+ * Publishes events to AppSync subscriptions for real-time updates with detailed progress information
  */
 
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -17,8 +17,16 @@ export interface MatchFoundEvent {
   matchId: string;
   mediaId: string;
   mediaTitle: string;
-  participants: string[];
+  participants: ParticipantInfo[];
   consensusType: 'UNANIMOUS' | 'MAJORITY';
+  matchDetails: {
+    totalVotesRequired: number;
+    finalVoteCount: number;
+    votingDuration: number; // in seconds
+    movieGenres: string[];
+    movieYear?: number;
+    movieRating?: number;
+  };
 }
 
 export interface VoteUpdateEvent {
@@ -36,19 +44,92 @@ export interface VoteUpdateEvent {
     skipsCount: number;
     remainingUsers: number;
     percentage: number;
+    votingUsers: string[]; // Users who have voted
+    pendingUsers: string[]; // Users who haven't voted yet
+    estimatedTimeToComplete?: number; // in seconds
+  };
+  movieInfo: {
+    title: string;
+    genres: string[];
+    year?: number;
+    posterPath?: string;
   };
 }
 
+export interface ConnectionStatusEvent {
+  id: string;
+  timestamp: string;
+  roomId: string;
+  eventType: 'CONNECTION_STATUS';
+  userId: string;
+  status: 'CONNECTED' | 'DISCONNECTED' | 'RECONNECTED';
+  connectionId: string;
+  metadata: {
+    userAgent?: string;
+    lastSeen: string;
+    reconnectionAttempts?: number;
+  };
+}
+
+export interface RoomStateEvent {
+  id: string;
+  timestamp: string;
+  roomId: string;
+  eventType: 'ROOM_STATE_SYNC';
+  roomState: {
+    status: 'WAITING' | 'ACTIVE' | 'MATCHED' | 'COMPLETED';
+    currentMovieId?: string;
+    currentMovieInfo?: {
+      title: string;
+      genres: string[];
+      posterPath?: string;
+    };
+    totalMembers: number;
+    activeConnections: number;
+    votingProgress: {
+      currentVotes: number;
+      totalRequired: number;
+      percentage: number;
+    };
+    matchResult?: {
+      movieId: string;
+      movieTitle: string;
+      foundAt: string;
+    };
+  };
+}
+
+export interface ParticipantInfo {
+  userId: string;
+  displayName?: string;
+  isHost: boolean;
+  connectionStatus: 'CONNECTED' | 'DISCONNECTED';
+  lastSeen: string;
+  hasVoted: boolean;
+}
+
 /**
- * Publish Match Found event to all room subscribers
+ * Publish Match Found event to all room subscribers with detailed participant information
  */
 export async function publishMatchFoundEvent(
   roomId: string,
   movieId: string,
   movieTitle: string,
-  participants: string[]
+  participants: string[],
+  votingStartTime?: Date
 ): Promise<void> {
   try {
+    // Get detailed participant information
+    const participantDetails = await getDetailedParticipantInfo(roomId, participants);
+    
+    // Get movie details for enhanced information
+    const movieDetails = await getEnhancedMovieInfo(movieId);
+    
+    // Calculate voting duration
+    const votingDuration = votingStartTime 
+      ? Math.round((Date.now() - votingStartTime.getTime()) / 1000)
+      : 0;
+
     const event: MatchFoundEvent = {
       id: `match_${roomId}_${movieId}_${Date.now()}`,
       timestamp: new Date().toISOString(),
@@ -57,29 +138,40 @@ export async function publishMatchFoundEvent(
       matchId: `match_${roomId}_${movieId}`,
       mediaId: movieId,
       mediaTitle: movieTitle,
-      participants,
-      consensusType: 'UNANIMOUS' // Trinity uses unanimous consensus
+      participants: participantDetails,
+      consensusType: 'UNANIMOUS', // Trinity uses unanimous consensus
+      matchDetails: {
+        totalVotesRequired: participants.length,
+        finalVoteCount: participants.length,
+        votingDuration,
+        movieGenres: movieDetails.genres,
+        movieYear: movieDetails.year,
+        movieRating: movieDetails.rating
+      }
     };
 
-    // En AppSync, los eventos se publican automáticamente a los subscribers
-    // cuando se ejecuta la mutation publishMatchEvent desde el resolver
-    console.log(`🎉 MATCH_FOUND Event published for room ${roomId}:`, {
+    console.log(`🎉 Enhanced MATCH_FOUND Event published for room ${roomId}:`, {
       movieId,
       movieTitle,
-      participantCount: participants.length
+      participantCount: participants.length,
+      votingDuration: `${votingDuration}s`,
+      movieGenres: movieDetails.genres
     });
     
     // Store the match event for audit/history purposes
     await storeEventForAudit('MATCH_FOUND', roomId, event);
     
+    // Publish immediate notification to all room subscribers
+    await publishToRoomSubscribers(roomId, event);
+    
   } catch (error) {
-    console.error('❌ Error publishing match found event:', error);
+    console.error('❌ Error publishing enhanced match found event:', error);
     // Don't throw - real-time notifications are nice-to-have, not critical
   }
 }
 
 /**
- * Publish Vote Update event to room subscribers
+ * Publish Vote Update event to room subscribers with detailed progress information
  */
 export async function publishVoteUpdateEvent(
   roomId: string,
@@ -90,6 +182,17 @@ export async function publishVoteUpdateEvent(
   totalMembers: number
 ): Promise<void> {
   try {
+    // Get detailed voting progress information
+    const votingUsers = await getVotingUsers(roomId, movieId);
+    const allMembers = await getAllRoomMembers(roomId);
+    const pendingUsers = allMembers.filter(member => !votingUsers.includes(member));
+    
+    // Get enhanced movie information
+    const movieInfo = await getEnhancedMovieInfo(movieId);
+    
+    // Estimate time to complete based on voting patterns
+    const estimatedTimeToComplete = await estimateVotingCompletion(roomId, currentVotes, totalMembers);
+
     const event: VoteUpdateEvent = {
       id: `vote_${roomId}_${userId}_${Date.now()}`,
       timestamp: new Date().toISOString(),
@@ -104,28 +207,128 @@ export async function publishVoteUpdateEvent(
         dislikesCount: 0,
         skipsCount: 0,
         remainingUsers: Math.max(0, totalMembers - currentVotes),
-        percentage: totalMembers > 0 ? (currentVotes / totalMembers) * 100 : 0
+        percentage: totalMembers > 0 ? (currentVotes / totalMembers) * 100 : 0,
+        votingUsers,
+        pendingUsers,
+        estimatedTimeToComplete
+      },
+      movieInfo: {
+        title: movieInfo.title,
+        genres: movieInfo.genres,
+        year: movieInfo.year,
+        posterPath: movieInfo.posterPath
       }
     };
 
-    console.log(`🗳️ VOTE_UPDATE Event published for room ${roomId}:`, {
+    console.log(`🗳️ Enhanced VOTE_UPDATE Event published for room ${roomId}:`, {
       userId,
       movieId,
-      progress: `${currentVotes}/${totalMembers} (${event.progress.percentage.toFixed(1)}%)`
+      movieTitle: movieInfo.title,
+      progress: `${currentVotes}/${totalMembers} (${event.progress.percentage.toFixed(1)}%)`,
+      pendingUsers: pendingUsers.length,
+      estimatedCompletion: estimatedTimeToComplete ? `${estimatedTimeToComplete}s` : 'unknown'
     });
     
     // Store the vote event for audit/history purposes
     await storeEventForAudit('VOTE_UPDATE', roomId, event);
     
+    // Publish to room subscribers
+    await publishToRoomSubscribers(roomId, event);
+    
   } catch (error) {
-    console.error('❌ Error publishing vote update event:', error);
+    console.error('❌ Error publishing enhanced vote update event:', error);
     // Don't throw - real-time notifications are nice-to-have, not critical
   }
 }
 
 /**
- * Get movie title from cache or TMDB ID
+ * Publish connection status event for monitoring user connections
  */
+export async function publishConnectionStatusEvent(
+  roomId: string,
+  userId: string,
+  status: 'CONNECTED' | 'DISCONNECTED' | 'RECONNECTED',
+  connectionId: string,
+  metadata?: {
+    userAgent?: string;
+    reconnectionAttempts?: number;
+  }
+): Promise<void> {
+  try {
+    const event: ConnectionStatusEvent = {
+      id: `connection_${roomId}_${userId}_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      roomId,
+      eventType: 'CONNECTION_STATUS',
+      userId,
+      status,
+      connectionId,
+      metadata: {
+        userAgent: metadata?.userAgent,
+        lastSeen: new Date().toISOString(),
+        reconnectionAttempts: metadata?.reconnectionAttempts || 0
+      }
+    };
+
+    console.log(`🔌 CONNECTION_STATUS Event published for room ${roomId}:`, {
+      userId,
+      status,
+      connectionId: connectionId.substring(0, 8) + '...',
+      reconnectionAttempts: metadata?.reconnectionAttempts || 0
+    });
+    
+    // Store connection event for monitoring
+    await storeEventForAudit('CONNECTION_STATUS', roomId, event);
+    
+    // Publish to room subscribers
+    await publishToRoomSubscribers(roomId, event);
+    
+  } catch (error) {
+    console.error('❌ Error publishing connection status event:', error);
+  }
+}
+
+/**
+ * Publish room state synchronization event for reconnected users
+ */
+export async function publishRoomStateSyncEvent(
+  roomId: string,
+  targetUserId?: string
+): Promise<void> {
+  try {
+    // Get current room state
+    const roomState = await getCurrentRoomState(roomId);
+    
+    const event: RoomStateEvent = {
+      id: `sync_${roomId}_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      roomId,
+      eventType: 'ROOM_STATE_SYNC',
+      roomState
+    };
+
+    console.log(`🔄 ROOM_STATE_SYNC Event published for room ${roomId}:`, {
+      targetUser: targetUserId || 'all',
+      roomStatus: roomState.status,
+      totalMembers: roomState.totalMembers,
+      activeConnections: roomState.activeConnections,
+      votingProgress: `${roomState.votingProgress.currentVotes}/${roomState.votingProgress.totalRequired}`
+    });
+    
+    // Store sync event for audit
+    await storeEventForAudit('ROOM_STATE_SYNC', roomId, event);
+    
+    // Publish to specific user or all room subscribers
+    if (targetUserId) {
+      await publishToUserInRoom(roomId, targetUserId, event);
+    } else {
+      await publishToRoomSubscribers(roomId, event);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error publishing room state sync event:', error);
+  }
+}
 export async function getMovieTitle(movieId: string): Promise<string> {
   try {
     // Try to get movie title from cache
@@ -166,5 +369,296 @@ async function storeEventForAudit(eventType: string, roomId: string, eventData: 
   } catch (error) {
     console.warn('⚠️ Error storing audit event:', error);
     // Don't throw - audit is optional
+  }
+}
+
+/**
+ * Get detailed participant information including connection status and voting status
+ */
+async function getDetailedParticipantInfo(roomId: string, participantIds: string[]): Promise<ParticipantInfo[]> {
+  try {
+    const participants: ParticipantInfo[] = [];
+    
+    // Get room info to identify host
+    const roomResponse = await docClient.send(new GetCommand({
+      TableName: process.env.ROOMS_TABLE!,
+      Key: { PK: roomId, SK: 'ROOM' },
+    }));
+    
+    const hostId = roomResponse.Item?.hostId;
+    
+    for (const userId of participantIds) {
+      // Get member info
+      const memberResponse = await docClient.send(new GetCommand({
+        TableName: process.env.ROOM_MEMBERS_TABLE!,
+        Key: { roomId, userId },
+      }));
+      
+      const member = memberResponse.Item;
+      
+      participants.push({
+        userId,
+        displayName: member?.displayName || `User ${userId.substring(0, 8)}`,
+        isHost: userId === hostId,
+        connectionStatus: member?.connectionStatus || 'CONNECTED',
+        lastSeen: member?.lastSeen || new Date().toISOString(),
+        hasVoted: true // All participants have voted if match was found
+      });
+    }
+    
+    return participants;
+  } catch (error) {
+    console.warn('⚠️ Error getting detailed participant info:', error);
+    // Return basic participant info as fallback
+    return participantIds.map(userId => ({
+      userId,
+      displayName: `User ${userId.substring(0, 8)}`,
+      isHost: false,
+      connectionStatus: 'CONNECTED' as const,
+      lastSeen: new Date().toISOString(),
+      hasVoted: true
+    }));
+  }
+}
+
+/**
+ * Get enhanced movie information including genres, year, and poster
+ */
+async function getEnhancedMovieInfo(movieId: string): Promise<{
+  title: string;
+  genres: string[];
+  year?: number;
+  rating?: number;
+  posterPath?: string;
+}> {
+  try {
+    // Try to get from movie cache first
+    const cacheResponse = await docClient.send(new QueryCommand({
+      TableName: process.env.MOVIE_CACHE_TABLE!,
+      IndexName: 'MovieIdIndex', // Assuming we have a GSI on movieId
+      KeyConditionExpression: 'movieId = :movieId',
+      ExpressionAttributeValues: {
+        ':movieId': movieId
+      },
+      Limit: 1
+    }));
+    
+    if (cacheResponse.Items && cacheResponse.Items.length > 0) {
+      const cachedMovie = cacheResponse.Items[0];
+      return {
+        title: cachedMovie.title || `Movie ${movieId}`,
+        genres: cachedMovie.genres || [],
+        year: cachedMovie.year,
+        rating: cachedMovie.rating,
+        posterPath: cachedMovie.posterPath
+      };
+    }
+    
+    // Fallback to basic info
+    return {
+      title: `Movie ${movieId}`,
+      genres: [],
+    };
+    
+  } catch (error) {
+    console.warn('⚠️ Error getting enhanced movie info:', error);
+    return {
+      title: `Movie ${movieId}`,
+      genres: [],
+    };
+  }
+}
+
+/**
+ * Get list of users who have voted for a specific movie
+ */
+async function getVotingUsers(roomId: string, movieId: string): Promise<string[]> {
+  try {
+    const roomMovieId = `${roomId}_${movieId}`;
+    
+    const response = await docClient.send(new QueryCommand({
+      TableName: process.env.USER_VOTES_TABLE!,
+      IndexName: 'RoomMovieIndex', // Assuming we have a GSI on roomMovieId
+      KeyConditionExpression: 'roomMovieId = :roomMovieId',
+      ExpressionAttributeValues: {
+        ':roomMovieId': roomMovieId
+      },
+      ProjectionExpression: 'userId'
+    }));
+    
+    return response.Items?.map(item => item.userId) || [];
+  } catch (error) {
+    console.warn('⚠️ Error getting voting users:', error);
+    return [];
+  }
+}
+
+/**
+ * Get all active members of a room
+ */
+async function getAllRoomMembers(roomId: string): Promise<string[]> {
+  try {
+    const response = await docClient.send(new QueryCommand({
+      TableName: process.env.ROOM_MEMBERS_TABLE!,
+      KeyConditionExpression: 'roomId = :roomId',
+      FilterExpression: 'isActive = :active',
+      ExpressionAttributeValues: {
+        ':roomId': roomId,
+        ':active': true
+      },
+      ProjectionExpression: 'userId'
+    }));
+    
+    return response.Items?.map(item => item.userId) || [];
+  } catch (error) {
+    console.warn('⚠️ Error getting all room members:', error);
+    return [];
+  }
+}
+
+/**
+ * Estimate time to complete voting based on historical patterns
+ */
+async function estimateVotingCompletion(roomId: string, currentVotes: number, totalMembers: number): Promise<number | undefined> {
+  try {
+    if (currentVotes >= totalMembers) {
+      return 0; // Already complete
+    }
+    
+    // Simple estimation: assume 30 seconds per remaining vote
+    // In a real system, you might analyze historical voting patterns
+    const remainingVotes = totalMembers - currentVotes;
+    const estimatedSeconds = remainingVotes * 30;
+    
+    return estimatedSeconds;
+  } catch (error) {
+    console.warn('⚠️ Error estimating voting completion:', error);
+    return undefined;
+  }
+}
+
+/**
+ * Get current room state for synchronization
+ */
+async function getCurrentRoomState(roomId: string): Promise<RoomStateEvent['roomState']> {
+  try {
+    // Get room info
+    const roomResponse = await docClient.send(new GetCommand({
+      TableName: process.env.ROOMS_TABLE!,
+      Key: { PK: roomId, SK: 'ROOM' },
+    }));
+    
+    const room = roomResponse.Item;
+    if (!room) {
+      throw new Error(`Room ${roomId} not found`);
+    }
+    
+    // Get member count
+    const membersResponse = await docClient.send(new QueryCommand({
+      TableName: process.env.ROOM_MEMBERS_TABLE!,
+      KeyConditionExpression: 'roomId = :roomId',
+      FilterExpression: 'isActive = :active',
+      ExpressionAttributeValues: {
+        ':roomId': roomId,
+        ':active': true
+      },
+      Select: 'COUNT'
+    }));
+    
+    const totalMembers = membersResponse.Count || 0;
+    
+    // Get current voting progress if room is active
+    let votingProgress = {
+      currentVotes: 0,
+      totalRequired: totalMembers,
+      percentage: 0
+    };
+    
+    if (room.status === 'ACTIVE' && room.currentMovieId) {
+      const votesResponse = await docClient.send(new GetCommand({
+        TableName: process.env.VOTES_TABLE!,
+        Key: { roomId, movieId: room.currentMovieId },
+      }));
+      
+      const currentVotes = votesResponse.Item?.votes || 0;
+      votingProgress = {
+        currentVotes,
+        totalRequired: totalMembers,
+        percentage: totalMembers > 0 ? (currentVotes / totalMembers) * 100 : 0
+      };
+    }
+    
+    // Get current movie info if available
+    let currentMovieInfo;
+    if (room.currentMovieId) {
+      const movieInfo = await getEnhancedMovieInfo(room.currentMovieId);
+      currentMovieInfo = {
+        title: movieInfo.title,
+        genres: movieInfo.genres,
+        posterPath: movieInfo.posterPath
+      };
+    }
+    
+    // Get match result if room is matched
+    let matchResult;
+    if (room.status === 'MATCHED' && room.resultMovieId) {
+      const matchMovieInfo = await getEnhancedMovieInfo(room.resultMovieId);
+      matchResult = {
+        movieId: room.resultMovieId,
+        movieTitle: matchMovieInfo.title,
+        foundAt: room.updatedAt || new Date().toISOString()
+      };
+    }
+    
+    return {
+      status: room.status,
+      currentMovieId: room.currentMovieId,
+      currentMovieInfo,
+      totalMembers,
+      activeConnections: totalMembers, // Simplified - in real system track actual connections
+      votingProgress,
+      matchResult
+    };
+    
+  } catch (error) {
+    console.error('❌ Error getting current room state:', error);
+    throw error;
+  }
+}
+
+/**
+ * Publish event to all subscribers of a room
+ */
+async function publishToRoomSubscribers(roomId: string, event: any): Promise<void> {
+  try {
+    // In a real AppSync implementation, this would use the AppSync API
+    // to publish to the subscription topic for the room
+    console.log(`📡 Publishing to room ${roomId} subscribers:`, {
+      eventType: event.eventType,
+      eventId: event.id
+    });
+    
+    // For now, we'll log the event - in production this would use AppSync's
+    // real-time subscription mechanism
+    
+  } catch (error) {
+    console.error('❌ Error publishing to room subscribers:', error);
+  }
+}
+
+/**
+ * Publish event to a specific user in a room
+ */
+async function publishToUserInRoom(roomId: string, userId: string, event: any): Promise<void> {
+  try {
+    console.log(`📡 Publishing to user ${userId} in room ${roomId}:`, {
+      eventType: event.eventType,
+      eventId: event.id
+    });
+    
+    // In production, this would target the specific user's subscription
+    
+  } catch (error) {
+    console.error('❌ Error publishing to user in room:', error);
   }
 }

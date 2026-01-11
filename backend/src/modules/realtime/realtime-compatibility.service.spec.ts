@@ -1,14 +1,21 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { RealtimeCompatibilityService } from './realtime-compatibility.service';
 import { AppSyncPublisher } from './appsync-publisher.service';
 import * as fc from 'fast-check';
+
+// Unmock the service for this test file
+jest.unmock('./realtime-compatibility.service');
 
 describe('RealtimeCompatibilityService - Property Tests', () => {
   let service: RealtimeCompatibilityService;
   let mockAppSyncPublisher: jest.Mocked<AppSyncPublisher>;
 
   beforeEach(async () => {
-    const mockPublisher = {
+    jest.clearAllMocks();
+    
+    // Create a proper mock object for AppSyncPublisher
+    mockAppSyncPublisher = {
       publishVoteUpdate: jest.fn().mockResolvedValue(undefined),
       publishMatchFound: jest.fn().mockResolvedValue(undefined),
       publishRoomStateChange: jest.fn().mockResolvedValue(undefined),
@@ -22,12 +29,24 @@ describe('RealtimeCompatibilityService - Property Tests', () => {
       publishContentSuggestion: jest.fn().mockResolvedValue(undefined),
       getConnectionStats: jest.fn().mockReturnValue({
         type: 'AppSync',
-        apiUrl: 'test-url',
+        apiUrl: 'mock-url',
         region: 'us-east-1',
         timestamp: new Date().toISOString(),
         uptime: 100,
+        connections: 0,
       }),
       healthCheck: jest.fn().mockResolvedValue(true),
+    } as jest.Mocked<AppSyncPublisher>;
+
+    const mockConfigService = {
+      get: jest.fn((key: string) => {
+        const config = {
+          APPSYNC_API_URL: 'https://mock-appsync-url.com/graphql',
+          APPSYNC_API_KEY: 'mock-api-key',
+          AWS_REGION: 'us-east-1',
+        };
+        return config[key];
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -35,7 +54,11 @@ describe('RealtimeCompatibilityService - Property Tests', () => {
         RealtimeCompatibilityService,
         {
           provide: AppSyncPublisher,
-          useValue: mockPublisher,
+          useValue: mockAppSyncPublisher,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
         },
       ],
     }).compile();
@@ -43,11 +66,26 @@ describe('RealtimeCompatibilityService - Property Tests', () => {
     service = module.get<RealtimeCompatibilityService>(
       RealtimeCompatibilityService,
     );
-    mockAppSyncPublisher = module.get(AppSyncPublisher);
   });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+    expect(mockAppSyncPublisher).toBeDefined();
+  });
+
+  it('should call publishVoteUpdate when notifyVote is called', async () => {
+    const roomId = 'test-room';
+    const voteData = {
+      userId: 'test-user',
+      mediaId: 'test-media',
+      voteType: 'like' as const,
+      progress: { totalVotes: 1, requiredVotes: 1, percentage: 100 },
+    };
+    
+    await service.notifyVote(roomId, voteData);
+
+    expect(mockAppSyncPublisher.publishVoteUpdate).toHaveBeenCalledWith(roomId, voteData);
+    expect(mockAppSyncPublisher.publishVoteUpdate).toHaveBeenCalledTimes(1);
   });
 
   /**
@@ -78,6 +116,12 @@ describe('RealtimeCompatibilityService - Property Tests', () => {
 
             // Call the compatibility service method
             await service.notifyVote(roomId, voteData);
+
+            // Debug: Check if the service is defined and the method exists
+            expect(service).toBeDefined();
+            expect(service.notifyVote).toBeDefined();
+            expect(mockAppSyncPublisher).toBeDefined();
+            expect(mockAppSyncPublisher.publishVoteUpdate).toBeDefined();
 
             // Verify that the AppSync publisher was called with the same data
             expect(mockAppSyncPublisher.publishVoteUpdate).toHaveBeenCalledWith(

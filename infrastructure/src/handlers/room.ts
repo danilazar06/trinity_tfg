@@ -3,6 +3,8 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, GetCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 import { logBusinessMetric, logError, PerformanceTimer } from '../utils/metrics';
+import { deepLinkService } from '../services/deepLinkService';
+import { movieCacheService } from '../services/movieCacheService';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -15,6 +17,8 @@ interface Room {
   resultMovieId?: string;
   hostId: string;
   inviteCode?: string;
+  inviteUrl?: string; // Add invite URL field
+  genrePreferences?: string[]; // Add genre preferences field
   isActive: boolean;
   isPrivate: boolean;
   memberCount: number;
@@ -29,6 +33,7 @@ interface CreateRoomInput {
   description?: string;
   isPrivate?: boolean;
   maxMembers?: number;
+  genrePreferences?: string[]; // Add genre preferences field
 }
 
 interface CreateRoomInputDebug {
@@ -70,6 +75,9 @@ export const handler: AppSyncResolverHandler<any, any> = async (event: AppSyncRe
       case 'joinRoom':
         return await joinRoom(userId, event.arguments.roomId);
       
+      case 'joinRoomByInvite':
+        return await joinRoomByInvite(userId, event.arguments.inviteCode);
+      
       case 'getMyHistory':
         return await getMyHistory(userId);
       
@@ -100,8 +108,24 @@ async function createRoom(hostId: string, input: CreateRoomInput): Promise<Room>
   console.log('🔍 createRoom - input:', JSON.stringify(input, null, 2));
 
   try {
-    // Generar código de invitación único
-    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    // Generate unique invite link using DeepLinkService
+    const inviteLink = await deepLinkService.generateInviteLink(roomId, hostId, {
+      expiryHours: 168, // 7 days
+      maxUsage: undefined, // No usage limit
+    });
+
+    // Validate and normalize genre preferences
+    let validatedGenres: string[] = [];
+    if (input.genrePreferences && input.genrePreferences.length > 0) {
+      const genreValidation = movieCacheService.validateGenres(input.genrePreferences);
+      validatedGenres = genreValidation.valid;
+      
+      if (genreValidation.invalid.length > 0) {
+        console.warn(`⚠️ Invalid genres ignored: ${genreValidation.invalid.join(', ')}`);
+      }
+      
+      console.log(`🎭 Validated genres for room ${roomId}: ${validatedGenres.join(', ')}`);
+    }
 
     // Crear sala en RoomsTable
     const room: Room = {
@@ -110,7 +134,9 @@ async function createRoom(hostId: string, input: CreateRoomInput): Promise<Room>
       description: input.description,
       status: 'WAITING',
       hostId,
-      inviteCode,
+      inviteCode: inviteLink.code,
+      inviteUrl: inviteLink.url,
+      genrePreferences: validatedGenres.length > 0 ? validatedGenres : undefined,
       isActive: true,
       isPrivate: input.isPrivate || false,
       memberCount: 1, // El host cuenta como miembro
@@ -144,19 +170,77 @@ async function createRoom(hostId: string, input: CreateRoomInput): Promise<Room>
       Item: hostMember,
     }));
 
+    // Trigger movie pre-caching in background (don't wait for completion)
+    console.log(`🎬 Triggering movie pre-cache for room ${roomId}`);
+    movieCacheService.preCacheMovies(roomId, validatedGenres.length > 0 ? validatedGenres : undefined)
+      .then((cachedMovies) => {
+        console.log(`✅ Movie pre-cache completed for room ${roomId}: ${cachedMovies.length} movies cached`);
+        
+        // Log additional business metric for successful caching
+        logBusinessMetric('MOVIES_CACHED', roomId, hostId, {
+          movieCount: cachedMovies.length,
+          genres: validatedGenres,
+          cacheTriggeredBy: 'room_creation'
+        });
+      })
+      .catch((error) => {
+        console.error(`❌ Movie pre-cache failed for room ${roomId}:`, error);
+        // Don't fail room creation if caching fails - it's a performance optimization
+      });
+
     // Log business metric
     logBusinessMetric('ROOM_CREATED', roomId, hostId, {
       roomStatus: 'WAITING',
       roomName: input.name,
-      isPrivate: input.isPrivate || false
+      isPrivate: input.isPrivate || false,
+      genrePreferences: validatedGenres,
+      genreCount: validatedGenres.length
     });
 
     console.log(`✅ Sala creada: ${roomId} (${input.name}) por ${hostId}`);
-    timer.finish(true, undefined, { roomId, hostId, roomName: input.name });
+    timer.finish(true, undefined, { roomId, hostId, roomName: input.name, genreCount: validatedGenres.length });
     return room;
     
   } catch (error) {
     logError('CreateRoom', error as Error, { hostId, roomId });
+    timer.finish(false, (error as Error).name);
+    throw error;
+  }
+}
+
+/**
+ * Unirse a una sala usando código de invitación
+ */
+async function joinRoomByInvite(userId: string, inviteCode: string): Promise<Room> {
+  const timer = new PerformanceTimer('JoinRoomByInvite');
+  
+  try {
+    console.log(`🔗 User ${userId} attempting to join room with invite code: ${inviteCode}`);
+    
+    // Validate invite code and get room info
+    const roomInfo = await deepLinkService.validateInviteCode(inviteCode);
+    if (!roomInfo) {
+      throw new Error('Invalid or expired invite code');
+    }
+    
+    console.log(`✅ Invite code validated: ${inviteCode} -> Room: ${roomInfo.roomId}`);
+    
+    // Join the room using the roomId
+    const room = await joinRoom(userId, roomInfo.roomId);
+    
+    // Log business metric for invite-based join
+    logBusinessMetric('ROOM_JOINED_BY_INVITE', roomInfo.roomId, userId, {
+      inviteCode,
+      roomName: roomInfo.name,
+      hostId: roomInfo.hostId,
+    });
+    
+    console.log(`✅ User ${userId} joined room ${roomInfo.roomId} via invite code ${inviteCode}`);
+    timer.finish(true, undefined, { roomId: roomInfo.roomId, inviteCode });
+    return room;
+    
+  } catch (error) {
+    logError('JoinRoomByInvite', error as Error, { userId, inviteCode });
     timer.finish(false, (error as Error).name);
     throw error;
   }
@@ -204,7 +288,7 @@ async function joinRoom(userId: string, roomId: string): Promise<Room> {
       }
     }
 
-    if (!roomResponse!.Item) {
+    if (!roomResponse || !roomResponse.Item) {
       throw new Error('Sala no encontrada');
     }
 
@@ -303,6 +387,8 @@ async function joinRoom(userId: string, roomId: string): Promise<Room> {
       resultMovieId: room.resultMovieId,
       hostId: room.hostId,
       inviteCode: room.inviteCode,
+      inviteUrl: room.inviteUrl,
+      genrePreferences: room.genrePreferences,
       isActive: room.isActive,
       isPrivate: room.isPrivate,
       memberCount: room.memberCount,
@@ -389,6 +475,8 @@ async function getMyHistory(userId: string): Promise<Room[]> {
           resultMovieId: room.resultMovieId,
           hostId: room.hostId,
           inviteCode: room.inviteCode,
+          inviteUrl: room.inviteUrl,
+          genrePreferences: room.genrePreferences,
           isActive: room.isActive !== false, // Default to true if not set
           isPrivate: room.isPrivate || false,
           memberCount: room.memberCount || 1,
@@ -420,8 +508,11 @@ async function createRoomDebug(hostId: string, input: CreateRoomInputDebug): Pro
   console.log('🔍 createRoomDebug - input:', JSON.stringify(input, null, 2));
 
   try {
-    // Generar código de invitación único
-    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    // Generate unique invite link using DeepLinkService
+    const inviteLink = await deepLinkService.generateInviteLink(roomId, hostId, {
+      expiryHours: 168, // 7 days
+      maxUsage: undefined, // No usage limit
+    });
 
     // Crear sala en RoomsTable con valores por defecto
     const room: Room = {
@@ -430,7 +521,8 @@ async function createRoomDebug(hostId: string, input: CreateRoomInputDebug): Pro
       description: 'Sala de debug',
       status: 'WAITING',
       hostId,
-      inviteCode,
+      inviteCode: inviteLink.code,
+      inviteUrl: inviteLink.url,
       isActive: true,
       isPrivate: false,
       memberCount: 1, // El host cuenta como miembro
@@ -495,8 +587,11 @@ async function createRoomSimple(hostId: string, name: string): Promise<Room> {
   console.log('🔍 createRoomSimple - name:', name);
 
   try {
-    // Generar código de invitación único
-    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    // Generate unique invite link using DeepLinkService
+    const inviteLink = await deepLinkService.generateInviteLink(roomId, hostId, {
+      expiryHours: 168, // 7 days
+      maxUsage: undefined, // No usage limit
+    });
 
     // Crear sala en RoomsTable con valores por defecto
     const room: Room = {
@@ -505,7 +600,8 @@ async function createRoomSimple(hostId: string, name: string): Promise<Room> {
       description: 'Sala simple',
       status: 'WAITING',
       hostId,
-      inviteCode,
+      inviteCode: inviteLink.code,
+      inviteUrl: inviteLink.url,
       isActive: true,
       isPrivate: false,
       memberCount: 1, // El host cuenta como miembro
@@ -608,7 +704,7 @@ async function getRoom(userId: string, roomId: string): Promise<Room | null> {
       }
     }
 
-    if (!roomResponse!.Item) {
+    if (!roomResponse || !roomResponse.Item) {
       throw new Error('Sala no encontrada');
     }
 
@@ -622,6 +718,8 @@ async function getRoom(userId: string, roomId: string): Promise<Room | null> {
       resultMovieId: room.resultMovieId,
       hostId: room.hostId,
       inviteCode: room.inviteCode,
+      inviteUrl: room.inviteUrl,
+      genrePreferences: room.genrePreferences,
       isActive: room.isActive !== false,
       isPrivate: room.isPrivate || false,
       memberCount: room.memberCount || 1,

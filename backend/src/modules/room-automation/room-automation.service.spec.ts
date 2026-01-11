@@ -803,7 +803,7 @@ describe('RoomAutomationService', () => {
           eventType: 'automation_feedback',
           userId: 'user1',
           roomId: 'room1',
-          metadata: {
+          properties: {
             automationType: 'general',
             rating: 5,
             comment: 'Great!',

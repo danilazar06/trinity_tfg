@@ -154,8 +154,11 @@ async function processVote(userId: string, roomId: string, movieId: string, vote
       // Obtener título de la película
       const movieTitle = await getMovieTitle(movieId);
       
-      // Publicar evento de match encontrado en tiempo real
-      await publishMatchFoundEvent(roomId, movieId, movieTitle, participants);
+      // Get voting start time for duration calculation
+      const votingStartTime = await getVotingStartTime(roomId, movieId);
+      
+      // Publicar evento de match encontrado en tiempo real con información detallada
+      await publishMatchFoundEvent(roomId, movieId, movieTitle, participants, votingStartTime);
       
       // Log business metric for match
       logBusinessMetric('MATCH_FOUND', roomId, userId, {
@@ -566,5 +569,25 @@ async function getRoomParticipants(roomId: string): Promise<string[]> {
   } catch (error) {
     console.warn('⚠️ Error obteniendo participantes:', error);
     return [];
+  }
+}
+/**
+ * Get voting start time for duration calculation
+ */
+async function getVotingStartTime(roomId: string, movieId: string): Promise<Date | undefined> {
+  try {
+    const response = await docClient.send(new GetCommand({
+      TableName: process.env.VOTES_TABLE!,
+      Key: { roomId, movieId },
+    }));
+    
+    if (response.Item?.createdAt) {
+      return new Date(response.Item.createdAt);
+    }
+    
+    return undefined;
+  } catch (error) {
+    console.warn('⚠️ Error getting voting start time:', error);
+    return undefined;
   }
 }

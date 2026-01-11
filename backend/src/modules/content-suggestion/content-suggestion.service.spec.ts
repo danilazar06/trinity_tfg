@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ContentSuggestionService } from './content-suggestion.service';
 import { DynamoDBService } from '../../infrastructure/database/dynamodb.service';
-import { RealtimeService } from '../realtime/realtime.service';
+import { RealtimeCompatibilityService } from '../realtime/realtime-compatibility.service';
 import { PermissionService } from '../permission/permission.service';
 import {
   ContentSuggestion,
@@ -16,7 +16,7 @@ import * as fc from 'fast-check';
 describe('ContentSuggestionService', () => {
   let service: ContentSuggestionService;
   let dynamoDBService: jest.Mocked<DynamoDBService>;
-  let realtimeService: jest.Mocked<RealtimeService>;
+  let realtimeService: jest.Mocked<RealtimeCompatibilityService>;
   let permissionService: jest.Mocked<PermissionService>;
 
   beforeEach(async () => {
@@ -40,14 +40,14 @@ describe('ContentSuggestionService', () => {
       providers: [
         ContentSuggestionService,
         { provide: DynamoDBService, useValue: mockDynamoDBService },
-        { provide: RealtimeService, useValue: mockRealtimeService },
+        { provide: RealtimeCompatibilityService, useValue: mockRealtimeService },
         { provide: PermissionService, useValue: mockPermissionService },
       ],
     }).compile();
 
     service = module.get<ContentSuggestionService>(ContentSuggestionService);
     dynamoDBService = module.get(DynamoDBService);
-    realtimeService = module.get(RealtimeService);
+    realtimeService = module.get(RealtimeCompatibilityService);
     permissionService = module.get(PermissionService);
   });
 

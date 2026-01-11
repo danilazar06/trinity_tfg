@@ -6,6 +6,7 @@ input CreateRoomInput {
   description: String
   isPrivate: Boolean
   maxMembers: Int
+  genrePreferences: [String!]
 }
 
 input CreateRoomInputDebug {
@@ -31,6 +32,8 @@ type Room {
   resultMovieId: String
   hostId: String!
   inviteCode: String
+  inviteUrl: String
+  genrePreferences: [String!]
   isActive: Boolean!
   isPrivate: Boolean!
   memberCount: Int!
@@ -89,6 +92,84 @@ type VoteEvent implements BaseEvent {
   mediaId: ID!
   voteType: VoteType!
   progress: VoteProgress!
+}
+
+# Enhanced Real-time Event Types
+type VoteUpdateEvent implements BaseEvent {
+  id: ID!
+  timestamp: AWSDateTime!
+  roomId: ID!
+  eventType: String!
+  progress: VoteProgress!
+  movieInfo: EnhancedMovieInfo!
+  votingDuration: Int              # Seconds since voting started on this movie
+}
+
+type MatchFoundEvent implements BaseEvent {
+  id: ID!
+  timestamp: AWSDateTime!
+  roomId: ID!
+  eventType: String!
+  matchId: ID!
+  movieInfo: EnhancedMovieInfo!
+  participants: [ParticipantInfo!]!
+  votingDuration: Int              # Total voting duration from start to match
+  consensusType: ConsensusType!
+}
+
+type ConnectionStatusEvent implements BaseEvent {
+  id: ID!
+  timestamp: AWSDateTime!
+  roomId: ID!
+  eventType: String!
+  userId: ID!
+  connectionStatus: ConnectionStatus!
+  reconnectionAttempts: Int
+  lastSeenAt: AWSDateTime
+  userAgent: String
+}
+
+type RoomStateEvent implements BaseEvent {
+  id: ID!
+  timestamp: AWSDateTime!
+  roomId: ID!
+  eventType: String!
+  roomState: RoomState!
+  syncReason: String!              # Why the sync was triggered
+}
+
+# Supporting Types for Enhanced Events
+type ParticipantInfo {
+  userId: ID!
+  displayName: String!
+  isHost: Boolean!
+  connectionStatus: ConnectionStatus!
+  votingStatus: VotingStatus!
+  lastActivity: AWSDateTime
+}
+
+type RoomState {
+  currentMovieId: String
+  currentMovieInfo: EnhancedMovieInfo
+  progress: VoteProgress!
+  participants: [ParticipantInfo!]!
+  roomStatus: String!
+  matchFound: Boolean!
+}
+
+# Enhanced Enums
+enum ConnectionStatus {
+  CONNECTED
+  DISCONNECTED
+  RECONNECTING
+  RECONNECTED
+}
+
+enum VotingStatus {
+  PENDING
+  VOTED_LIKE
+  VOTED_DISLIKE
+  VOTED_SKIP
 }
 
 type MatchEvent implements BaseEvent {
@@ -223,6 +304,21 @@ type VoteProgress {
   skipsCount: Int!
   remainingUsers: Int!
   percentage: Float!
+  votingUsers: [String!]!           # New: List of users who have voted
+  pendingUsers: [String!]!          # New: List of users who haven't voted yet
+  estimatedTimeToCompletion: Int    # New: Estimated seconds to completion
+  currentMovieInfo: EnhancedMovieInfo # New: Enhanced movie information
+}
+
+type EnhancedMovieInfo {
+  id: ID!
+  title: String!
+  poster: String
+  overview: String
+  genres: [String!]!               # New: Genre names for current movie
+  year: Int                        # New: Release year
+  rating: Float                    # New: TMDB rating
+  runtime: Int
 }
 
 type MemberData {
@@ -313,6 +409,10 @@ enum NotificationType {
 type TriniResponse {
   chatResponse: String!
   recommendedGenres: [String!]!
+  confidence: Float                # New: Confidence score (0.0 to 1.0)
+  reasoning: String               # New: Explanation of the recommendation
+  genreAlignment: Float           # New: How well response aligns with room genres
+  fallbackUsed: Boolean!          # New: Whether fallback was used due to AI failure
 }
 
 type Query {
@@ -328,7 +428,8 @@ type Mutation {
   createRoom(input: CreateRoomInput!): Room   # DataSource: RoomHandler
   createRoomDebug(input: CreateRoomInputDebug!): Room   # DataSource: RoomHandler
   createRoomSimple(name: String!): Room   # DataSource: RoomHandler
-  joinRoom(input: JoinRoomInput!): Room       # DataSource: RoomHandler
+  joinRoom(roomId: ID!): Room                 # DataSource: RoomHandler
+  joinRoomByInvite(inviteCode: String!): Room # DataSource: RoomHandler
   vote(input: VoteInput!): Room               # DataSource: VoteHandler
   
   # Real-time event publishing mutations
@@ -343,6 +444,12 @@ type Mutation {
   publishSettingsEvent(roomId: ID!, settingsData: AWSJSON!): SettingsEvent
   publishChatEvent(roomId: ID!, chatData: AWSJSON!): ChatEvent
   publishSuggestionEvent(roomId: ID!, suggestionData: AWSJSON!): SuggestionEvent
+  
+  # Enhanced real-time event mutations
+  publishVoteUpdateEvent(roomId: ID!, voteUpdateData: AWSJSON!): VoteUpdateEvent
+  publishMatchFoundEvent(roomId: ID!, matchFoundData: AWSJSON!): MatchFoundEvent
+  publishConnectionStatusEvent(roomId: ID!, connectionData: AWSJSON!): ConnectionStatusEvent
+  publishRoomStateEvent(roomId: ID!, roomStateData: AWSJSON!): RoomStateEvent
 }
 
 type Subscription {
@@ -358,6 +465,19 @@ type Subscription {
   
   onMemberUpdate(roomId: ID!): MemberEvent
     @aws_subscribe(mutations: ["publishMemberEvent"])
+  
+  # Enhanced real-time subscriptions
+  onVoteUpdateEnhanced(roomId: ID!): VoteUpdateEvent
+    @aws_subscribe(mutations: ["publishVoteUpdateEvent"])
+  
+  onMatchFoundEnhanced(roomId: ID!): MatchFoundEvent
+    @aws_subscribe(mutations: ["publishMatchFoundEvent"])
+  
+  onConnectionStatusChange(roomId: ID!): ConnectionStatusEvent
+    @aws_subscribe(mutations: ["publishConnectionStatusEvent"])
+  
+  onRoomStateSync(roomId: ID!): RoomStateEvent
+    @aws_subscribe(mutations: ["publishRoomStateEvent"])
   
   # Advanced features subscriptions
   onRoleAssignment(roomId: ID!): RoleEvent
@@ -381,10 +501,6 @@ type Subscription {
   
   onContentSuggestion(roomId: ID!): SuggestionEvent
     @aws_subscribe(mutations: ["publishSuggestionEvent"])
-  
-  # User-specific subscriptions - REMOVED: publishUserNotification mutation doesn't exist
-  # onUserNotification(userId: ID!): UserNotification
-  #   @aws_subscribe(mutations: ["publishUserNotification"])
   
   # Legacy subscription for backward compatibility
   onRoomUpdated(roomId: ID!): Room
