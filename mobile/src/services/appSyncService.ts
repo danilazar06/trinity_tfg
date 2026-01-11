@@ -334,14 +334,14 @@ class AppSyncService {
   }
 
   /**
-   * Create a new room with genre preferences and invite URL support
+   * Create a new room (temporarily without genrePreferences and inviteUrl)
    */
   async createRoom(input: {
     name: string;
     description?: string;
     isPrivate?: boolean;
     maxMembers?: number;
-    genrePreferences?: string[];
+    genrePreferences?: string[]; // Keep interface for future compatibility but don't send to API
   }): Promise<{ createRoom: any }> {
     console.log('🔍 AppSyncService.createRoom - Input received:', JSON.stringify(input, null, 2));
     
@@ -354,8 +354,6 @@ class AppSyncService {
           status
           hostId
           inviteCode
-          inviteUrl
-          genrePreferences
           isActive
           isPrivate
           memberCount
@@ -367,12 +365,15 @@ class AppSyncService {
     `;
 
     console.log('🔍 AppSyncService.createRoom - Mutation:', mutation);
-    console.log('🔍 AppSyncService.createRoom - Variables:', JSON.stringify({ input }, null, 2));
+    
+    // Remove genrePreferences from input to avoid schema mismatch
+    const { genrePreferences, ...sanitizedInput } = input;
+    console.log('🔍 AppSyncService.createRoom - Sanitized Variables:', JSON.stringify({ input: sanitizedInput }, null, 2));
 
     try {
       const result = await this.graphqlRequest<{ createRoom: any }>({
         query: mutation,
-        variables: { input }
+        variables: { input: sanitizedInput }
       });
 
       console.log('🔍 AppSyncService.createRoom - Result:', JSON.stringify(result, null, 2));
@@ -380,7 +381,7 @@ class AppSyncService {
     } catch (error: any) {
       // Enhanced error handling with user-friendly messages
       loggingService.error('AppSyncService', 'Room creation failed', {
-        input,
+        input: sanitizedInput,
         error: error.message
       });
       
@@ -487,8 +488,6 @@ class AppSyncService {
           status
           hostId
           inviteCode
-          inviteUrl
-          genrePreferences
           isActive
           isPrivate
           memberCount
@@ -540,8 +539,6 @@ class AppSyncService {
           resultMovieId
           hostId
           inviteCode
-          inviteUrl
-          genrePreferences
           isActive
           isPrivate
           memberCount
@@ -588,8 +585,6 @@ class AppSyncService {
           resultMovieId
           hostId
           inviteCode
-          inviteUrl
-          genrePreferences
           isActive
           isPrivate
           memberCount
