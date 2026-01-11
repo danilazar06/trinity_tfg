@@ -22,13 +22,16 @@ build/
 aws-credentials.json
 credentials.json
 
-# API Keys and secrets
+# API Keys and secrets (but allow service files)
 *api-key*
 *secret*
 *token*
 *credentials*
 !*example*
 !*template*
+!*Service.ts
+!*service.ts
+!secureTokenStorage.ts
 
 # IDE
 .vscode/

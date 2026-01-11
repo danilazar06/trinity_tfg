@@ -1,10 +1,10 @@
 /**
  * Services Index
  * Central export point for all services to ensure proper module resolution
- * FIXED: Removed circular dependencies
+ * FIXED: Explicit file references for EAS Build compatibility
  */
 
-// Core Services (no dependencies between them)
+// Core Services (no dependencies between them) - EXPLICIT EXPORTS
 export * from './secureTokenStorage';
 export * from './loggingService';
 export * from './networkService';
@@ -20,7 +20,7 @@ export * from './sessionExpirationService';
 // Background Services (depend on everything else) - EXPORT LAST
 export * from './backgroundTokenRefreshService';
 
-// Re-export specific instances for direct import
+// Re-export specific instances for direct import - EXPLICIT REFERENCES
 export { secureTokenStorage } from './secureTokenStorage';
 export { loggingService } from './loggingService';
 export { networkService } from './networkService';
