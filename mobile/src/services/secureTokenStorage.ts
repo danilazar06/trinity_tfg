@@ -38,6 +38,14 @@ class SecureTokenStorage {
   async storeTokens(tokens: CognitoTokens): Promise<void> {
     try {
       console.log('🔐 SecureTokenStorage: Storing tokens securely');
+      console.log('🔍 SecureTokenStorage: Input tokens debug:', {
+        hasAccessToken: !!tokens?.accessToken,
+        hasIdToken: !!tokens?.idToken,
+        hasRefreshToken: !!tokens?.refreshToken,
+        expiresAtValue: tokens?.expiresAt,
+        expiresAtType: typeof tokens?.expiresAt,
+        isExpiresAtValid: !!(tokens?.expiresAt && typeof tokens?.expiresAt === 'number' && !isNaN(tokens?.expiresAt))
+      });
 
       // Validate tokens before storing
       if (!tokens) {
@@ -82,17 +90,23 @@ class SecureTokenStorage {
         storePromises.push(SecureStore.deleteItemAsync(this.STORAGE_KEYS.REFRESH_TOKEN).catch(() => {}));
       }
 
-      // Store expiry time if it exists and is valid
-      if (tokens.expiresAt && typeof tokens.expiresAt === 'number' && !isNaN(tokens.expiresAt)) {
-        storePromises.push(
-          SecureStore.setItemAsync(this.STORAGE_KEYS.TOKEN_EXPIRY, tokens.expiresAt.toString(), this.STORAGE_OPTIONS)
-        );
-        console.log('✅ SecureTokenStorage: Token expiry will be stored');
-      } else {
-        console.warn('⚠️ SecureTokenStorage: Skipping undefined/invalid token expiry');
-        // Remove existing expiry if it's invalid
-        storePromises.push(SecureStore.deleteItemAsync(this.STORAGE_KEYS.TOKEN_EXPIRY).catch(() => {}));
+      // Store expiry time with fallback calculation
+      let expiresAt = tokens.expiresAt;
+      
+      // If expiresAt is missing or invalid, calculate a reasonable default (1 hour from now)
+      if (!expiresAt || typeof expiresAt !== 'number' || isNaN(expiresAt)) {
+        console.warn('⚠️ SecureTokenStorage: Invalid or missing expiresAt, calculating fallback');
+        console.log('🔍 SecureTokenStorage: Original expiresAt value:', expiresAt);
+        
+        // Default to 1 hour from now (3600 seconds)
+        expiresAt = Math.floor(Date.now() / 1000) + 3600;
+        console.log('✅ SecureTokenStorage: Using fallback expiresAt:', expiresAt);
       }
+      
+      storePromises.push(
+        SecureStore.setItemAsync(this.STORAGE_KEYS.TOKEN_EXPIRY, expiresAt.toString(), this.STORAGE_OPTIONS)
+      );
+      console.log('✅ SecureTokenStorage: Token expiry will be stored:', expiresAt);
 
       // Execute all storage operations
       await Promise.all(storePromises);
@@ -105,7 +119,7 @@ class SecureTokenStorage {
   }
 
   /**
-   * Retrieve authentication tokens from secure storage
+   * Retrieve authentication tokens from secure storage with permissive validation
    */
   async retrieveTokens(): Promise<CognitoTokens | null> {
     try {
@@ -126,32 +140,54 @@ class SecureTokenStorage {
         hasExpiry: !!expiryString
       });
 
-      // Check if all required tokens exist with specific missing token logging
-      const missingTokens: string[] = [];
-      if (!accessToken) missingTokens.push('accessToken');
-      if (!idToken) missingTokens.push('idToken');
-      if (!refreshToken) missingTokens.push('refreshToken');
-      if (!expiryString) missingTokens.push('expiryString');
+      // PERMISSIVE VALIDATION: Only require the essential tokens (accessToken and idToken)
+      const missingEssentialTokens: string[] = [];
+      if (!accessToken) missingEssentialTokens.push('accessToken');
+      if (!idToken) missingEssentialTokens.push('idToken');
 
-      if (missingTokens.length > 0) {
-        console.log(`⚠️ SecureTokenStorage: Missing tokens: ${missingTokens.join(', ')}`);
+      if (missingEssentialTokens.length > 0) {
+        console.log(`❌ SecureTokenStorage: Missing essential tokens: ${missingEssentialTokens.join(', ')}`);
         return null;
       }
 
-      const expiresAt = parseInt(expiryString, 10);
-      if (isNaN(expiresAt)) {
-        console.warn('⚠️ SecureTokenStorage: Invalid expiry time format');
-        return null;
+      // Log optional missing tokens but don't fail
+      const missingOptionalTokens: string[] = [];
+      if (!refreshToken) missingOptionalTokens.push('refreshToken');
+      if (!expiryString) missingOptionalTokens.push('expiryString');
+
+      if (missingOptionalTokens.length > 0) {
+        console.warn(`⚠️ SecureTokenStorage: Missing optional tokens (will use defaults): ${missingOptionalTokens.join(', ')}`);
+      }
+
+      // Handle expiry with fallback
+      let expiresAt: number;
+      if (expiryString) {
+        expiresAt = parseInt(expiryString, 10);
+        if (isNaN(expiresAt)) {
+          console.warn('⚠️ SecureTokenStorage: Invalid expiry time format, using fallback');
+          expiresAt = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+        }
+      } else {
+        console.warn('⚠️ SecureTokenStorage: No expiry time found, using fallback');
+        expiresAt = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
       }
 
       const tokens: CognitoTokens = {
         accessToken,
         idToken,
-        refreshToken,
+        refreshToken: refreshToken || '', // Provide empty string if missing
         expiresAt,
       };
 
-      console.log('✅ SecureTokenStorage: Tokens retrieved successfully');
+      console.log('✅ SecureTokenStorage: Tokens retrieved successfully (permissive mode)');
+      console.log('🔍 SecureTokenStorage: Final token summary:', {
+        hasAccessToken: !!tokens.accessToken,
+        hasIdToken: !!tokens.idToken,
+        hasRefreshToken: !!tokens.refreshToken,
+        expiresAt: tokens.expiresAt,
+        expiresAtDate: new Date(tokens.expiresAt * 1000).toISOString()
+      });
+      
       return tokens;
 
     } catch (error) {
