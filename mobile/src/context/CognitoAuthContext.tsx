@@ -5,6 +5,7 @@
  */
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import { DeviceEventEmitter } from 'react-native';
 import { 
   cognitoAuthService, 
   CognitoUser, 
@@ -342,17 +343,16 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Broadcast authentication state changes to all components
   const broadcastAuthState = (isAuthenticated: boolean, user: CognitoUser | null) => {
     try {
-      // Create custom event for auth state changes
-      const authEvent = new CustomEvent('authStateChange', {
-        detail: { isAuthenticated, user }
-      });
+      // Use React Native's DeviceEventEmitter instead of CustomEvent
+      const authStateData = { isAuthenticated, user };
       
-      // In React Native, we can use a simple event emitter pattern
-      // This will be picked up by components that need to react to auth changes
       console.log('📡 Broadcasting auth state:', { isAuthenticated, hasUser: !!user });
       
+      // Emit event using React Native's DeviceEventEmitter
+      DeviceEventEmitter.emit('authStateChange', authStateData);
+      
       // Store current auth state for components that need immediate access
-      (global as any).currentAuthState = { isAuthenticated, user };
+      (global as any).currentAuthState = authStateData;
       
     } catch (error) {
       console.warn('⚠️ Failed to broadcast auth state:', error);

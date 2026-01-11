@@ -130,30 +130,81 @@ export const useAppSync = () => {
   console.log('📍 Region:', AWS_CONFIG.region);
   console.log('🔗 GraphQL Endpoint:', AWS_CONFIG.graphqlEndpoint);
   
+  // Defensive check: ensure appSyncService exists
+  if (!appSyncService) {
+    console.error('❌ AppSync service is not initialized');
+    
+    // Return dummy functions that throw meaningful errors
+    const createUnavailableFunction = (operationName: string) => {
+      return () => {
+        throw new Error(`AppSync service is not available. Cannot perform ${operationName}. Please check your authentication status.`);
+      };
+    };
+    
+    return {
+      // Room operations - dummy functions
+      createRoom: createUnavailableFunction('createRoom'),
+      createRoomDebug: createUnavailableFunction('createRoomDebug'),
+      createRoomSimple: createUnavailableFunction('createRoomSimple'),
+      joinRoom: createUnavailableFunction('joinRoom'),
+      getRoom: createUnavailableFunction('getRoom'),
+      getUserRooms: createUnavailableFunction('getUserRooms'),
+      
+      // Voting operations - dummy functions
+      vote: createUnavailableFunction('vote'),
+      
+      // Movie operations - dummy functions
+      getMovies: createUnavailableFunction('getMovies'),
+      getMovieDetails: createUnavailableFunction('getMovieDetails'),
+      
+      // AI operations - dummy functions
+      getAIRecommendations: createUnavailableFunction('getAIRecommendations'),
+      
+      // Real-time subscriptions - dummy functions
+      subscribeToVoteUpdates: createUnavailableFunction('subscribeToVoteUpdates'),
+      subscribeToMatchFound: createUnavailableFunction('subscribeToMatchFound'),
+      
+      // Health check - dummy function
+      healthCheck: createUnavailableFunction('healthCheck'),
+    };
+  }
+  
+  // Defensive binding: check each method exists before binding
+  const safeBindMethod = (methodName: string) => {
+    if (appSyncService && typeof appSyncService[methodName] === 'function') {
+      return appSyncService[methodName].bind(appSyncService);
+    } else {
+      console.warn(`⚠️ AppSync method ${methodName} is not available`);
+      return () => {
+        throw new Error(`AppSync method ${methodName} is not available. Service may not be fully initialized.`);
+      };
+    }
+  };
+  
   return {
     // Room operations via AppSync
-    createRoom: appSyncService.createRoom.bind(appSyncService),
-    createRoomDebug: appSyncService.createRoomDebug.bind(appSyncService),
-    createRoomSimple: appSyncService.createRoomSimple.bind(appSyncService),
-    joinRoom: appSyncService.joinRoom.bind(appSyncService),
-    getRoom: appSyncService.getRoom.bind(appSyncService),
-    getUserRooms: appSyncService.getUserRooms.bind(appSyncService),
+    createRoom: safeBindMethod('createRoom'),
+    createRoomDebug: safeBindMethod('createRoomDebug'),
+    createRoomSimple: safeBindMethod('createRoomSimple'),
+    joinRoom: safeBindMethod('joinRoom'),
+    getRoom: safeBindMethod('getRoom'),
+    getUserRooms: safeBindMethod('getUserRooms'),
     
     // Voting operations via AppSync
-    vote: appSyncService.vote.bind(appSyncService),
+    vote: safeBindMethod('vote'),
     
     // Movie operations via AppSync
-    getMovies: appSyncService.getMovies.bind(appSyncService),
-    getMovieDetails: appSyncService.getMovieDetails.bind(appSyncService),
+    getMovies: safeBindMethod('getMovies'),
+    getMovieDetails: safeBindMethod('getMovieDetails'),
     
     // AI operations via AppSync
-    getAIRecommendations: appSyncService.getAIRecommendations.bind(appSyncService),
+    getAIRecommendations: safeBindMethod('getAIRecommendations'),
     
     // Real-time subscriptions
-    subscribeToVoteUpdates: appSyncService.subscribeToVoteUpdates.bind(appSyncService),
-    subscribeToMatchFound: appSyncService.subscribeToMatchFound.bind(appSyncService),
+    subscribeToVoteUpdates: safeBindMethod('subscribeToVoteUpdates'),
+    subscribeToMatchFound: safeBindMethod('subscribeToMatchFound'),
     
     // Health check
-    healthCheck: appSyncService.healthCheck.bind(appSyncService),
+    healthCheck: safeBindMethod('healthCheck'),
   };
 };
