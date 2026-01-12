@@ -1066,7 +1066,6 @@ class AppSyncService {
       const b64Payload = btoa(JSON.stringify(payload));
 
       wsEndpoint = `${wsEndpoint}?header=${encodeURIComponent(b64Header)}&payload=${encodeURIComponent(b64Payload)}`;
-
       console.log(`🔗 Connecting to AppSync Realtime: ${wsEndpoint.substring(0, 50)}...`);
 
       // Create WebSocket connection with AppSync Realtime protocol
