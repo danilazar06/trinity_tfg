@@ -3,7 +3,7 @@
  * Provides connection status indicators and automatic reconnection
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { appSyncService } from '../services/appSyncService';
 import { networkService } from '../services/networkService';
 
@@ -35,25 +35,14 @@ export function useConnectionStatus(): UseConnectionStatusReturn {
 
   // Force reconnection
   const forceReconnect = useCallback(async () => {
-    console.log('🔄 Force reconnecting...');
-    
     setConnectionInfo(prev => ({
       ...prev,
       status: 'connecting',
       reconnectionAttempts: prev.reconnectionAttempts + 1,
     }));
 
-    try {
-      await appSyncService.forceReconnection();
-    } catch (error) {
-      console.error('❌ Force reconnection failed:', error);
-      
-      setConnectionInfo(prev => ({
-        ...prev,
-        status: 'disconnected',
-        lastDisconnectedAt: new Date(),
-      }));
-    }
+    // Trigger AppSync reconnection
+    appSyncService.forceReconnection();
   }, []);
 
   // Monitor network connectivity
@@ -61,7 +50,7 @@ export function useConnectionStatus(): UseConnectionStatusReturn {
     const handleNetworkChange = (networkState: any) => {
       const isConnected = networkState.isConnected && networkState.isInternetReachable !== false;
       console.log(`🌐 Network status changed: ${isConnected ? 'online' : 'offline'}`);
-      
+
       setConnectionInfo(prev => ({
         ...prev,
         isOnline: isConnected,
@@ -83,7 +72,7 @@ export function useConnectionStatus(): UseConnectionStatusReturn {
   useEffect(() => {
     const unsubscribe = appSyncService.subscribeToConnectionStatus((status) => {
       console.log(`📡 AppSync connection status: ${status}`);
-      
+
       setConnectionInfo(prev => ({
         ...prev,
         status,
@@ -106,7 +95,8 @@ export function useConnectionStatus(): UseConnectionStatusReturn {
 /**
  * Hook for managing room-specific real-time subscriptions with automatic reconnection
  */
-export function useRoomSubscriptions(roomId: string | null) {
+export function useRoomSubscriptions() {
+  // Legacy state kept to avoid compilation errors if used elsewhere, but ideally unused
   const [subscriptions, setSubscriptions] = useState<{
     votes: (() => void) | null;
     matches: (() => void) | null;
@@ -117,65 +107,115 @@ export function useRoomSubscriptions(roomId: string | null) {
     room: null,
   });
 
+  const subscriptionsRef = useRef<{
+    votes: (() => void) | null;
+    matches: (() => void) | null;
+    room: (() => void) | null;
+  }>({
+    votes: null,
+    matches: null,
+    room: null,
+  });
+
+  const isSubscribedRef = useRef(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
 
-  // Setup subscriptions with automatic reconnection
+  // Subscribe to room updates
+  const subscribeToRoom = useCallback(async (
+    roomId: string,
+    callbacks: {
+      onVoteUpdate: (data: any) => void;
+      onMatchFound: (data: any) => void;
+      onRoomUpdate: (data: any) => void;
+    }
+  ) => {
+    if (isSubscribedRef.current) {
+      console.log('⚠️ Already subscribed to room updates, skipping...');
+      return;
+    }
+
+    console.log(`📡 Establishing REAL WebSocket subscriptions for room ${roomId}`);
+    isSubscribedRef.current = true;
+    setIsSubscribed(true); // Update UI state
+
+    try {
+      // 1. Subscribe to Vote Updates
+      const voteSub = await appSyncService.subscribeWithReconnection(
+        roomId,
+        'enhanced-votes',
+        callbacks.onVoteUpdate
+      );
+
+      // 2. Subscribe to Match Found
+      const matchSub = await appSyncService.subscribeWithReconnection(
+        roomId,
+        'enhanced-matches',
+        callbacks.onMatchFound
+      );
+
+      // 3. Subscribe to Room State/Updates
+      const roomSub = await appSyncService.subscribeWithReconnection(
+        roomId,
+        'room-state',
+        callbacks.onRoomUpdate
+      );
+
+      subscriptionsRef.current = {
+        votes: voteSub,
+        matches: matchSub,
+        room: roomSub,
+      };
+
+      console.log(`✅ Subscriptions active for room ${roomId}`);
+    } catch (error) {
+      console.error('❌ Error setting up subscriptions:', error);
+      // Revert status on error
+      isSubscribedRef.current = false;
+      setIsSubscribed(false);
+    }
+  }, []);
+
+  // Unsubscribe from room updates
+  const unsubscribeFromRoom = useCallback((roomId: string) => {
+    console.log('🧹 Cleaning up room subscriptions for room:', roomId);
+
+    Object.values(subscriptionsRef.current).forEach(cleanup => {
+      if (cleanup) {
+        try {
+          cleanup();
+        } catch (e) {
+          console.warn('Error cleanup subscription:', e);
+        }
+      }
+    });
+
+    subscriptionsRef.current = {
+      votes: null,
+      matches: null,
+      room: null,
+    };
+
+    isSubscribedRef.current = false;
+    setIsSubscribed(false);
+  }, []);
+
+  // Legacy methods for backward compatibility
   const setupSubscriptions = useCallback(async (
     onVoteUpdate: (data: any) => void,
     onMatchFound: (data: any) => void,
     onRoomUpdate: (data: any) => void
   ) => {
-    if (!roomId || isSubscribed) return;
+    console.warn('⚠️ setupSubscriptions is deprecated, use subscribeToRoom instead');
+  }, []);
 
-    console.log('🔔 Setting up room subscriptions with auto-reconnection for room:', roomId);
-    
-    try {
-      // Setup all subscriptions with reconnection
-      const [votesCleanup, matchesCleanup, roomCleanup] = await Promise.all([
-        appSyncService.subscribeWithReconnection(roomId, 'votes', onVoteUpdate),
-        appSyncService.subscribeWithReconnection(roomId, 'matches', onMatchFound),
-        appSyncService.subscribeWithReconnection(roomId, 'room', onRoomUpdate),
-      ]);
-
-      setSubscriptions({
-        votes: votesCleanup,
-        matches: matchesCleanup,
-        room: roomCleanup,
-      });
-
-      setIsSubscribed(true);
-      console.log('✅ All room subscriptions established with auto-reconnection');
-
-    } catch (error) {
-      console.error('❌ Failed to setup room subscriptions:', error);
-    }
-  }, [roomId, isSubscribed]);
-
-  // Cleanup subscriptions
   const cleanupSubscriptions = useCallback(() => {
-    console.log('🧹 Cleaning up room subscriptions');
-    
-    Object.values(subscriptions).forEach(cleanup => {
-      if (cleanup) {
-        cleanup();
-      }
-    });
-
-    setSubscriptions({
-      votes: null,
-      matches: null,
-      room: null,
-    });
-
-    setIsSubscribed(false);
-  }, [subscriptions]);
-
-  // Cleanup on unmount or roomId change
-  useEffect(() => {
-    return cleanupSubscriptions;
-  }, [roomId]);
+    console.warn('⚠️ cleanupSubscriptions is deprecated, use unsubscribeFromRoom instead');
+  }, []);
 
   return {
+    subscribeToRoom,
+    unsubscribeFromRoom,
+    // Legacy methods for backward compatibility
     setupSubscriptions,
     cleanupSubscriptions,
     isSubscribed,

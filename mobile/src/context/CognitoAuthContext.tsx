@@ -4,12 +4,13 @@
  * FIXED: Proper service imports and error handling
  */
 
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useRef, ReactNode } from 'react';
 import { DeviceEventEmitter } from 'react-native';
 import { 
   cognitoAuthService, 
   CognitoUser, 
-  CognitoTokens 
+  CognitoTokens,
+  SessionRevokedError
 } from '../services/cognitoAuthService';
 import { 
   dualAuthFlowService, 
@@ -139,117 +140,144 @@ const stopBackgroundServices = () => {
 
 export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
+  
+  // Control initialization to prevent infinite loops
+  const isInitialized = useRef(false);
+  const backgroundServicesSetup = useRef(false);
 
+  // Initial authentication check - runs only once on mount
   useEffect(() => {
-    checkAuthStatus();
+    if (isInitialized.current) return; // Prevent multiple initializations
+    isInitialized.current = true;
     
-    // Set up background token refresh service with error handling
-    const handleTokenRefresh = (result: TokenRefreshResult) => {
-      try {
-        if (result.success && result.refreshed && result.newTokens) {
-          console.log('🔄 Background token refresh successful, updating context');
-          
-          // Update user context with new tokens
-          if (state.user) {
-            dispatch({ 
-              type: 'SET_USER', 
-              payload: { 
-                user: state.user, 
-                tokens: result.newTokens 
-              } 
-            });
-            
-            // Broadcast token refresh
-            broadcastAuthState(true, state.user);
-          }
-        } else if (!result.success && result.error) {
-          console.warn('⚠️ Background token refresh failed:', result.error);
-          
-          // If refresh failed due to invalid refresh token, logout user
-          if (result.error.includes('expirada') || result.error.includes('expired') || result.error.includes('NotAuthorizedException')) {
-            console.log('🔄 Refresh token expired, logging out user');
-            dispatch({ type: 'LOGOUT' });
-            broadcastAuthState(false, null);
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error handling token refresh:', error);
-      }
-    };
+    console.log('🔍 CognitoAuthProvider: Starting initial authentication check');
+    checkAuthStatus();
+  }, []); // Empty dependencies - runs only on mount
 
-    // Set up session expiration service with error handling
-    const handleSessionExpiration = (event: ExpirationEvent) => {
-      try {
-        console.log('⏰ Session expiration event:', event.type, event.message);
-        
-        switch (event.type) {
-          case 'expired':
-            if (event.action === 'reauth') {
-              // User needs to re-authenticate
-              console.log('🔄 Session expired, logging out user');
+  // Background services setup - runs only when authentication state changes meaningfully
+  useEffect(() => {
+    // Only setup services once when user becomes authenticated
+    if (state.isAuthenticated && !backgroundServicesSetup.current) {
+      console.log('🔧 CognitoAuthProvider: Setting up background services (first time)');
+      backgroundServicesSetup.current = true;
+      
+      // Set up background token refresh service with error handling
+      const handleTokenRefresh = (result: TokenRefreshResult) => {
+        try {
+          if (result.success && result.refreshed && result.newTokens) {
+            console.log('🔄 Background token refresh successful, updating context');
+            
+            // Update user context with new tokens
+            if (state.user) {
+              dispatch({ 
+                type: 'SET_USER', 
+                payload: { 
+                  user: state.user, 
+                  tokens: result.newTokens 
+                } 
+              });
+              
+              // Broadcast token refresh
+              broadcastAuthState(true, state.user);
+            }
+          } else if (!result.success && result.error) {
+            console.warn('⚠️ Background token refresh failed:', result.error);
+            
+            // If refresh failed due to invalid refresh token, logout user
+            if (result.error.includes('expirada') || result.error.includes('expired') || result.error.includes('NotAuthorizedException')) {
+              console.log('🔄 Refresh token expired, logging out user');
               dispatch({ type: 'LOGOUT' });
               broadcastAuthState(false, null);
             }
-            break;
-            
-          case 'refreshed':
-            console.log('✅ Session refreshed automatically');
-            // Token refresh is handled by background service
-            break;
-            
-          case 'warning':
-            console.log('⚠️ Session expiration warning shown to user');
-            break;
-            
-          case 'reauth_required':
-            console.log('🔄 User chose to re-authenticate');
-            dispatch({ type: 'LOGOUT' });
-            broadcastAuthState(false, null);
-            break;
+          }
+        } catch (error) {
+          console.error('❌ Error handling token refresh:', error);
         }
-      } catch (error) {
-        console.error('❌ Error handling session expiration:', error);
-      }
-    };
+      };
 
-    // Add listeners with error handling
-    try {
-      if (backgroundTokenRefreshService && typeof backgroundTokenRefreshService.addRefreshListener === 'function') {
-        backgroundTokenRefreshService.addRefreshListener(handleTokenRefresh);
-      }
-      
-      if (sessionExpirationService && typeof sessionExpirationService.addExpirationListener === 'function') {
-        sessionExpirationService.addExpirationListener(handleSessionExpiration);
-      }
-      
-      // Start services when user is authenticated
-      if (state.isAuthenticated) {
-        startBackgroundServices();
-      }
-    } catch (error) {
-      console.error('❌ Error setting up background services:', error);
-    }
+      // Set up session expiration service with error handling
+      const handleSessionExpiration = (event: ExpirationEvent) => {
+        try {
+          console.log('⏰ Session expiration event:', event.type, event.message);
+          
+          switch (event.type) {
+            case 'expired':
+              if (event.action === 'reauth') {
+                // User needs to re-authenticate
+                console.log('🔄 Session expired, logging out user');
+                dispatch({ type: 'LOGOUT' });
+                broadcastAuthState(false, null);
+              }
+              break;
+              
+            case 'refreshed':
+              console.log('✅ Session refreshed automatically');
+              // Token refresh is handled by background service
+              break;
+              
+            case 'warning':
+              console.log('⚠️ Session expiration warning shown to user');
+              break;
+              
+            case 'reauth_required':
+              console.log('🔄 User chose to re-authenticate');
+              dispatch({ type: 'LOGOUT' });
+              broadcastAuthState(false, null);
+              break;
+          }
+        } catch (error) {
+          console.error('❌ Error handling session expiration:', error);
+        }
+      };
 
-    return () => {
-      // Cleanup with error handling
+      // Add listeners with error handling
       try {
-        if (backgroundTokenRefreshService && typeof backgroundTokenRefreshService.removeRefreshListener === 'function') {
-          backgroundTokenRefreshService.removeRefreshListener(handleTokenRefresh);
+        if (backgroundTokenRefreshService && typeof backgroundTokenRefreshService.addRefreshListener === 'function') {
+          backgroundTokenRefreshService.addRefreshListener(handleTokenRefresh);
         }
         
-        if (sessionExpirationService && typeof sessionExpirationService.removeExpirationListener === 'function') {
-          sessionExpirationService.removeExpirationListener(handleSessionExpiration);
+        if (sessionExpirationService && typeof sessionExpirationService.addExpirationListener === 'function') {
+          sessionExpirationService.addExpirationListener(handleSessionExpiration);
         }
         
-        // Stop services when component unmounts or user logs out
-        if (!state.isAuthenticated) {
-          stopBackgroundServices();
-        }
+        // Start services
+        startBackgroundServices();
+        
       } catch (error) {
-        console.error('❌ Error cleaning up background services:', error);
+        console.error('❌ Error setting up background services:', error);
       }
-    };
-  }, [state.isAuthenticated, state.user]);
+
+      // Cleanup function for background services
+      return () => {
+        console.log('🧹 CognitoAuthProvider: Cleaning up background services');
+        try {
+          if (backgroundTokenRefreshService && typeof backgroundTokenRefreshService.removeRefreshListener === 'function') {
+            backgroundTokenRefreshService.removeRefreshListener(handleTokenRefresh);
+          }
+          
+          if (sessionExpirationService && typeof sessionExpirationService.removeExpirationListener === 'function') {
+            sessionExpirationService.removeExpirationListener(handleSessionExpiration);
+          }
+          
+          stopBackgroundServices();
+          backgroundServicesSetup.current = false;
+        } catch (error) {
+          console.error('❌ Error cleaning up background services:', error);
+        }
+      };
+    }
+    
+    // Stop services when user logs out
+    if (!state.isAuthenticated && backgroundServicesSetup.current) {
+      console.log('🛑 CognitoAuthProvider: User logged out, stopping background services');
+      try {
+        stopBackgroundServices();
+        backgroundServicesSetup.current = false;
+      } catch (error) {
+        console.error('❌ Error stopping background services on logout:', error);
+      }
+    }
+  }, [state.isAuthenticated]); // Only depend on authentication status, not user object
 
   const checkAuthStatus = async () => {
     try {
@@ -303,6 +331,33 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
       try {
         authResult = await cognitoAuthService.checkStoredAuth();
       } catch (authError) {
+        // Check if this is a SessionRevokedError
+        if (authError instanceof SessionRevokedError) {
+          console.error('💀 CognitoAuth: Session revoked error detected - forcing logout');
+          
+          // Emergency stop all WebSocket connections immediately
+          try {
+            const { appSyncService } = await import('../services/appSyncService');
+            appSyncService.emergencyStop('Session revoked during auth check');
+          } catch (importError) {
+            console.warn('⚠️ Could not emergency stop AppSync connections:', importError);
+          }
+          
+          // Force immediate logout
+          try {
+            await cognitoAuthService.clearTokens();
+            stopBackgroundServices();
+          } catch (clearError) {
+            console.error('❌ Error clearing tokens during forced logout:', clearError);
+          }
+          
+          // Set error state to show user-friendly message
+          dispatch({ type: 'SET_ERROR', payload: 'Your session has expired. Please log in again.' });
+          dispatch({ type: 'SET_USER', payload: null });
+          broadcastAuthState(false, null);
+          return;
+        }
+        
         console.error('❌ Auth check failed:', authError);
         // Set default auth result on error
         authResult = { isAuthenticated: false };
@@ -333,7 +388,22 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
     } catch (error) {
       console.error('❌ CognitoAuth: Check auth status error:', error);
-      dispatch({ type: 'SET_ERROR', payload: 'Error verificando autenticación' });
+      
+      // Check if this is a SessionRevokedError that wasn't caught above
+      if (error instanceof SessionRevokedError) {
+        dispatch({ type: 'SET_ERROR', payload: 'Your session has expired. Please log in again.' });
+        
+        // Emergency stop all WebSocket connections
+        try {
+          const { appSyncService } = await import('../services/appSyncService');
+          appSyncService.emergencyStop('Session revoked - authentication failed');
+        } catch (importError) {
+          console.warn('⚠️ Could not emergency stop AppSync connections:', importError);
+        }
+      } else {
+        dispatch({ type: 'SET_ERROR', payload: 'Error verificando autenticación' });
+      }
+      
       dispatch({ type: 'SET_USER', payload: null });
       dispatch({ type: 'SET_MIGRATION_STATUS', payload: 'completed' });
       broadcastAuthState(false, null);
@@ -483,6 +553,14 @@ export const CognitoAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
     try {
       // Stop background services
       stopBackgroundServices();
+      
+      // Clear AppSync authentication cache
+      try {
+        const { appSyncService } = await import('../services/appSyncService');
+        appSyncService.clearAuthCache();
+      } catch (importError) {
+        console.warn('⚠️ Could not clear AppSync cache:', importError);
+      }
       
       // Use dual auth service for comprehensive sign out
       await dualAuthFlowService.signOutAll();

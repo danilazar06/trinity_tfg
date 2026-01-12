@@ -1,6 +1,7 @@
 /**
  * AWS Cognito Authentication Service
  * Direct integration with AWS Cognito User Pool
+ * FIXED: Proper handling of revoked tokens to prevent retry loops
  */
 
 import { getAWSConfig } from '../config/aws-config';
@@ -38,6 +39,46 @@ interface CognitoError {
   code?: string;
 }
 
+/**
+ * Custom error for revoked/expired sessions that should not be retried
+ */
+export class SessionRevokedError extends Error {
+  constructor(message: string, public originalError?: any) {
+    super(message);
+    this.name = 'SessionRevokedError';
+  }
+}
+
+/**
+ * Check if an error is a fatal authentication error that should not be retried
+ */
+function isFatalAuthError(error: any): boolean {
+  if (!error) return false;
+  
+  const errorName = error.name || error.code || '';
+  const errorMessage = error.message || '';
+  
+  // Fatal errors that indicate revoked/expired tokens
+  const fatalErrors = [
+    'NotAuthorizedException',
+    'TokenExpiredException', 
+    'InvalidTokenException',
+    'AccessTokenExpiredException'
+  ];
+  
+  // Check for specific error patterns
+  const fatalMessages = [
+    'Refresh Token has been revoked',
+    'Refresh token has expired',
+    'Invalid refresh token',
+    'Token is not valid',
+    'Access Token has expired'
+  ];
+  
+  return fatalErrors.includes(errorName) || 
+         fatalMessages.some(msg => errorMessage.includes(msg));
+}
+
 class CognitoAuthService {
   private config = getAWSConfig();
   private cognitoUrl: string;
@@ -50,6 +91,35 @@ class CognitoAuthService {
       region: this.config.region,
       userPoolId: this.config.userPoolId
     });
+  }
+
+  /**
+   * Check if an error is a rate limiting error that should trigger backoff
+   */
+  private isRateLimitError(error: any): boolean {
+    if (!error) return false;
+    
+    const errorName = error.name || error.code || '';
+    const errorMessage = error.message || '';
+    
+    return errorName === 'TooManyRequestsException' || 
+           errorMessage.includes('Rate exceeded') ||
+           errorMessage.includes('Too many requests');
+  }
+
+  /**
+   * Handle rate limiting with exponential backoff
+   */
+  private async handleRateLimit(attempt: number = 1): Promise<void> {
+    if (attempt > 3) {
+      throw new Error('Rate limit exceeded. Please wait a few minutes before trying again.');
+    }
+    
+    // Exponential backoff: 2^attempt seconds (2s, 4s, 8s)
+    const delayMs = Math.pow(2, attempt) * 1000;
+    console.log(`⏳ Rate limited, waiting ${delayMs}ms before retry (attempt ${attempt}/3)`);
+    
+    await new Promise(resolve => setTimeout(resolve, delayMs));
   }
 
   /**
@@ -299,65 +369,77 @@ class CognitoAuthService {
   }
 
   /**
-   * Refresh access token with network resilience
+   * Refresh access token with proper fatal error handling
    */
   async refreshToken(refreshToken: string): Promise<{ success: boolean; tokens?: CognitoTokens; error?: string }> {
     loggingService.logAuth('token_refresh', { hasRefreshToken: !!refreshToken });
     
     try {
-      // Use network service for retry logic and connectivity checks
-      const result = await networkService.executeWithRetry(
-        async () => {
-          const response = await this.cognitoRequest('InitiateAuth', {
-            ClientId: this.config.userPoolWebClientId,
-            AuthFlow: 'REFRESH_TOKEN_AUTH',
-            AuthParameters: {
-              REFRESH_TOKEN: refreshToken,
-            },
-          });
-
-          const tokens = response.AuthenticationResult;
-          if (!tokens) {
-            throw new Error('No tokens received from refresh');
-          }
-
-          return {
-            accessToken: tokens.AccessToken,
-            idToken: tokens.IdToken,
-            refreshToken: refreshToken, // Refresh token doesn't change
-          };
+      console.log('🔄 CognitoAuthService: Attempting token refresh...');
+      
+      const response = await this.cognitoRequest('InitiateAuth', {
+        ClientId: this.config.userPoolWebClientId,
+        AuthFlow: 'REFRESH_TOKEN_AUTH',
+        AuthParameters: {
+          REFRESH_TOKEN: refreshToken,
         },
-        'Token Refresh',
-        {
-          maxAttempts: 3,
-          baseDelay: 2000, // 2 seconds
-          maxDelay: 10000  // 10 seconds
-        }
-      );
+      });
 
+      const tokens = response.AuthenticationResult;
+      if (!tokens) {
+        throw new Error('No tokens received from refresh');
+      }
+
+      const refreshedTokens: CognitoTokens = {
+        accessToken: tokens.AccessToken,
+        idToken: tokens.IdToken,
+        refreshToken: refreshToken, // Refresh token doesn't change
+        expiresAt: Math.floor(Date.now() / 1000) + (tokens.ExpiresIn || 3600),
+      };
+
+      console.log('✅ CognitoAuthService: Token refresh successful');
       loggingService.logAuth('token_refresh', { success: true });
 
       return {
         success: true,
-        tokens: result,
+        tokens: refreshedTokens,
       };
 
     } catch (error: any) {
-      console.error('Token refresh error after all retries:', error);
+      console.error('❌ CognitoAuthService: Token refresh error:', error);
       
+      // Check if this is a fatal authentication error
+      if (isFatalAuthError(error)) {
+        console.error('💀 CognitoAuthService: Fatal auth error detected - session revoked');
+        
+        loggingService.logAuth('auth_error', {
+          operation: 'token_refresh',
+          errorName: error.name,
+          errorCode: error.code,
+          fatal: true,
+          message: 'Session revoked - immediate logout required'
+        });
+        
+        // Throw SessionRevokedError to signal immediate logout
+        throw new SessionRevokedError(
+          'Your session has been revoked. Please log in again.',
+          error
+        );
+      }
+      
+      // For non-fatal errors, log and return error response
       loggingService.logAuth('auth_error', {
         operation: 'token_refresh',
         errorName: error.name,
         errorCode: error.code,
-        networkError: error.message?.includes('network') || error.message?.includes('timeout')
+        networkError: error.message?.includes('network') || error.message?.includes('timeout'),
+        fatal: false
       });
       
       let message = 'Error al renovar sesión';
       
       // Handle specific error types
-      if (error.name === 'NotAuthorizedException') {
-        message = 'Sesión expirada. Inicia sesión nuevamente.';
-      } else if (error.message?.includes('No network connection')) {
+      if (error.message?.includes('No network connection')) {
         message = 'Sin conexión a internet. Verifica tu conexión e inténtalo de nuevo.';
       } else if (error.message?.includes('timeout')) {
         message = 'Tiempo de espera agotado. Verifica tu conexión e inténtalo de nuevo.';
@@ -370,45 +452,69 @@ class CognitoAuthService {
   }
 
   /**
-   * Get user information from access token
+   * Get user information from access token with rate limiting handling
    */
   async getUser(accessToken: string): Promise<{ success: boolean; user?: CognitoUser; error?: string }> {
-    try {
-      const response = await this.cognitoRequest('GetUser', {
-        AccessToken: accessToken,
-      });
+    let attempt = 0;
+    
+    while (attempt < 4) { // Max 4 attempts (1 initial + 3 retries)
+      try {
+        const response = await this.cognitoRequest('GetUser', {
+          AccessToken: accessToken,
+        });
 
-      // Parse user attributes
-      const attributes: { [key: string]: string } = {};
-      response.UserAttributes.forEach((attr: any) => {
-        attributes[attr.Name] = attr.Value;
-      });
+        // Parse user attributes
+        const attributes: { [key: string]: string } = {};
+        response.UserAttributes.forEach((attr: any) => {
+          attributes[attr.Name] = attr.Value;
+        });
 
-      const user: CognitoUser = {
-        sub: response.Username, // In Cognito, Username is actually the sub
-        email: attributes.email,
-        email_verified: attributes.email_verified === 'true',
-        username: response.Username,
-        preferred_username: attributes.preferred_username,
-        name: attributes.name,
-        given_name: attributes.given_name,
-        family_name: attributes.family_name,
-        picture: attributes.picture,
-      };
+        const user: CognitoUser = {
+          sub: response.Username, // In Cognito, Username is actually the sub
+          email: attributes.email,
+          email_verified: attributes.email_verified === 'true',
+          username: response.Username,
+          preferred_username: attributes.preferred_username,
+          name: attributes.name,
+          given_name: attributes.given_name,
+          family_name: attributes.family_name,
+          picture: attributes.picture,
+        };
 
-      return { success: true, user };
-    } catch (error: any) {
-      console.error('Get user error:', error);
-      
-      let message = 'Error al obtener información del usuario';
-      if (error.name === 'NotAuthorizedException') {
-        message = 'Token de acceso inválido';
-      } else if (error.message) {
-        message = error.message;
+        return { success: true, user };
+      } catch (error: any) {
+        console.error('Get user error:', error);
+        
+        // Handle rate limiting with retry
+        if (this.isRateLimitError(error)) {
+          attempt++;
+          if (attempt < 4) {
+            console.log(`🔄 GetUser rate limited, retrying (attempt ${attempt}/3)...`);
+            await this.handleRateLimit(attempt);
+            continue;
+          } else {
+            console.error('❌ GetUser failed after all retry attempts due to rate limiting');
+            return { 
+              success: false, 
+              error: 'Service temporarily unavailable due to high traffic. Please try again in a few minutes.' 
+            };
+          }
+        }
+        
+        // Handle other errors immediately (no retry)
+        let message = 'Error al obtener información del usuario';
+        if (error.name === 'NotAuthorizedException') {
+          message = 'Token de acceso inválido';
+        } else if (error.message) {
+          message = error.message;
+        }
+
+        return { success: false, error: message };
       }
-
-      return { success: false, error: message };
     }
+    
+    // This should never be reached, but just in case
+    return { success: false, error: 'Unexpected error occurred' };
   }
 
   /**
@@ -555,7 +661,7 @@ class CognitoAuthService {
   }
 
   /**
-   * Check if tokens are stored and valid
+   * Check if tokens are stored and valid with proper fatal error handling
    */
   async checkStoredAuth(): Promise<{ isAuthenticated: boolean; user?: CognitoUser; tokens?: CognitoTokens }> {
     try {
@@ -567,29 +673,52 @@ class CognitoAuthService {
       // Check if access token is expired
       const accessTokenPayload = this.parseJWT(storedTokens.accessToken);
       if (!accessTokenPayload || accessTokenPayload.exp * 1000 < Date.now()) {
-        // Try to refresh token
-        const refreshResult = await this.refreshToken(storedTokens.refreshToken);
-        if (refreshResult.success && refreshResult.tokens) {
-          const newTokens = refreshResult.tokens;
-          await secureTokenStorage.storeTokens(newTokens);
-          
-          // Get user info with new token
-          const userResult = await this.getUser(newTokens.accessToken);
-          if (userResult.success && userResult.user) {
-            return {
-              isAuthenticated: true,
-              user: userResult.user,
-              tokens: newTokens,
-            };
-          }
-        }
+        console.log('🔄 CognitoAuthService: Access token expired, attempting refresh...');
         
-        // If refresh failed, clear stored tokens
-        await secureTokenStorage.clearTokens();
-        return { isAuthenticated: false };
+        try {
+          // Try to refresh token
+          const refreshResult = await this.refreshToken(storedTokens.refreshToken);
+          if (refreshResult.success && refreshResult.tokens) {
+            const newTokens = refreshResult.tokens;
+            await secureTokenStorage.storeTokens(newTokens);
+            
+            // Get user info with new token
+            const userResult = await this.getUser(newTokens.accessToken);
+            if (userResult.success && userResult.user) {
+              console.log('✅ CognitoAuthService: Token refresh and user retrieval successful');
+              return {
+                isAuthenticated: true,
+                user: userResult.user,
+                tokens: newTokens,
+              };
+            }
+          }
+          
+          // If refresh failed, clear stored tokens
+          console.log('❌ CognitoAuthService: Token refresh failed, clearing tokens');
+          await secureTokenStorage.clearAllTokens();
+          return { isAuthenticated: false };
+          
+        } catch (error) {
+          // Check if this is a fatal session revoked error
+          if (error instanceof SessionRevokedError) {
+            console.error('💀 CognitoAuthService: Session revoked during checkStoredAuth');
+            
+            // Clear all tokens immediately
+            await secureTokenStorage.clearAllTokens();
+            
+            // Re-throw the SessionRevokedError so the context can handle logout
+            throw error;
+          }
+          
+          // For other errors, just clear tokens and return unauthenticated
+          console.error('❌ CognitoAuthService: Error during token refresh:', error);
+          await secureTokenStorage.clearAllTokens();
+          return { isAuthenticated: false };
+        }
       }
 
-      // Get user info
+      // Get user info with current token
       const userResult = await this.getUser(storedTokens.accessToken);
       if (userResult.success && userResult.user) {
         return {
@@ -601,8 +730,13 @@ class CognitoAuthService {
 
       return { isAuthenticated: false };
     } catch (error) {
-      console.error('Check stored auth error:', error);
-      await secureTokenStorage.clearTokens();
+      // Re-throw SessionRevokedError
+      if (error instanceof SessionRevokedError) {
+        throw error;
+      }
+      
+      console.error('❌ CognitoAuthService: Check stored auth error:', error);
+      await secureTokenStorage.clearAllTokens();
       return { isAuthenticated: false };
     }
   }
@@ -615,7 +749,7 @@ class CognitoAuthService {
   }
 
   /**
-   * Refresh authentication tokens using refresh token
+   * Refresh authentication tokens using refresh token with fatal error handling
    */
   async refreshTokens(refreshToken: string): Promise<{ success: boolean; tokens?: CognitoTokens; error?: string }> {
     try {
@@ -623,7 +757,7 @@ class CognitoAuthService {
 
       const response = await this.cognitoRequest('InitiateAuth', {
         AuthFlow: 'REFRESH_TOKEN_AUTH',
-        ClientId: this.config.clientId,
+        ClientId: this.config.userPoolWebClientId,
         AuthParameters: {
           REFRESH_TOKEN: refreshToken,
         },
@@ -634,7 +768,7 @@ class CognitoAuthService {
           accessToken: response.AuthenticationResult.AccessToken,
           idToken: response.AuthenticationResult.IdToken,
           refreshToken: response.AuthenticationResult.RefreshToken || refreshToken, // Use new refresh token if provided, otherwise keep the old one
-          expiresAt: Math.floor(Date.now() / 1000) + response.AuthenticationResult.ExpiresIn,
+          expiresAt: Math.floor(Date.now() / 1000) + (response.AuthenticationResult.ExpiresIn || 3600),
         };
 
         // Store the new tokens
@@ -649,6 +783,17 @@ class CognitoAuthService {
 
     } catch (error: any) {
       loggingService.error('CognitoAuthService', 'Token refresh error', { error: error.message });
+      
+      // Check if this is a fatal authentication error
+      if (isFatalAuthError(error)) {
+        console.error('💀 CognitoAuthService: Fatal auth error in refreshTokens - session revoked');
+        
+        // Throw SessionRevokedError to signal immediate logout
+        throw new SessionRevokedError(
+          'Your session has been revoked. Please log in again.',
+          error
+        );
+      }
       
       // Handle specific refresh token errors
       if (error.name === 'NotAuthorizedException' || error.message?.includes('Refresh Token has expired')) {

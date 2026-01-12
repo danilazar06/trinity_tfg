@@ -124,7 +124,7 @@ class ApiClient {
 
 export const apiClient = new ApiClient(API_BASE_URL);
 
-// AWS AppSync Integration
+// AWS AppSync Integration with enhanced error handling
 export const useAppSync = () => {
   console.log('🔗 Using AWS AppSync for GraphQL operations');
   console.log('📍 Region:', AWS_CONFIG.region);
@@ -151,7 +151,7 @@ export const useAppSync = () => {
             return { status: 'unavailable', timestamp: new Date().toISOString() };
           case 'subscribeToVoteUpdates':
           case 'subscribeToMatchFound':
-            return { unsubscribe: () => {} }; // Return mock subscription
+            return () => {}; // Return mock cleanup function
           default:
             throw new Error(`AppSync service is not available. Cannot perform ${operationName}. Please check your authentication status and try again.`);
         }
@@ -186,7 +186,7 @@ export const useAppSync = () => {
     };
   }
   
-  // Defensive binding: check each method exists before binding
+  // Defensive binding: check each method exists before binding with enhanced error handling
   const safeBindMethod = (methodName: string) => {
     if (appSyncService && typeof appSyncService[methodName] === 'function') {
       return async (...args: any[]) => {
@@ -195,7 +195,40 @@ export const useAppSync = () => {
         } catch (error: any) {
           console.error(`❌ AppSync ${methodName} error:`, error);
           
-          // Provide fallback responses for common operations
+          // Check for authentication errors that indicate session issues
+          if (error.message?.includes('Authentication') || 
+              error.message?.includes('not authenticated') ||
+              error.message?.includes('Unauthorized') ||
+              error.message?.includes('session') ||
+              error.name === 'SessionRevokedError') {
+            
+            console.error(`💀 Authentication error in ${methodName} - user may need to re-login`);
+            
+            // For authentication errors, provide user-friendly fallbacks
+            switch (methodName) {
+              case 'getUserRooms':
+                console.warn(`⚠️ ${methodName} failed due to auth error, returning empty array`);
+                return { getUserRooms: [] };
+              case 'getMovies':
+                console.warn(`⚠️ ${methodName} failed due to auth error, returning empty array`);
+                return { getMovies: [] };
+              case 'getRoom':
+                console.warn(`⚠️ ${methodName} failed due to auth error, returning null`);
+                return { getRoom: null };
+              case 'healthCheck':
+                console.warn(`⚠️ ${methodName} failed due to auth error, returning unhealthy status`);
+                return { status: 'unauthenticated', timestamp: new Date().toISOString() };
+              case 'subscribeToVoteUpdates':
+              case 'subscribeToMatchFound':
+                console.warn(`⚠️ ${methodName} failed due to auth error, returning mock subscription`);
+                return () => {}; // Return mock cleanup function
+              default:
+                // For critical operations like createRoom, vote, re-throw with user-friendly message
+                throw new Error('Your session has expired. Please log in again to continue.');
+            }
+          }
+          
+          // Provide fallback responses for common operations (non-auth errors)
           switch (methodName) {
             case 'getUserRooms':
               console.warn(`⚠️ ${methodName} failed, returning empty array`);
@@ -212,7 +245,7 @@ export const useAppSync = () => {
             case 'subscribeToVoteUpdates':
             case 'subscribeToMatchFound':
               console.warn(`⚠️ ${methodName} failed, returning mock subscription`);
-              return { unsubscribe: () => {} };
+              return () => {}; // Return mock cleanup function
             default:
               // For operations that should fail (like createRoom, vote), re-throw the error
               throw error;
