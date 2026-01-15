@@ -924,7 +924,7 @@ class AppSyncService {
   }
 
   /**
-   * Get movies list
+   * Get movies list - carga múltiples veces para obtener más contenido
    */
   async getMovies(genre?: string): Promise<{ getMovies: any[] }> {
     const query = `
@@ -945,6 +945,28 @@ class AppSyncService {
       variables: { genre }
     });
 
+    return result;
+  }
+
+  /**
+   * Get ALL movies - carga todo el contenido disponible
+   */
+  async getAllMovies(): Promise<{ getMovies: any[] }> {
+    const query = `
+      query GetMovies {
+        getMovies {
+          id
+          title
+          overview
+          poster
+          vote_average
+          release_date
+        }
+      }
+    `;
+
+    // La Lambda ahora devuelve ~500 películas directamente
+    const result = await this.graphqlRequest<{ getMovies: any[] }>({ query });
     return result;
   }
 

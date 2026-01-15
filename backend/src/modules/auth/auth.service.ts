@@ -1,25 +1,24 @@
-import { Injectable, Logger, ConflictException, UnauthorizedException } from '@nestjs/common';
-import { MultiTableService } from '../../infrastructure/database/multi-table.service';
-import { CognitoService } from '../../infrastructure/cognito/cognito.service';
-import { GoogleAuthService, GoogleUserInfo } from './google-auth.service';
-import { FederatedUserManagementService } from './federated-user-management.service';
-import { FederatedSessionManagementService } from './federated-session-management.service';
-import { GoogleAuthAnalyticsService } from './google-auth-analytics.service';
-import { AuthStatusCodeService } from './services/auth-status-code.service';
-import { EventTracker } from '../analytics/event-tracker.service';
-import { EventType } from '../analytics/interfaces/analytics.interfaces';
+import { ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import {
-  User,
-  CreateUserDto,
-  LoginUserDto,
-  UserProfile,
-  ConfirmSignUpDto,
-  ResendConfirmationDto,
-  ForgotPasswordDto,
-  ResetPasswordDto,
-  CognitoTokens,
-  FederatedAuthResult,
+    CognitoTokens,
+    ConfirmSignUpDto,
+    CreateUserDto,
+    FederatedAuthResult,
+    ForgotPasswordDto,
+    LoginUserDto,
+    ResendConfirmationDto,
+    ResetPasswordDto,
+    User,
+    UserProfile,
 } from '../../domain/entities/user.entity';
+import { CognitoService } from '../../infrastructure/cognito/cognito.service';
+import { MultiTableService } from '../../infrastructure/database/multi-table.service';
+import { EventTracker } from '../analytics/event-tracker.service';
+import { FederatedSessionManagementService } from './federated-session-management.service';
+import { FederatedUserManagementService } from './federated-user-management.service';
+import { GoogleAuthAnalyticsService } from './google-auth-analytics.service';
+import { GoogleAuthService } from './google-auth.service';
+import { AuthStatusCodeService } from './services/auth-status-code.service';
 
 @Injectable()
 export class AuthService {
@@ -551,7 +550,7 @@ export class AuthService {
     
     // Si es un error estructurado con opciones de fallback
     if (error instanceof UnauthorizedException && error.message && typeof error.message === 'object') {
-      const structuredError = error.message;
+      const structuredError = error.message as any;
       
       // Intentar fallbacks automáticos según las opciones disponibles
       if (structuredError.fallbackOptions?.includes('legacy_google_auth') && 

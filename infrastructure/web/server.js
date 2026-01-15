@@ -1,11 +1,23 @@
 const express = require('express');
 const path = require('path');
+const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Enable CORS for all origins (testing purposes)
+app.use(cors());
+
+// Parse JSON bodies
+app.use(express.json());
 
 // Serve static files
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 app.use(express.static(path.join(__dirname)));
+
+// Testing app route - main testing interface
+app.get('/test', (req, res) => {
+    res.sendFile(path.join(__dirname, 'test-app.html'));
+});
 
 // Handle invite link routes
 app.get('/room/:inviteCode', (req, res) => {

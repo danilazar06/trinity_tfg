@@ -15,6 +15,8 @@ interface Movie {
   title: string;
   poster: string;
   overview: string;
+  vote_average?: number;
+  release_date?: string;
 }
 
 interface CachedMovie extends Movie {
@@ -36,7 +38,7 @@ export const handler: AppSyncResolverHandler<any, any> = async (event: AppSyncRe
   try {
     switch (fieldName) {
       case 'getMovies':
-        return await getMovies(args.genre);
+        return await getMovies(args.genre, args.page);
       
       case 'getMovieDetails':
         return await getMovieDetails(args.movieId);
@@ -51,39 +53,38 @@ export const handler: AppSyncResolverHandler<any, any> = async (event: AppSyncRe
 };
 
 /**
- * Obtener películas simplificado
+ * Obtener películas - carga MÚLTIPLES PÁGINAS de TMDB para obtener todo el contenido
  */
-async function getMovies(genre?: string): Promise<Movie[]> {
+async function getMovies(genre?: string, page: number = 1): Promise<Movie[]> {
   try {
+    const cacheKey = `movies_all_${genre || 'popular'}`;
+    
     // 1. Intentar obtener desde cache
-    const cachedMovies = await getCachedMovies(`movies_${genre || 'popular'}`);
-    if (cachedMovies && cachedMovies.length > 0) {
+    const cachedMovies = await getCachedMovies(cacheKey);
+    if (cachedMovies && cachedMovies.length > 100) {
       console.log(`💾 Películas obtenidas desde cache: ${cachedMovies.length}`);
       return cachedMovies;
     }
 
-    // 2. Si no hay cache, obtener desde API TMDB
-    console.log('🌐 Obteniendo películas desde TMDB API...');
-    const moviesFromAPI = await fetchMoviesFromTMDB(genre);
+    // 2. Cargar MÚLTIPLES PÁGINAS de TMDB en paralelo
+    console.log('🌐 Cargando TODAS las películas desde TMDB API...');
+    const allMovies = await fetchAllMoviesFromTMDB(genre);
     
-    // 3. Cachear resultado exitoso
-    await cacheMovies(`movies_${genre || 'popular'}`, moviesFromAPI);
+    // 3. Cachear resultado
+    await cacheMovies(cacheKey, allMovies);
     
-    console.log(`✅ Películas obtenidas desde API: ${moviesFromAPI.length}`);
-    return moviesFromAPI;
+    console.log(`✅ Total películas cargadas: ${allMovies.length}`);
+    return allMovies;
 
   } catch (apiError) {
-    console.warn('⚠️ Error en API TMDB, intentando fallback desde cache:', apiError);
+    console.warn('⚠️ Error en API TMDB:', apiError);
     
-    // 4. Fallback: intentar cache expirado como último recurso
-    const fallbackMovies = await getCachedMovies(`movies_${genre || 'popular'}`, true);
+    const cacheKey = `movies_all_${genre || 'popular'}`;
+    const fallbackMovies = await getCachedMovies(cacheKey, true);
     if (fallbackMovies && fallbackMovies.length > 0) {
-      console.log(`🔄 Usando cache expirado como fallback: ${fallbackMovies.length}`);
       return fallbackMovies;
     }
 
-    // 5. Si todo falla, retornar películas por defecto
-    console.log('🎭 Usando películas por defecto');
     return getDefaultMovies();
   }
 }
@@ -142,9 +143,91 @@ async function cacheMovies(cacheKey: string, movies: Movie[]): Promise<void> {
 }
 
 /**
- * Obtener películas desde API TMDB
+ * Cargar TODAS las películas de TMDB (múltiples páginas en paralelo)
  */
-async function fetchMoviesFromTMDB(genre?: string): Promise<Movie[]> {
+async function fetchAllMoviesFromTMDB(genre?: string): Promise<Movie[]> {
+  const apiKey = process.env.TMDB_API_KEY;
+  if (!apiKey) {
+    throw new Error('TMDB_API_KEY no configurada');
+  }
+
+  // Cargar 25 páginas en paralelo = ~500 películas
+  const TOTAL_PAGES = 25;
+  const pagePromises: Promise<Movie[]>[] = [];
+
+  for (let page = 1; page <= TOTAL_PAGES; page++) {
+    pagePromises.push(fetchMoviesFromTMDBPage(apiKey, genre, page));
+  }
+
+  console.log(`📦 Cargando ${TOTAL_PAGES} páginas en paralelo...`);
+  const results = await Promise.all(pagePromises);
+
+  // Combinar todas las películas
+  const allMovies: Movie[] = [];
+  const seenIds = new Set<string>();
+
+  results.forEach((movies, index) => {
+    console.log(`✅ Página ${index + 1}: ${movies.length} películas`);
+    movies.forEach(movie => {
+      if (!seenIds.has(movie.id)) {
+        seenIds.add(movie.id);
+        allMovies.push(movie);
+      }
+    });
+  });
+
+  console.log(`✅ Total películas únicas: ${allMovies.length}`);
+  return allMovies;
+}
+
+/**
+ * Cargar una página específica de TMDB
+ */
+async function fetchMoviesFromTMDBPage(apiKey: string, genre: string | undefined, page: number): Promise<Movie[]> {
+  try {
+    let endpoint = 'https://api.themoviedb.org/3/movie/popular';
+    if (genre) {
+      endpoint = `https://api.themoviedb.org/3/discover/movie?with_genres=${getGenreId(genre)}`;
+    }
+
+    const url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}api_key=${apiKey}&language=es-ES&page=${page}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Trinity-App/1.0',
+      },
+    });
+
+    if (!response.ok) {
+      console.warn(`⚠️ Error en página ${page}: ${response.status}`);
+      return [];
+    }
+
+    const data: any = await response.json();
+    
+    if (!data.results || !Array.isArray(data.results)) {
+      return [];
+    }
+
+    return data.results.map((movie: any) => ({
+      id: movie.id.toString(),
+      title: movie.title || movie.original_title || 'Título no disponible',
+      poster: movie.poster_path || null,
+      overview: movie.overview || 'Descripción no disponible',
+      vote_average: movie.vote_average || 0,
+      release_date: movie.release_date || '',
+    }));
+  } catch (error) {
+    console.warn(`⚠️ Error cargando página ${page}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Obtener películas desde API TMDB con soporte para paginación (legacy)
+ */
+async function fetchMoviesFromTMDB(genre?: string, page: number = 1): Promise<Movie[]> {
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) {
     throw new Error('TMDB_API_KEY no configurada');
@@ -157,7 +240,9 @@ async function fetchMoviesFromTMDB(genre?: string): Promise<Movie[]> {
     endpoint = `https://api.themoviedb.org/3/discover/movie?with_genres=${getGenreId(genre)}`;
   }
 
-  const url = `${endpoint}?api_key=${apiKey}&language=es-ES&page=1`;
+  const url = `${endpoint}?api_key=${apiKey}&language=es-ES&page=${page}`;
+  
+  console.log(`🔍 Fetching from TMDB: ${url}`);
   
   const response = await fetch(url, {
     headers: {
@@ -176,14 +261,18 @@ async function fetchMoviesFromTMDB(genre?: string): Promise<Movie[]> {
     throw new Error('Formato de respuesta TMDB inválido');
   }
 
-  // Transformar a formato simplificado
-  return data.results.slice(0, 20).map((movie: any) => ({
+  console.log(`✅ TMDB returned ${data.results.length} movies for page ${page}`);
+
+  // Transformar TODAS las películas de la página (no limitar a 20)
+  return data.results.map((movie: any) => ({
     id: movie.id.toString(),
     title: movie.title || movie.original_title || 'Título no disponible',
     poster: movie.poster_path 
       ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
       : 'https://via.placeholder.com/500x750?text=Sin+Poster',
     overview: movie.overview || 'Descripción no disponible',
+    vote_average: movie.vote_average || 0,
+    release_date: movie.release_date || '',
   }));
 }
 

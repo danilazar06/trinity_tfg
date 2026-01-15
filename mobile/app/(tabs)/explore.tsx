@@ -1,40 +1,48 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  TextInput,
-  Dimensions,
-  ActivityIndicator,
-  RefreshControl,
-  Animated,
+    ActivityIndicator,
+    Animated,
+    Dimensions,
+    Image,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { colors, spacing, fontSize, borderRadius, shadows } from '../../src/utils/theme';
-import { mediaService, MediaItem } from '../../src/services/mediaService';
 import Logo from '../../src/components/Logo';
 import TriniChat from '../../src/components/TriniChat';
+import { MediaItem } from '../../src/services/mediaService';
+import { borderRadius, colors, fontSize, shadows, spacing } from '../../src/utils/theme';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - spacing.lg * 2 - spacing.md) / 2;
+
+// TMDB API - Llamadas directas para cargar TODO el contenido
+const TMDB_API_KEY = 'dc4dbcd2404c1ca852f8eb964add267d';
+const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
 
 type FilterType = 'Todo' | 'Películas' | 'Series';
 
 export default function ExploreScreen() {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('Todo');
   const [totalResults, setTotalResults] = useState(0);
   const [searchFocused, setSearchFocused] = useState(false);
   const [triniChatVisible, setTriniChatVisible] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -51,28 +59,129 @@ export default function ExploreScreen() {
   const loadContent = useCallback(async (filter: FilterType, query?: string) => {
     try {
       setLoading(true);
-      let response;
-
-      if (query && query.trim()) {
-        response = await mediaService.searchContent(query);
-        if (filter === 'Películas') response.results = response.results.filter(m => m.mediaType === 'movie');
-        else if (filter === 'Series') response.results = response.results.filter(m => m.mediaType === 'tv');
+      
+      let allMedia: MediaItem[] = [];
+      
+      if (query && query.trim().length > 0) {
+        // BÚSQUEDA: Buscar en TMDB directamente
+        console.log(`🔍 Buscando "${query}" en TMDB...`);
+        
+        const searchPromises = [];
+        
+        // Buscar películas
+        if (filter === 'Todo' || filter === 'Películas') {
+          for (let page = 1; page <= 5; page++) {
+            searchPromises.push(
+              fetch(`${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&language=es-ES&query=${encodeURIComponent(query)}&page=${page}`)
+                .then(r => r.json())
+                .then(data => ({ type: 'movie', results: data.results || [] }))
+                .catch(() => ({ type: 'movie', results: [] }))
+            );
+          }
+        }
+        
+        // Buscar series
+        if (filter === 'Todo' || filter === 'Series') {
+          for (let page = 1; page <= 5; page++) {
+            searchPromises.push(
+              fetch(`${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&language=es-ES&query=${encodeURIComponent(query)}&page=${page}`)
+                .then(r => r.json())
+                .then(data => ({ type: 'tv', results: data.results || [] }))
+                .catch(() => ({ type: 'tv', results: [] }))
+            );
+          }
+        }
+        
+        const searchResults = await Promise.all(searchPromises);
+        
+        searchResults.forEach(({ type, results }) => {
+          results.forEach((item: any) => {
+            allMedia.push(transformTMDBItem(item, type as 'movie' | 'tv'));
+          });
+        });
+        
       } else {
-        if (filter === 'Películas') response = await mediaService.getPopularMovies();
-        else if (filter === 'Series') response = await mediaService.getPopularTV();
-        else response = await mediaService.getTrending();
+        // EXPLORAR: Cargar contenido popular
+        console.log('🎬 Cargando contenido popular de TMDB...');
+        
+        const loadPromises = [];
+        
+        // Cargar películas populares (20 páginas = 400 películas)
+        if (filter === 'Todo' || filter === 'Películas') {
+          for (let page = 1; page <= 20; page++) {
+            loadPromises.push(
+              fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}&language=es-ES&page=${page}`)
+                .then(r => r.json())
+                .then(data => ({ type: 'movie', results: data.results || [] }))
+                .catch(() => ({ type: 'movie', results: [] }))
+            );
+          }
+        }
+        
+        // Cargar series populares (20 páginas = 400 series)
+        if (filter === 'Todo' || filter === 'Series') {
+          for (let page = 1; page <= 20; page++) {
+            loadPromises.push(
+              fetch(`${TMDB_BASE_URL}/tv/popular?api_key=${TMDB_API_KEY}&language=es-ES&page=${page}`)
+                .then(r => r.json())
+                .then(data => ({ type: 'tv', results: data.results || [] }))
+                .catch(() => ({ type: 'tv', results: [] }))
+            );
+          }
+        }
+        
+        const loadResults = await Promise.all(loadPromises);
+        
+        loadResults.forEach(({ type, results }) => {
+          results.forEach((item: any) => {
+            allMedia.push(transformTMDBItem(item, type as 'movie' | 'tv'));
+          });
+        });
       }
-
-      setMedia(response.results);
-      setTotalResults(response.totalResults);
+      
+      // Eliminar duplicados
+      const uniqueMedia = allMedia.filter((item, index, self) => 
+        index === self.findIndex(t => t.id === item.id)
+      );
+      
+      console.log(`✅ Total cargado: ${uniqueMedia.length} items`);
+      
+      setMedia(uniqueMedia);
+      setTotalResults(uniqueMedia.length);
+      setHasMore(false);
+      
     } catch (error) {
-      console.error('Error loading content:', error);
+      console.error('❌ Error:', error);
+      setMedia([]);
+      setTotalResults(0);
     } finally {
       setLoading(false);
     }
   }, []);
+  
+  // Transformar item de TMDB a MediaItem
+  const transformTMDBItem = (item: any, type: 'movie' | 'tv'): MediaItem => {
+    const releaseDate = item.release_date || item.first_air_date || '';
+    return {
+      id: `${type}-${item.id}`,
+      tmdbId: item.id,
+      title: item.title || item.name || 'Sin título',
+      originalTitle: item.original_title || item.original_name || '',
+      overview: item.overview || '',
+      posterPath: item.poster_path ? `${TMDB_IMAGE_BASE}/w500${item.poster_path}` : null,
+      backdropPath: item.backdrop_path ? `${TMDB_IMAGE_BASE}/w780${item.backdrop_path}` : null,
+      releaseDate,
+      year: releaseDate ? releaseDate.split('-')[0] : '',
+      rating: Math.round((item.vote_average || 0) * 10) / 10,
+      voteCount: item.vote_count || 0,
+      genres: [],
+      mediaType: type,
+    };
+  };
 
-  useEffect(() => { loadContent(activeFilter, searchQuery); }, [activeFilter]);
+  useEffect(() => { 
+    loadContent(activeFilter, searchQuery); 
+  }, [activeFilter]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -169,12 +278,29 @@ export default function ExploreScreen() {
                 <ActivityIndicator size="large" color={colors.primary} />
               </View>
             ) : (
-              /* Media Grid */
-              <View style={styles.mediaGrid}>
-                {media.map((item, index) => (
-                  <MediaCard key={item.id} item={item} index={index} />
-                ))}
-              </View>
+              <>
+                {/* Media Grid */}
+                <View style={styles.mediaGrid}>
+                  {media.map((item, index) => (
+                    <MediaCard key={item.id} item={item} index={index} />
+                  ))}
+                </View>
+
+                {/* Loading More Indicator */}
+                {loadingMore && (
+                  <View style={styles.loadingMoreContainer}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={styles.loadingMoreText}>Cargando más películas...</Text>
+                  </View>
+                )}
+
+                {/* End of Results */}
+                {!hasMore && media.length > 0 && (
+                  <View style={styles.endOfResultsContainer}>
+                    <Text style={styles.endOfResultsText}>Has visto todas las películas disponibles</Text>
+                  </View>
+                )}
+              </>
             )}
 
             {/* Empty State */}
@@ -284,6 +410,10 @@ const styles = StyleSheet.create({
   resultsText: { fontSize: fontSize.sm, color: colors.textMuted },
   // Loading
   loadingContainer: { paddingVertical: spacing.xxl, alignItems: 'center' },
+  loadingMoreContainer: { paddingVertical: spacing.lg, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: spacing.sm },
+  loadingMoreText: { fontSize: fontSize.sm, color: colors.textMuted },
+  endOfResultsContainer: { paddingVertical: spacing.lg, alignItems: 'center' },
+  endOfResultsText: { fontSize: fontSize.sm, color: colors.textMuted, fontStyle: 'italic' },
   // Grid
   mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   mediaCard: { width: CARD_WIDTH, marginBottom: spacing.sm },

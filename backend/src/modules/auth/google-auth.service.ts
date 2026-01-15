@@ -1,8 +1,8 @@
-import { Injectable, Logger, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OAuth2Client } from 'google-auth-library';
+import { GoogleUserInfo as CognitoGoogleUserInfo, CognitoService, CognitoTokens } from '../../infrastructure/cognito/cognito.service';
 import { MultiTableService } from '../../infrastructure/database/multi-table.service';
-import { CognitoService, CognitoTokens, CognitoFederatedUser, GoogleUserInfo as CognitoGoogleUserInfo } from '../../infrastructure/cognito/cognito.service';
 
 export interface GoogleUserInfo {
   id: string;
@@ -672,7 +672,7 @@ export class GoogleAuthService {
 
     // Si ya es un error estructurado de Google Auth, re-lanzarlo con contexto federado
     if (error instanceof UnauthorizedException && error.message && typeof error.message === 'object') {
-      const googleError = error.message;
+      const googleError = error.message as any;
       throw new UnauthorizedException({
         ...googleError,
         context: 'federated_auth',

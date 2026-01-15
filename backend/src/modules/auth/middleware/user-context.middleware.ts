@@ -1,5 +1,5 @@
-import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
-import { Request, Response, NextFunction } from 'express';
+import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
+import { NextFunction, Request, Response } from 'express';
 import { UserProfile } from '../../../domain/entities/user.entity';
 
 /**
@@ -30,18 +30,6 @@ export interface EnhancedUserContext extends UserProfile {
   requestId?: string;
   ipAddress?: string;
   userAgent?: string;
-}
-
-/**
- * Extend Express Request to include enhanced user context
- */
-declare global {
-  namespace Express {
-    interface Request {
-      user?: EnhancedUserContext;
-      userContext?: EnhancedUserContext;
-    }
-  }
 }
 
 /**
@@ -81,7 +69,9 @@ export class UserContextMiddleware implements NestMiddleware {
         if (process.env.NODE_ENV !== 'production') {
           res.setHeader('X-User-ID', enhancedUser.id);
           res.setHeader('X-User-Email', enhancedUser.email);
-          res.setHeader('X-Request-ID', enhancedUser.requestId);
+          if (enhancedUser.requestId) {
+            res.setHeader('X-Request-ID', enhancedUser.requestId);
+          }
         }
 
         this.logger.debug(`Enhanced user context for ${enhancedUser.email} (${enhancedUser.id})`);

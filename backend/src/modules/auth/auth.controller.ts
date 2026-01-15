@@ -1,32 +1,32 @@
 import {
-  Controller,
-  Post,
-  Body,
-  UseGuards,
-  Get,
-  Put,
-  Request,
-  Headers,
-  Logger,
+    Body,
+    Controller,
+    Get,
+    Headers,
+    Logger,
+    Post,
+    Put,
+    Request,
+    UseGuards,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import {
+    ApiBearerAuth,
+    ApiOperation,
+    ApiResponse,
+    ApiTags,
+} from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { CreateUserDto } from './dto/create-user.dto';
-import { LoginUserDto } from './dto/login-user.dto';
+import { UserContext, UserId } from './decorators/user-context.decorator';
 import { ConfirmSignUpDto } from './dto/confirm-signup.dto';
-import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
+import { CreateUserDto } from './dto/create-user.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { LoginUserDto } from './dto/login-user.dto';
+import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { UserContext, UserId } from './decorators/user-context.decorator';
-import { EnhancedUserContext } from './middleware/user-context.middleware';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import type { EnhancedUserContext } from './middleware/user-context.middleware';
 
 @ApiTags('auth')
 @Controller('auth')

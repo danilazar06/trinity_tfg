@@ -1,0 +1,10 @@
+[33me9b5b58[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m chasnges-correct-fix-jeje
+[33mdc5aeed[m chasnges-correct-fix-jeje
+[33m29b32cc[m ultimo_del_finde
+[33mc6c439c[m fix: Remove inviteUrl and genrePreferences from GraphQL queries to fix schema mismatch
+[33m7d2092e[m fix: Solve infinite navigation loop in root index component
+[33mcf3b4e3[m fix: Solve token validation failure with permissive storage and fallback expiry
+[33m0833e3e[m fix: Implement retry mechanism to solve race condition in token retrieval
+[33me4ff32c[m fix: Implement fallback token strategy and defensive API client
+[33m835032e[m fix: Add dynamic token injection and refresh to AppSync GraphQL requests
+[33mab00333[m fix: Replace CustomEvent with DeviceEventEmitter and add defensive AppSync binding
