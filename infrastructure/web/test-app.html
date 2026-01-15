@@ -599,8 +599,48 @@
             members: [],
             matches: [],
             messages: [],
-            wsConnection: null
+            wsConnection: null,
+            viewMode: 'roomList' // 'roomList', 'roomDetails', 'voting'
         };
+
+        // ============ ROOM DETAILS INTERFACES ============
+        // Room status enum
+        const RoomStatus = {
+            WAITING: 'waiting',
+            ACTIVE: 'active',
+            COMPLETED: 'completed'
+        };
+
+        // Room details interface structure
+        function createRoomDetails(room) {
+            return {
+                id: room.id,
+                name: room.name,
+                description: room.description || '',
+                status: room.status || RoomStatus.WAITING,
+                hostId: room.hostId,
+                inviteCode: room.inviteCode,
+                memberCount: room.memberCount || 1,
+                matchCount: room.matchCount || 0,
+                createdAt: room.createdAt,
+                genres: room.genres || ['Todos los géneros'],
+                movieCount: room.movieCount || 50,
+                votingType: 'like_dislike'
+            };
+        }
+
+        // Member interface structure
+        function createMember(memberData) {
+            return {
+                id: memberData.id,
+                userId: memberData.userId,
+                email: memberData.email,
+                displayName: memberData.displayName || memberData.email.split('@')[0],
+                isHost: memberData.isHost || false,
+                isConnected: memberData.isConnected || true,
+                joinedAt: memberData.joinedAt || new Date().toISOString()
+            };
+        }
 
         // ============ AUTH ============
         async function login() {
@@ -791,7 +831,11 @@
 
         async function selectRoom(roomId) {
             const room = state.rooms.find(r => r.id === roomId);
-            if (!room) return;
+            if (!room) {
+                console.error('Room not found:', roomId);
+                showNotification('Sala no encontrada', 'error');
+                return;
+            }
             
             state.currentRoom = room;
             renderRoomsList();
@@ -861,6 +905,8 @@
             }
             
             try {
+                console.log('🔄 Attempting to join room with code:', inviteCode);
+                
                 const data = await graphqlRequest(`
                     mutation JoinRoomByInvite($inviteCode: String!) {
                         joinRoomByInvite(inviteCode: $inviteCode) {
@@ -876,13 +922,34 @@
                     }
                 `, { inviteCode });
                 
+                console.log('✅ GraphQL response:', data);
+                
+                const joinedRoom = data.joinRoomByInvite;
+                
+                if (!joinedRoom || !joinedRoom.id) {
+                    console.error('❌ Invalid room data:', joinedRoom);
+                    throw new Error('No se pudo unir a la sala - respuesta inválida');
+                }
+                
+                console.log('🎉 Successfully joined room:', joinedRoom);
+                
                 hideJoinRoomModal();
+                
+                // First reload rooms, then select the joined room
                 await loadRooms();
-                selectRoom(data.joinRoomByInvite.id);
-                showNotification('Te uniste a la sala', 'success');
+                
+                // Now select the room (it should be in the list)
+                selectRoom(joinedRoom.id);
+                
+                showNotification('Te uniste a la sala: ' + (joinedRoom.name || 'Sala'), 'success');
                 
             } catch (error) {
-                console.error('Error joining room:', error);
+                console.error('❌ Error joining room:', error);
+                console.error('❌ Error details:', {
+                    message: error.message,
+                    stack: error.stack,
+                    inviteCode: inviteCode
+                });
                 showNotification('Error: ' + error.message, 'error');
             }
         }

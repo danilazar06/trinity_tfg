@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { VoteService } from '../vote/vote.service';
-import { ALIAService } from '../ai/alia.service';
 import { MultiTableService } from '../../infrastructure/database/multi-table.service';
+import { ALIAService } from '../ai/alia.service';
 import { MediaService } from '../media/media.service';
+import { RoomService } from '../room/room.service';
+import { VoteService } from '../vote/vote.service';
 
 export interface GraphQLContext {
   userId: string;
@@ -21,7 +22,7 @@ export interface CreateRoomInput {
 }
 
 export interface JoinRoomInput {
-  roomId: string;
+  inviteCode: string;
 }
 
 export interface VoteInput {
@@ -39,6 +40,7 @@ export class GraphQLResolverService {
     private aliaService: ALIAService,
     private multiTableService: MultiTableService,
     private mediaService: MediaService,
+    private roomService: RoomService,
   ) {}
 
   /**
@@ -167,48 +169,12 @@ export class GraphQLResolverService {
    */
   async joinRoom(input: JoinRoomInput, context: GraphQLContext): Promise<any> {
     try {
-      const room = await this.multiTableService.getRoom(input.roomId);
-      if (!room) {
-        throw new Error('Sala no encontrada');
-      }
+      // Use the room service to join by invite code
+      const room = await this.roomService.joinRoom(context.userId, input.inviteCode);
+      
+      this.logger.log(`User ${context.userId} joined room ${room.id} with invite code ${input.inviteCode}`);
 
-      // Verificar si ya es miembro
-      const members = await this.multiTableService.getRoomMembers(input.roomId);
-      const isAlreadyMember = members.some(
-        (member) => member.userId === context.userId,
-      );
-
-      if (isAlreadyMember) {
-        throw new Error('Ya eres miembro de esta sala');
-      }
-
-      // Agregar como miembro
-      await this.multiTableService.addRoomMember(
-        input.roomId,
-        context.userId,
-        'MEMBER',
-      );
-
-      const updatedMembers = await this.multiTableService.getRoomMembers(
-        input.roomId,
-      );
-
-      this.logger.log(`User ${context.userId} joined room ${input.roomId}`);
-
-      return {
-        room: {
-          ...room,
-          members: updatedMembers,
-          memberCount: updatedMembers.length,
-        },
-        member: {
-          roomId: input.roomId,
-          userId: context.userId,
-          role: 'MEMBER',
-          joinedAt: new Date().toISOString(),
-          isActive: true,
-        },
-      };
+      return room;
     } catch (error) {
       this.logger.error(`Error joining room: ${error.message}`);
       throw error;

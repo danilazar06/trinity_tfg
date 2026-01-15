@@ -428,7 +428,6 @@ type Mutation {
   createRoom(input: CreateRoomInput!): Room   # DataSource: RoomHandler
   createRoomDebug(input: CreateRoomInputDebug!): Room   # DataSource: RoomHandler
   createRoomSimple(name: String!): Room   # DataSource: RoomHandler
-  joinRoom(roomId: ID!): Room                 # DataSource: RoomHandler
   joinRoomByInvite(inviteCode: String!): Room # DataSource: RoomHandler
   vote(input: VoteInput!): Room               # DataSource: VoteHandler
   
@@ -504,7 +503,7 @@ type Subscription {
   
   # Legacy subscription for backward compatibility
   onRoomUpdated(roomId: ID!): Room
-    @aws_subscribe(mutations: ["vote", "joinRoom"])
+    @aws_subscribe(mutations: ["vote", "joinRoomByInvite"])
 }
 
 schema {

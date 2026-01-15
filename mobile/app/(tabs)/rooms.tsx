@@ -1,23 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, spacing, fontSize, borderRadius } from '../../src/utils/theme';
-import { useAppSync } from '../../src/services/apiClient';
+import React, { useCallback, useState } from 'react';
+import {
+    ActivityIndicator,
+    Image,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import CreateRoomModal from '../../src/components/CreateRoomModal';
 import JoinRoomModal from '../../src/components/JoinRoomModal';
 import Logo from '../../src/components/Logo';
+import { useAppSync } from '../../src/services/apiClient';
+import { borderRadius, colors, fontSize, spacing } from '../../src/utils/theme';
 
 interface RoomMember {
   id: string;
@@ -224,11 +223,11 @@ function RoomCard({ room }: { room: RoomDisplay }) {
   const router = useRouter();
   
   const handlePress = () => {
-    router.push(`/room/${room.id}`);
+    router.push(`/room/${room.id}/details`);
   };
 
   const handleStartPress = () => {
-    router.push(`/room/${room.id}`);
+    router.push(`/room/${room.id}/details`);
   };
 
   return (

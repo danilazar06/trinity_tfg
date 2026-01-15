@@ -1,27 +1,26 @@
-import React, { useState, useRef, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  TouchableOpacity,
-  TextInput,
-  ScrollView,
-  Dimensions,
-  Share,
-  Linking,
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Image,
-} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { colors, spacing, fontSize, borderRadius, shadows } from '../utils/theme';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Dimensions,
+    Image,
+    Linking,
+    Modal,
+    ScrollView,
+    Share,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { useAppSync } from '../services/apiClient';
 import { cognitoAuthService } from '../services/cognitoAuthService';
+import { borderRadius, colors, fontSize, shadows, spacing } from '../utils/theme';
 
 const { width, height } = Dimensions.get('window');
 
@@ -551,8 +550,8 @@ export default function CreateRoomModal({ visible, onClose, onGoToRooms, onRoomC
         onPress={() => {
           if (roomId) {
             resetAndClose();
-            // Navigate to the created room
-            router.push(`/room/${roomId}`);
+            // Navigate to the room details screen first
+            router.push(`/room/${roomId}/details`);
           } else {
             resetAndClose();
           }
